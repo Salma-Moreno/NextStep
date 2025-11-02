@@ -1,41 +1,101 @@
- body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            text-align: center;
-            background-color: #f4f4f4;
-            margin: 0;
-        }
-        .container {
-            background-color: #fff;
-            padding: 150px;
-            border-radius: 20px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
-        }
-        p {
-            color: #666;
-            font-size: 1.1em;
-        }
-        .botones {
-            margin-top: 30px;
-        }
-        .boton {
-            text-decoration: none; 
-            color: white;
-            
-            background-color: #0056b3;
-            padding: 40px 70px;
-            border: none;
-            border-radius: 5px;
-            font-size: 2em;
-            cursor: pointer;
-            margin: 0 10px;
-        }
-        .boton:hover {
-            background-color: #003cff;
-        }
+/* === Reset y estilos generales === */
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column; /* Para que el header quede arriba y el contenido debajo */
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    text-align: center;
+    background-color: #f4f4f4;
+    margin: 0;
+}
+
+/* === Header / Navbar === */
+.header {
+    width: 100%;
+    background-color: #007BFF;
+    border-bottom: 2px solid #0056b3;
+    padding: 1rem 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.header .logo {
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.5rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.header .logo:hover {
+    color: #ffdd57;
+}
+
+/* === Contenedor principal === */
+.container {
+    background-color: #fff;
+    padding: 150px;
+    border-radius: 20px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    width: 90%;
+    max-width: 600px;
+    margin-top: 30px; /* separación desde el header */
+}
+
+/* === Títulos === */
+h1 {
+    color: #333;
+}
+
+/* === Párrafos === */
+p {
+    color: #666;
+    font-size: 1.1em;
+}
+
+/* === Botones === */
+.botones {
+    margin-top: 30px;
+}
+
+.boton {
+    text-decoration: none; 
+    color: white;
+    background-color: #0056b3;
+    padding: 40px 70px;
+    border: none;
+    border-radius: 5px;
+    font-size: 2em;
+    cursor: pointer;
+    margin: 0 10px;
+    transition: background-color 0.3s, transform 0.1s;
+}
+
+.boton:hover {
+    background-color: #003cff;
+    transform: scale(1.05);
+}
+
+/* === Responsive (móviles) === */
+@media (max-width: 480px) {
+    .container {
+        padding: 50px 20px;
+    }
+
+    .header .logo {
+        font-size: 1.3rem;
+    }
+
+    .boton {
+        padding: 20px 40px;
+        font-size: 1.5em;
+    }
+}

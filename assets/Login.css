@@ -1,69 +1,68 @@
+/* === Reset y estilos generales === */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
 body {
     font-family: Arial, sans-serif;
     display: flex;
-    flex-direction: column;
-    justify-content: center; 
+    flex-direction: column; /* Header arriba, contenido debajo */
+    justify-content: flex-start;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
     text-align: center;
     background-color: #f4f4f4;
-    margin: 0;
 }
 
+/* === Header / Navbar === */
+.header {
+    width: 100%;
+    background-color: #007BFF;
+    border-bottom: 2px solid #0056b3;
+    padding: 1rem 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.header .logo {
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.5rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.header .logo:hover {
+    color: #ffdd57;
+}
+
+/* === Contenedor del formulario === */
+.container {
+    background-color: #fff;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    width: 90%;
+    max-width: 400px;
+    margin-top: 30px; /* separación desde el header */
+}
+
+/* === Títulos === */
 h1 {
     color: #333;
     font-size: 2em;
     margin-bottom: 25px;
 }
 
-
-header {
-    /* Posicionamiento Fijo */
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    width: 100%;
-
-    padding: 1rem 2rem;
-    box-sizing: border-box;
-    
-    background-color: var(--card-bg);
-    border-bottom: 1px solid var(--border);
-    
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-header .logo {
-    font-weight: bold;
-    font-size: 1.2rem;
-    color: var(--text);
-}
-
-header nav a {
-    color: var(--text-light);
-    margin-left: 1.5rem;
-    text-decoration: none;
-    font-weight: 500;
-}
-
-header nav a:hover,
-header nav a.active {
-    color: var(--primary);
-    text-decoration: underline;
-}
-
-.container {
-    background-color: #fff;
-    padding: 40px;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    width: 90%;
-    max-width: 400px;
-    box-sizing: border-box;
-}
-
+/* === Formulario === */
 .form-group {
     margin-bottom: 20px;
     text-align: left;
@@ -73,6 +72,7 @@ header nav a.active {
     display: block;
     margin-bottom: 5px;
     color: #555;
+    font-weight: 500;
 }
 
 .form-group input {
@@ -80,9 +80,16 @@ header nav a.active {
     padding: 10px;
     border: 1px solid #ddd;
     border-radius: 5px;
-    box-sizing: border-box;
+    font-size: 1em;
+    transition: border-color 0.3s;
 }
 
+.form-group input:focus {
+    border-color: #007BFF;
+    outline: none;
+}
+
+/* === Botón principal === */
 .boton {
     display: block;
     width: 100%;
@@ -93,16 +100,53 @@ header nav a.active {
     border-radius: 5px;
     font-size: 1.1em;
     cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s;
 }
 
 .boton:hover {
     background-color: #0056b3;
+    transform: scale(1.02);
 }
 
+/* === Mensajes === */
 .error {
     background-color: #ffebee;
     color: #c62828;
     padding: 10px;
     border-radius: 5px;
     margin-bottom: 20px;
+}
+
+.success {
+    background-color: #e6f4ea;
+    color: #2e7d32;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+/* === Links secundarios === */
+.container p a {
+    color: #007BFF;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.container p a:hover {
+    text-decoration: underline;
+}
+
+/* === Responsive (móviles) === */
+@media (max-width: 480px) {
+    .container {
+        padding: 30px 20px;
+    }
+
+    .header {
+        padding: 0.8rem 1rem;
+    }
+
+    .header .logo {
+        font-size: 1.3rem;
+    }
 }

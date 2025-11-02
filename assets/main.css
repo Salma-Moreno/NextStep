@@ -15,22 +15,3 @@ header {
     justify-content: space-between;
     align-items: center;
 }
-
-header .logo {
-    font-weight: bold;
-    font-size: 1.2rem;
-    color: var(--text);
-}
-
-header nav a {
-    color: var(--text-light);
-    margin-left: 1.5rem;
-    text-decoration: none;
-    font-weight: 500;
-}
-
-header nav a:hover,
-header nav a.active {
-    color: var(--primary);
-    text-decoration: underline;
-}

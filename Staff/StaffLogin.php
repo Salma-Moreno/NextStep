@@ -1,8 +1,12 @@
 <?php
 session_start();
-require_once '../includes/header.php';
-?>
+// Si el usuario YA inició sesión Y es 'Staff', enviarlo al dashboard
+if (isset($_SESSION['usuario_id']) && $_SESSION['usuario_rol'] === 'Staff') {
+    header('Location: index.php'); // O la ruta a tu dashboard de staff
+    exit;
+} 
 
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -11,18 +15,26 @@ require_once '../includes/header.php';
     <title>NextStep - Staff LogIn</title>
     <link rel="stylesheet" href="../assets/Login.css">
 </head>
+<body> 
+<header class="header">
+    <div class="container-header">
+        <a href="../index.php" class="logo">NextStep</a> 
 
-    <div class="container">
+    </div>
+</header>    
+
+<div class="container">
         <h1>Iniciar Sesión</h1>
 
         <?php
+        // Esto ahora sí funcionará
         if (isset($_SESSION['error'])) {
             echo '<div class="error">' . $_SESSION['error'] . '</div>';
             unset($_SESSION['error']);
         }
         ?>
 
-        <form action="login.php" method="POST">
+        <form action="../login.php" method="POST">
             <div class="form-group">
                 <label for="username">Usuario:</label>
                 <input type="text" id="username" name="username" required>
@@ -31,9 +43,7 @@ require_once '../includes/header.php';
                 <label for="password">Contraseña:</label>
                 <input type="password" id="password" name="password" required>
             </div>
-            <a href="../Staff/index.php">
-                 <button type="submit" class="boton">Entrar</button>
-            </a> 
+            <button type="submit" class="boton">Entrar</button>
         </form>
         
         <p style="text-align: center; margin-top: 20px;">

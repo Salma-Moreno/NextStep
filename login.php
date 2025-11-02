@@ -1,62 +1,64 @@
 <?php
 session_start();
-require 'db_conexion.php'; // Incluye la conexión
+require 'Conexiones/db.php'; // conexión a la BD
 
-// Verificar que se envíen datos por POST
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-    $username = $_POST['username'];
-    $password = $_POST['password'];
+    $username = trim($_POST['username']);
+    $password = trim($_POST['password']);
 
-    // --- 1. Consulta preparada para seguridad ---
-    // Usamos JOIN para obtener el tipo de rol (Student, Staff) de una vez
-    $sql = "SELECT 
-                u.ID_User, 
-                u.Password, 
-                r.Type,
-                u.Status
-            FROM 
-                user u
-            JOIN 
-                role r ON u.FK_ID_Role = r.ID_Role
-            WHERE 
-                u.Username = ?";
+    // Detectar desde qué formulario se envió
+    $from_staff_login = strpos($_SERVER['HTTP_REFERER'], 'StaffLogin.php') !== false;
+    $from_student_login = strpos($_SERVER['HTTP_REFERER'], 'StudentLogin.php') !== false;
+
+    // Consulta usuario
+    $sql = "SELECT u.ID_User, u.Password, r.Type, u.Status
+            FROM user u
+            JOIN role r ON u.FK_ID_Role = r.ID_Role
+            WHERE u.Username = ?";
 
     $stmt = $conn->prepare($sql);
-    if ($stmt === false) {
-        die("Error al preparar la consulta: " . $conn->error);
-    }
-    
+    if ($stmt === false) die("Error al preparar consulta: " . $conn->error);
+
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
 
-    // --- 2. Verificar si el usuario existe ---
     if ($result->num_rows === 1) {
         $user = $result->fetch_assoc();
-        
-        // --- 3. Verificar la contraseña hasheada ---
+
+        // Verificar contraseña
         if (password_verify($password, $user['Password'])) {
-            
-            // --- 4. Verificar si el usuario está activo ---
+
+            // Verificar cuenta activa
             if ($user['Status'] !== 'Active') {
                 $_SESSION['error'] = "Tu cuenta está inactiva. Contacta al administrador.";
-                header('Location: index.php');
+                redirect_back($user['Type']);
+            }
+
+            // --- Validar desde qué login viene ---
+            if ($from_staff_login && $user['Type'] !== 'Staff') {
+                $_SESSION['error'] = "Solo el personal puede iniciar sesión desde esta pantalla.";
+                header('Location: Staff/StaffLogin.php');
+                exit;
+            }
+            if ($from_student_login && $user['Type'] !== 'Student') {
+                $_SESSION['error'] = "Solo los estudiantes pueden iniciar sesión desde esta pantalla.";
+                header('Location: Student/StudentLogin.php');
                 exit;
             }
 
-            // --- 5. Iniciar Sesión (ÉXITO) ---
+            // Iniciar sesión
             $_SESSION['usuario_id'] = $user['ID_User'];
-            $_SESSION['usuario_rol'] = $user['Type']; // Ej: "Student" o "Staff"
+            $_SESSION['usuario_rol'] = $user['Type'];
 
-            // --- 6. Obtener el nombre del usuario (Student o Staff) ---
+            // Obtener nombre
             $nombre = '';
-            if ($user['Type'] == 'Student') {
+            if ($user['Type'] === 'Student') {
                 $stmt_nombre = $conn->prepare("SELECT Name FROM student WHERE FK_ID_User = ?");
             } else {
                 $stmt_nombre = $conn->prepare("SELECT Firstname FROM staff WHERE FK_ID_User = ?");
             }
-            
             $stmt_nombre->bind_param("i", $user['ID_User']);
             $stmt_nombre->execute();
             $stmt_nombre->bind_result($nombre);
@@ -64,26 +66,41 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt_nombre->close();
 
             $_SESSION['usuario_nombre'] = $nombre;
-            
-            // --- 7. Redirigir al dashboard correspondiente ---
-            if ($user['Type'] == 'Student') {
-                header('Location: ../Student/index.php');
+
+            // Redirigir al dashboard correcto
+            if ($user['Type'] === 'Student') {
+                header('Location: Student/index.php');
             } else {
-                header('Location: ../Staff/index.php');
+                header('Location: Staff/index.php');
             }
             exit;
-
         }
     }
-    
-    // --- FALLO: Usuario no encontrado o contraseña incorrecta ---
+
+    // Usuario o contraseña incorrectos
     $_SESSION['error'] = "Usuario o contraseña incorrectos.";
-    header('Location: index.php');
+
+    if ($from_staff_login) {
+        header('Location: Staff/StaffLogin.php');
+    } else {
+        header('Location: Student/StudentLogin.php');
+    }
     exit;
 
 } else {
-    // Redirigir si no es POST
+    // Si alguien entra directamente al login.php
     header('Location: index.php');
     exit;
 }
+
+// Función auxiliar
+function redirect_back($role) {
+    if ($role === 'Staff') {
+        header('Location: Staff/StaffLogin.php');
+    } else {
+        header('Location: Student/StudentLogin.php');
+    }
+    exit;
+}
 ?>
+

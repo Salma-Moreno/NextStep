@@ -2,7 +2,6 @@
 session_start();
 
 // Carga el archivo que define la clase Database
-// Donde esta dios
 require_once __DIR__ . '/database.php';
 
 
