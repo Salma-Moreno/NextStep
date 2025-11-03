@@ -16,12 +16,7 @@ if (isset($_SESSION['usuario_id']) && $_SESSION['usuario_rol'] === 'Staff') {
     <link rel="stylesheet" href="../assets/Login.css">
 </head>
 <body> 
-<header class="header">
-    <div class="container-header">
-        <a href="../index.php" class="logo">NextStep</a> 
-
-    </div>
-</header>    
+    <?php include '../includes/header.php'; ?>  
 
 <div class="container">
         <h1>Iniciar Sesión</h1>

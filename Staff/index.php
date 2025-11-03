@@ -19,11 +19,11 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Staff') {
     </style>
 </head>
 <body>
+        <?php include '../Includes/HeaderMenuStaff.php'; ?>
     <div class="container">
         <h1>Bienvenido, <?php echo htmlspecialchars($_SESSION['usuario_nombre']); ?>!</h1>
         <p>Has iniciado sesión como <strong>Staff</strong>.</p>
         <p>Este es tu panel de control.</p>
-        <a href="logout.php" class="boton-salir">Cerrar Sesión</a>
     </div>
 </body>
 </html>

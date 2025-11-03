@@ -1,27 +1,30 @@
 <?php
 include 'Conexiones/db.php';
-// Define el título específico para esta página
+
+// Define el título de la página
 $pageTitle = 'NextStep - Start';
 
-// Incluye el archivo del encabezado
-include 'Includes/header.php';
+// Encabezado común
 ?>
+<link rel="stylesheet" href="assets/style.css">
+<header class="header">
+    <div class="container-header">
+        <p class="logo">NextStep</p>
+    </div>
+</header>
+<main class="main-container">
+    <div class="welcome-box">
+        <h1>¡Welcome to <span class="brand">NextStep</span>!</h1>
+        <p class="subtitle">Please, select your role to continue:</p>
 
-    <div class="container">
-        <h1>¡Welcome!</h1>
-        <p>Please, select your role to continue:</p>
-        
         <div class="botones">
-            <a href="Staff/StaffLogin.php" rel="noopener noreferrer">
-                <button class="boton">I'm Staff</button>
-            </a>
-            <a href="Student/StudentLogin.php" rel="noopener noreferrer">
-                <button class="boton">I'm Student</button>
-            </a>
+            <a href="Staff/StaffLogin.php" class="boton">I'm Staff</a>
+            <a href="Student/StudentLogin.php" class="boton">I'm Student</a>
         </div>
     </div>
+</main>
 
 <?php
-// Incluye el archivo del pie de página
+// Pie de página común
 include 'Includes/footer.php';
 ?>

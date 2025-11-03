@@ -1,14 +1,17 @@
 /* === Reset y estilos generales === */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
 body {
     font-family: Arial, sans-serif;
-    display: flex;
-    flex-direction: column; /* Para que el header quede arriba y el contenido debajo */
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    text-align: center;
     background-color: #f4f4f4;
-    margin: 0;
+    color: #333;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column; /* Header arriba, contenido debajo */
 }
 
 /* === Header / Navbar === */
@@ -40,19 +43,28 @@ body {
 }
 
 /* === Contenedor principal === */
+main {
+    flex: 1; /* ocupa el espacio disponible debajo del header */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+}
+
 .container {
     background-color: #fff;
-    padding: 150px;
+    padding: 80px 100px;
     border-radius: 20px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     width: 90%;
     max-width: 600px;
-    margin-top: 30px; /* separación desde el header */
+    text-align: center;
 }
 
 /* === Títulos === */
 h1 {
     color: #333;
+    margin-bottom: 15px;
 }
 
 /* === Párrafos === */
@@ -64,18 +76,21 @@ p {
 /* === Botones === */
 .botones {
     margin-top: 30px;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 20px;
 }
 
 .boton {
     text-decoration: none; 
     color: white;
     background-color: #0056b3;
-    padding: 40px 70px;
+    padding: 25px 50px;
     border: none;
-    border-radius: 5px;
-    font-size: 2em;
+    border-radius: 8px;
+    font-size: 1.5em;
     cursor: pointer;
-    margin: 0 10px;
     transition: background-color 0.3s, transform 0.1s;
 }
 
@@ -87,7 +102,7 @@ p {
 /* === Responsive (móviles) === */
 @media (max-width: 480px) {
     .container {
-        padding: 50px 20px;
+        padding: 40px 25px;
     }
 
     .header .logo {
@@ -95,7 +110,8 @@ p {
     }
 
     .boton {
-        padding: 20px 40px;
-        font-size: 1.5em;
+        padding: 18px 35px;
+        font-size: 1.2em;
     }
 }
+
