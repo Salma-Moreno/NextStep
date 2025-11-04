@@ -1,9 +1,17 @@
-body {
-    font-family: 'Segoe UI', sans-serif;
-    background-color: #f6f7fb;
-    color: #333;
+* {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
+}
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column; /* Header arriba, contenido debajo */
+    justify-content: flex-start;
+    align-items: center;
+    min-height: 100vh;
+    text-align: left;
+    background-color: #f4f4f4;
 }
 
 .container {
