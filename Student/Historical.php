@@ -6,6 +6,8 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Student') {
     header('Location: StudentLogin.php');
     exit;
 }
+//Conexion a la base de datos
+include '../Conexiones/db.php';
 ?>
 <!DOCTYPE html>
 <html lang="es">

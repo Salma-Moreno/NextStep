@@ -3,7 +3,6 @@
     margin: 0;
     padding: 0;
 }
-
 body {
     font-family: Arial, sans-serif;
     display: flex;
@@ -11,107 +10,73 @@ body {
     justify-content: flex-start;
     align-items: center;
     min-height: 100vh;
-    text-align: center;
+    text-align: left;
     background-color: #f4f4f4;
 }
+
+.container {
+    width: 85%;
+    margin: 40px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
 h1 {
-    color: #333;
+    color: #0056b3;
+    margin-bottom: 25px;
+}
+
+h2 {
+    color: #007bff;
     margin-bottom: 15px;
 }
- /* === PERFIL === */
-        .profile-section {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-bottom: 40px;
-        }
 
-        .profile-pic {
-            width: 140px;
-            height: 140px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 4px solid #007BFF;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-
-        .change-photo-btn {
-            margin-top: 15px;
-            background-color: #007BFF;
-            color: #fff;
-            border: none;
-            padding: 10px 25px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: background-color 0.3s;
-        }
-
-        .change-photo-btn:hover {
-            background-color: #0056b3;
-        }
-
-/* === Párrafos === */
-p {
-    color: #666;
-    font-size: 1.1em;
+.warning {
+    background: #ffefc5;
+    border: 1px solid #ffc107;
+    color: #856404;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 20px 0;
 }
-        /* === CONTENEDOR PRINCIPAL === */
-        .container {
-            background-color: #fff; 
-            padding: 40px; 
-            border-radius: 10px; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
-            max-width: 1100px;
-            width: 90%;
-            text-align: left;
-        }
 
-        .container h2 {
-            text-align: center;
-            color: #007BFF;
-            margin-bottom: 30px;
-        }
+/* === Lista de becas === */
+.scholarship-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    margin-top: 30px;
+}
 
-        /* === DISTRIBUCIÓN EN 3 COLUMNAS === */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 30px;
-        }
+.scholarship-card {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
 
-        .form-section h3 {
-            color: #0056b3;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #007BFF;
-            padding-bottom: 5px;
-        }
+.scholarship-card h3 {
+    color: #0056b3;
+    margin-bottom: 10px;
+}
 
-        .form-group {
-            margin-bottom: 15px;
-        }
+.apply-btn {
+    margin-top: 15px;
+    background: #007bff;
+    color: #fff;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
 
-        label {
-            font-weight: bold;
-            color: #333;
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        input, select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 1rem;
-        }
-
-        input:focus, select:focus {
-            border-color: #007BFF;
-            outline: none;
-            box-shadow: 0 0 3px rgba(0,123,255,0.5);
-        }
-
+.apply-btn:hover {
+    background: #0056b3;
+}
         /* === BOTÓN === */
         .btn {
             display: block;
@@ -130,18 +95,7 @@ p {
             background-color: #0056b3;
         }
 
-        /* === RESPONSIVE === */
-        @media (max-width: 992px) {
-            .form-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-
         @media (max-width: 768px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-
             .header {
                 flex-direction: column;
                 align-items: flex-start;
@@ -151,11 +105,5 @@ p {
                 flex-direction: column;
                 width: 100%;
                 margin-top: 1rem;
-            }
-
-            .dropdown-content {
-                position: relative;
-                box-shadow: none;
-                border-radius: 0;
             }
         }
