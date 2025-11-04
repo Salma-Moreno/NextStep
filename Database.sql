@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: localhost:3307
--- Tiempo de generación: 15-10-2025 a las 10:26:08
+-- Tiempo de generación: 04-11-2025 a las 05:56:51
 -- Versión del servidor: 10.4.32-MariaDB
--- Versión de PHP: 8.1.25
+-- Versión de PHP: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -183,6 +183,14 @@ CREATE TABLE `role` (
   `Type` varchar(10) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `role`
+--
+
+INSERT INTO `role` (`ID_Role`, `Type`) VALUES
+(1, 'Student'),
+(2, 'Staff');
+
 -- --------------------------------------------------------
 
 --
@@ -210,6 +218,14 @@ CREATE TABLE `staff` (
   `Email` varchar(30) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `staff`
+--
+
+INSERT INTO `staff` (`ID_Staff`, `FK_ID_User`, `Firstname`, `Lastname`, `Phone`, `Email`) VALUES
+(1, 4, 'salma', 'moreno', '1234567890', 'unemail@gmail.com'),
+(2, 5, 'salma', 'moreno', '45454545454', 'unemail2@gmail.com');
+
 -- --------------------------------------------------------
 
 --
@@ -222,8 +238,16 @@ CREATE TABLE `student` (
   `Name` varchar(15) NOT NULL,
   `Last_Name` varchar(15) NOT NULL,
   `Phone_Number` varchar(15) DEFAULT NULL,
-  `Email_Address` varchar(15) NOT NULL
+  `Email_Address` varchar(15) NOT NULL,
+  `Profile_Image` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `student`
+--
+
+INSERT INTO `student` (`ID_Student`, `FK_ID_User`, `Name`, `Last_Name`, `Phone_Number`, `Email_Address`, `Profile_Image`) VALUES
+(1, 7, 'Alexa', 'Bernabe', '6641740936', 'unemail3@gmail.', NULL);
 
 -- --------------------------------------------------------
 
@@ -237,7 +261,8 @@ CREATE TABLE `student_details` (
   `Birthdate` date DEFAULT NULL,
   `High_school` varchar(30) DEFAULT NULL,
   `Grade` varchar(5) DEFAULT NULL,
-  `License` varchar(20) DEFAULT NULL
+  `License` varchar(20) DEFAULT NULL,
+  `Average` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -282,6 +307,15 @@ CREATE TABLE `user` (
   `registration_date` datetime DEFAULT current_timestamp(),
   `Status` varchar(10) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `user`
+--
+
+INSERT INTO `user` (`ID_User`, `FK_ID_Role`, `Username`, `Password`, `registration_date`, `Status`) VALUES
+(4, 2, 'Usuario', '$2y$10$UX4r46tL2srHYVLWLN7u6.PXbq05bPMN/BHLTWtCcNocGyHNSwWOi', '2025-10-27 01:52:46', 'Active'),
+(5, 2, 'Usuario 2', '$2y$10$euA4.iXZ5OXa1RMvVRDti.isPk0AW7kL9avhDrs6BwJAUAPq.9Dlq', '2025-11-01 21:23:55', 'Active'),
+(7, 1, 'Ale', '$2y$10$TgE.MFa3fpoBREhFPvtJzudBggUx8pz3oUzwyBC9.lRinfGAD2kBa', '2025-11-02 01:18:07', 'Active');
 
 --
 -- Índices para tablas volcadas
@@ -503,7 +537,7 @@ ALTER TABLE `limit`
 -- AUTO_INCREMENT de la tabla `role`
 --
 ALTER TABLE `role`
-  MODIFY `ID_Role` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Role` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `semester`
@@ -515,13 +549,13 @@ ALTER TABLE `semester`
 -- AUTO_INCREMENT de la tabla `staff`
 --
 ALTER TABLE `staff`
-  MODIFY `ID_Staff` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Staff` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `student`
 --
 ALTER TABLE `student`
-  MODIFY `ID_Student` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Student` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `student_details`
@@ -545,7 +579,7 @@ ALTER TABLE `tutor_data`
 -- AUTO_INCREMENT de la tabla `user`
 --
 ALTER TABLE `user`
-  MODIFY `ID_User` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_User` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- Restricciones para tablas volcadas

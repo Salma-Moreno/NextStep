@@ -1,0 +1,111 @@
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #f6f7fb;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    width: 85%;
+    margin: 40px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+h2 {
+    color: #2b3a67;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    text-align: center;
+    color: #666;
+    margin-bottom: 25px;
+}
+
+/* === Tabla === */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th, .table td {
+    text-align: center;
+    padding: 12px;
+    border-bottom: 1px solid #ddd;
+}
+
+.table th {
+    background-color: #2b3a67;
+    color: white;
+}
+
+.table tr:hover {
+    background-color: #f2f2f2;
+}
+
+/* === Estatus === */
+.status {
+    padding: 6px 12px;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+}
+
+.status.approved { background-color: #4caf50; }
+.status.pending { background-color: #ffc107; color: #333; }
+.status.rejected { background-color: #f44336; }
+
+/* === Tarjeta === */
+.card {
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.status-bar {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 25px;
+}
+
+.step {
+    width: 22%;
+    text-align: center;
+    padding: 10px;
+    border-radius: 8px;
+    background-color: #ddd;
+    color: #555;
+}
+
+.step.completed {
+    background-color: #4caf50;
+    color: white;
+}
+
+.step.active {
+    background-color: #2196f3;
+    color: white;
+}
+
+/* === Botón === */
+.btn {
+    display: block;
+    margin: 30px auto 0;
+    padding: 12px 25px;
+    background-color: #2b3a67;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background-color: #1e2850;
+}

@@ -1,3 +1,13 @@
+<?php
+session_start();
+
+// Guardián: Si no hay sesión o el rol no es 'Student', expulsar al login
+if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Student') {
+    header('Location: StudentLogin.php');
+    exit;
+}
+?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -10,8 +20,7 @@
 <body>
 
     <?php include '../Includes/HeaderMenuE.php'; ?>
-
-        <!-- === CONTENIDO PRINCIPAL === -->
+<!-- === CONTENIDO PRINCIPAL === -->
     <div class="container">
         <div class="profile-section">
             <img src="https://via.placeholder.com/140" alt="Foto del estudiante" class="profile-pic">
@@ -61,6 +70,10 @@
                     <label>Licencia:</label>
                     <input type="text" placeholder="Ej. B-12345">
                 </div>
+                <div class="form-group">
+                    <label>Promedio:</label>
+                    <input type="number" placeholder="0 - 100" min="0" max="100">
+                </div>
             </div>
 
             <!-- Columna 3 -->
@@ -86,7 +99,7 @@
         </div>
 
         <!-- Dirección del estudiante (debajo del grid) -->
-        <div class="form-section" style="margin-top: 40px;">
+        <div class="form-section address">
             <h3>Domicilio del estudiante</h3>
             <div class="form-group">
                 <label>Calle:</label>
@@ -104,5 +117,6 @@
 
         <button class="btn">Guardar información</button>
     </div>
+
 </body>
 </html>
