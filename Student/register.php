@@ -1,6 +1,11 @@
 <?php
 session_start();
 
+//-----Añadi esto
+if (!isset($_SESSION['validation_in_progress'])) {
+    unset($_SESSION['form_data']);
+}
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     require '../Conexiones/db.php'; // conexión a la BD
@@ -14,13 +19,71 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
 
+    //Añadido
+    //Para que no se borren todos los datos si las validaciones fallan
+    //Guardar datos en sesión antes de validar
+    $_SESSION['form_data'] = [
+        'name' => $name,
+        'last_name' => $last_name,
+        'email' => $email,
+        'phone' => $phone,
+        'username' => $username
+    ];
+    $_SESSION['validation_in_progress'] = true;
+
     // 2. Validaciones básicas
     if (empty($name) || empty($last_name) || empty($email) || empty($username) || empty($password)) {
         $_SESSION['error'] = "Por favor, completa todos los campos obligatorios.";
-        header('Location: StudentRegister.php');
+        header('Location: register.php');
         exit;
     }
 
+     //  Validar que nombre y apellido solo contengan letras
+    if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $name)) {
+        $_SESSION['error'] = "El nombre solo puede contener letras y espacios.";
+        header('Location: register.php');
+        exit;
+    }
+
+    if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $last_name)) {
+        $_SESSION['error'] = "El apellido solo puede contener letras y espacios.";
+        header('Location: register.php');
+        exit;
+    }
+    
+    //-------Añadi validacion para correo .com etc
+    // En la sección de validaciones, después de verificar campos vacíos
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $_SESSION['error'] = "Por favor, ingresa un correo electrónico válido con dominio (ej: usuario@dominio.com).";
+        header('Location: register.php');
+        exit;
+    }
+
+    // Validar que el correo tenga un dominio con extensión válida
+          if (!preg_match('/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|mx|edu\.mx|tecnm\.mx|org|gob\.mx|net|info|edu|ac\.mx|unam\.mx|ipn\.mx|uabc\.mx|udg\.mx|uanl\.mx)$/', $email)) {
+        $_SESSION['error'] = "El correo electrónico debe incluir un dominio válido (ej: .com, .edu.mx, .tecnm.mx, .org, etc.).";
+        header('Location: register.php');
+        exit;
+    }
+
+
+       // Validación de teléfono - SOLO NÚMEROS
+    if (!empty($phone)) {
+        // Validar que solo contenga números
+        if (!preg_match('/^[0-9]+$/', $phone)) {
+            $_SESSION['error'] = "El teléfono solo puede contener números (sin letras, espacios, guiones o signos).";
+            header('Location: register.php');
+            exit;
+        }
+        
+        // Validar longitud (10-13 dígitos)
+        if (strlen($phone) < 10 || strlen($phone) > 13) {
+            $_SESSION['error'] = "El número de teléfono debe tener entre 10 y 13 dígitos.";
+            header('Location: register.php');
+            exit;
+        }
+    }
+    
     if ($password !== $confirm_password) {
         $_SESSION['error'] = "Las contraseñas no coinciden.";
         header('Location: register.php');
@@ -87,6 +150,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Confirmar transacción
         $conn->commit();
 
+       /* $_SESSION['success'] = "¡Cuenta de estudiante registrada exitosamente! Ahora puedes iniciar sesión.";
+        header('Location: StudentLogin.php');
+        exit;*/
+
+            // LIMPIAR DATOS DE SESIÓN CUANDO EL REGISTRO ES EXITOSO
+        unset($_SESSION['form_data']);
         $_SESSION['success'] = "¡Cuenta de estudiante registrada exitosamente! Ahora puedes iniciar sesión.";
         header('Location: StudentLogin.php');
         exit;
@@ -130,30 +199,48 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <form action="" method="POST">
             <div class="form-group">
                 <label for="name">Nombre:</label>
-                <input type="text" id="name" name="name" required>
-            </div>
+                  <!--input type="text" id="name" name="name" required-->
+
+                 <!--  AGREGADO: value con datos de sesión -->
+                <input type="text" id="name" name="name" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['name'])) ? htmlspecialchars($_SESSION['form_data']['name']) : ''; ?>" required>            </div>
 
             <div class="form-group">
                 <label for="last_name">Apellido:</label>
-                <input type="text" id="last_name" name="last_name" required>
-            </div>
+                <!--input type="text" id="last_name" name="last_name" required-->
+               
+                <!--AGREGADO -->
+                <input type="text" id="last_name" name="last_name" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['last_name'])) ? htmlspecialchars($_SESSION['form_data']['last_name']) : ''; ?>" required>            </div>
 
+           <!-- =========================================== -->
+           <!-- Modifique para email -->
+           <!-- =========================================== --> 
             <div class="form-group">
                 <label for="email">Correo Electrónico:</label>
-                <input type="email" id="email" name="email" required>
+                <input type="email" id="email" name="email" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['email'])) ? htmlspecialchars($_SESSION['form_data']['email']) : ''; ?>" placeholder="ejemplo@universidad.edu.mx" required>                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                    Usa tu correo institucional o personal válido (debe incluir dominio como .com, .edu.mx, etc.)
+                </small>
             </div>
 
             <div class="form-group">
                 <label for="phone">Teléfono (Opcional):</label>
-                <input type="tel" id="phone" name="phone">
+                <!--input type="tel" id="phone" name="phone"-->
+
+                 <!-- AGREGADO: value con datos de sesión -->
+                 <input type="tel" id="phone" name="phone" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['phone'])) ? htmlspecialchars($_SESSION['form_data']['phone']) : ''; ?>" placeholder="Ej: 6641234567" pattern="[0-9]*" inputmode="numeric">
+                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                    Solo números, 10 a 13 dígitos (sin letras, espacios o signos)
+                </small>
             </div>
 
             <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;">
 
+
             <div class="form-group">
                 <label for="username">Nombre de Usuario:</label>
-                <input type="text" id="username" name="username" required>
-            </div>
+                <!--input type="text" id="username" name="username" required-->
+
+                   <!--AGREGADO: value con datos de sesión -->
+                <input type="text" id="username" name="username" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['username'])) ? htmlspecialchars($_SESSION['form_data']['username']) : ''; ?>" required>            </div>
 
             <div class="form-group">
                 <label for="password">Contraseña:</label>
