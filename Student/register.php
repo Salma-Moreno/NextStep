@@ -2,9 +2,11 @@
 session_start();
 
 //-----Añadi esto
-if (!isset($_SESSION['validation_in_progress'])) {
+//datos se borren al refrescar y solo se guarden al llenar datos 
+/*if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    unset($_SESSION['validation_in_progress']); 
     unset($_SESSION['form_data']);
-}
+}*/
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
@@ -83,7 +85,40 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             exit;
         }
     }
+    //validaciones para contraseñas 
+    $password_error = [];
     
+    // Mínimo 8 caracteres
+    if (strlen($password) < 8) {
+        $password_error[] = "Mínimo 8 caracteres";
+    }
+
+    // Al menos una letra mayúscula
+    if (!preg_match('/[A-Z]/', $password)) {
+        $password_error[] = "Al menos una letra mayúscula (A-Z)";
+    }
+    // Al menos un número
+    if (!preg_match('/[0-9]/', $password)) {
+        $password_error[] = "Al menos un número (0-9)";
+    }
+    // Al menos un símbolo (carácter especial)
+    // Se usa una expresión regular común para símbolos
+    if (!preg_match('/[^a-zA-Z0-9\s]/', $password)) { 
+        $password_error[] = "Al menos un símbolo o carácter especial";
+    }
+
+    // Si hay errores de contraseña, guardamos el mensaje y redirigimos
+    if (!empty($password_error)) { 
+        // Generamos el mensaje de error específico
+        $_SESSION['password_error'] = "Debe incluir: " . implode(", ", $password_error) . "."; // ✅ CORREGIDO: Usando $password_error
+        
+        // Configuramos el error general para mostrar datos de formulario si otras validaciones fallan
+        $_SESSION['error'] = "La contraseña no cumple con los requisitos.";
+        header('Location: register.php');
+        exit;
+    }
+
+    //
     if ($password !== $confirm_password) {
         $_SESSION['error'] = "Las contraseñas no coinciden.";
         header('Location: register.php');
@@ -155,7 +190,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;*/
 
             // LIMPIAR DATOS DE SESIÓN CUANDO EL REGISTRO ES EXITOSO
+            //corregido
+            unset($_SESSION['validation_in_progress']); // <-- ¡Añade esta línea!
         unset($_SESSION['form_data']);
+        
         $_SESSION['success'] = "¡Cuenta de estudiante registrada exitosamente! Ahora puedes iniciar sesión.";
         header('Location: StudentLogin.php');
         exit;
@@ -242,15 +280,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                    <!--AGREGADO: value con datos de sesión -->
                 <input type="text" id="username" name="username" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['username'])) ? htmlspecialchars($_SESSION['form_data']['username']) : ''; ?>" required>            </div>
 
-            <div class="form-group">
+           <div class="form-group">
                 <label for="password">Contraseña:</label>
-                <input type="password" id="password" name="password" required>
+                <input type="password" id="password" name="password" required onkeyup="checkPassword()" onfocus="showRequirements()" onblur="hideRequirements()">                <!--mostrar mensajes -->
+                <ul id="password-requirements" style="list-style-type: none; padding-left: 10px; margin-top: 5px; font-size: 13px; display: none;">                    <li id="req-length" style="color: red;">✖ Mínimo 8 caracteres</li>
+                    <li id="req-upper" style="color: red;">✖ Al menos una mayúscula (A-Z)</li>
+                    <li id="req-number" style="color: red;">✖ Al menos un número (0-9)</li>
+                    <li id="req-symbol" style="color: red;">✖ Al menos un símbolo o carácter especial</li>
+                </ul>
+                
+                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                    Mínimo 8 caracteres, incluyendo mayúscula, número y símbolo.
+                </small>
             </div>
 
             <div class="form-group">
                 <label for="confirm_password">Confirmar Contraseña:</label>
                 <input type="password" id="confirm_password" name="confirm_password" required>
             </div>
+
+           
 
             <button type="submit" class="boton">Registrar Cuenta</button>
         </form>
@@ -259,5 +308,62 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             ¿Ya tienes cuenta? <a href="StudentLogin.php">Inicia Sesión aquí</a>
         </p>
     </div>
+
+    <script>
+    function checkPassword() {
+        const password = document.getElementById('password').value;
+        //para validar la contraseña campo por campo y cambie de color segun se cumpla
+        // 1. Reglas de validación (deben coincidir con las de tu PHP)
+        const lengthMet = (password.length >= 8);
+        const upperMet = /[A-Z]/.test(password);
+        const numberMet = /[0-9]/.test(password);
+        // Símbolo: Cualquier cosa que NO sea letra, número o espacio
+        const symbolMet = /[^a-zA-Z0-9\s]/.test(password); 
+        // 2. Actualizar el estado visual de cada requisito
+        updateRequirement('req-length', lengthMet);
+        updateRequirement('req-upper', upperMet);
+        updateRequirement('req-number', numberMet);
+        updateRequirement('req-symbol', symbolMet);
+    }
+
+    function updateRequirement(id, isMet) {
+        const element = document.getElementById(id);
+        if (element) { // Comprobación de seguridad
+            if (isMet) {
+                // Requisito cumplido: Poner marca de verificación y color verde
+                element.innerHTML = '✔' + element.innerHTML.substring(1); 
+                element.style.color = 'green';
+            } else {
+                // Requisito fallido: Poner cruz y color rojo
+                element.innerHTML = '✖' + element.innerHTML.substring(1); 
+                element.style.color = 'red';
+            }
+        }
+    }
+
+    function showRequirements() {
+        // Muestra la lista de requisitos al hacer focus
+        document.getElementById('password-requirements').style.display = 'block';
+        checkPassword(); 
+    }
+
+    function hideRequirements() {
+        const password = document.getElementById('password').value;
+        // Oculta la lista SOLAMENTE si el campo de contraseña está vacío al salir.
+        if (password.length === 0) {
+            document.getElementById('password-requirements').style.display = 'none';
+        }
+    }
+    // Lógica para asegurar que la lista se muestre si hay datos  por error de PHP
+    const initialPassword = document.getElementById('password').value;
+    if (initialPassword.length > 0) {
+        showRequirements();
+    }
+    </script>
+
+
 </body>
 </html>
+<?php
+unset($_SESSION['validation_in_progress']); //bandera conservar datos en validaciones
+?>
