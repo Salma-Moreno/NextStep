@@ -313,6 +313,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     function checkPassword() {
         const password = document.getElementById('password').value;
         //para validar la contraseña campo por campo y cambie de color segun se cumpla
+        //solo cuando el cursor esta en ese campo aparece
         // 1. Reglas de validación (deben coincidir con las de tu PHP)
         const lengthMet = (password.length >= 8);
         const upperMet = /[A-Z]/.test(password);
