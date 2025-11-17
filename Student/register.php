@@ -53,21 +53,45 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;
     }
     
-    //-------Añadi validacion para correo .com etc
-    // En la sección de validaciones, después de verificar campos vacíos
+    //validacion para correos-dominios
+    // 1. Validar formato básico de correo (usuario@dominio.com)
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $_SESSION['error'] = "Por favor, ingresa un correo electrónico válido con dominio (ej: usuario@dominio.com).";
         header('Location: register.php');
         exit;
     }
+    // 2. Extraer el dominio del correo ingresado
+    $email_parts = explode('@', $email);
+    // Usamos strtolower() para ignorar mayúsculas/minúsculas en el dominio (ej: Gmail.com vs gmail.com)
+    $domain = strtolower(end($email_parts)); 
+    // 3. Lista de dominios permitidos 
+    //--Agreguen mas si desean
+    $allowed_domains = [
+        // Dominios Comerciales/Generales
+        'gmail.com',
+        'hotmail.com',
+        'outlook.com',
+        'yahoo.com',
+        'live.com', 
+        'msn.com',
+        'icloud.com',
+        // Dominios Institucionales/Educativos 
+        'tecnm.mx',
+        'tectijuana.edu.mx',
+        'uabc.mx',
+        'unam.mx',
+        'ipn.mx',
+        'udg.mx',
+        'uanl.mx',
+       
+    ];
 
-    // Validar que el correo tenga un dominio con extensión válida
-          if (!preg_match('/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|mx|edu\.mx|tecnm\.mx|org|gob\.mx|net|info|edu|ac\.mx|unam\.mx|ipn\.mx|uabc\.mx|udg\.mx|uanl\.mx)$/', $email)) {
-        $_SESSION['error'] = "El correo electrónico debe incluir un dominio válido (ej: .com, .edu.mx, .tecnm.mx, .org, etc.).";
+    // 4. Comprobar si el dominio existe en la lista de permitidos
+    if (!in_array($domain, $allowed_domains)) {
+        $_SESSION['error'] = "El dominio de correo electrónico ('@" . htmlspecialchars($domain) . "') no está en la lista de dominios autorizados. Por favor, revisa la ortografía o usa un dominio permitido.";
         header('Location: register.php');
         exit;
     }
-
 
        // Validación de teléfono - SOLO NÚMEROS
     if (!empty($phone)) {
