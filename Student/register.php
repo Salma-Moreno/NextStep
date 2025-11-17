@@ -76,10 +76,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             exit;
         }
         
-        // Validar longitud (10-13 dígitos)
-        if (strlen($phone) < 10 || strlen($phone) > 13) {
-            $_SESSION['error'] = "El número de teléfono debe tener entre 10 y 13 dígitos.";
-            header('Location: register.php');
+        // Validar longitud (10 dígitos)
+        if (strlen($phone) !== 10 ) { // <--- CAMBIO AQUÍ
+        $_SESSION['error'] = "El número de teléfono debe tener exactamente 10 dígitos."; // <--- CAMBIO EN EL MENSAJE
+        header('Location: register.php');
             exit;
         }
     }
@@ -228,7 +228,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                  <!-- AGREGADO: value con datos de sesión -->
                  <input type="tel" id="phone" name="phone" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['phone'])) ? htmlspecialchars($_SESSION['form_data']['phone']) : ''; ?>" placeholder="Ej: 6641234567" pattern="[0-9]*" inputmode="numeric">
                 <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                    Solo números, 10 a 13 dígitos (sin letras, espacios o signos)
+                    Solo números, exactamente 10 dígitos (sin letras, espacios o signos)
                 </small>
             </div>
 
