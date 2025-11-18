@@ -112,7 +112,7 @@ if (!isset($pageTitle)) {
 </style>
 <header class="header">
     <div class="container-header">
-        <a href="../index.php" class="logo">NextStep</a>
+        <a href="../Student/index.php" class="logo">NextStep</a>
     </div>
 
     <ul class="menu">

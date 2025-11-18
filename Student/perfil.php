@@ -16,7 +16,7 @@ include '../Conexiones/db.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Datos Personales - Estudiante</title>
-    <link rel="stylesheet" href="../assets/viewStudent.css">
+    <link rel="stylesheet" href="../assets/Student/viewStudent.css">
     
 </head>
 <body>

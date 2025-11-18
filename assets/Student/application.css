@@ -22,7 +22,6 @@ body {
     border-radius: 12px;
     box-shadow: 0 3px 10px rgba(0,0,0,0.1);
 }
-
 h1 {
     color: #0056b3;
     margin-bottom: 25px;
@@ -77,33 +76,46 @@ h2 {
 .apply-btn:hover {
     background: #0056b3;
 }
-        /* === BOTÓN === */
-        .btn {
-            display: block;
-            margin: 30px auto 0 auto;
-            background-color: #007BFF;
-            color: #fff;
-            border: none;
-            padding: 12px 40px;
-            border-radius: 6px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
 
-        .btn:hover {
-            background-color: #0056b3;
-        }
+/* === Formulario de datos personales === */
+.personal-data-form {
+    margin-top: 20px;
+}
 
-        @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
 
-            .menu {
-                flex-direction: column;
-                width: 100%;
-                margin-top: 1rem;
-            }
-        }
+.form-group {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+
+.form-group label {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.form-group input {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.btn {
+    margin-top: 20px;
+    background: #007bff;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn:hover {
+    background: #0056b3;
+}

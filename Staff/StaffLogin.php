@@ -42,7 +42,7 @@ if (isset($_SESSION['usuario_id']) && $_SESSION['usuario_rol'] === 'Staff') {
         </form>
         
         <p style="text-align: center; margin-top: 20px;">
-            Don't have an account? <a href="../Staff/register.php">Sign up!</a>
+            Don't have an account? <a href="../Staff/authorization.php">Sign up!</a>
         </p>
 
     </div>

@@ -1,0 +1,60 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column; /* Header arriba, contenido debajo */
+    justify-content: flex-start;
+    align-items: center;
+    min-height: 100vh;
+    text-align: left;
+    background-color: #f4f4f4;
+}
+
+/* === CONTENEDOR PRINCIPAL === */
+.container {
+    width: 85%;
+    margin: 40px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+/* === RESPONSIVE (MÓVIL) === */
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .menu {
+        flex-direction: column;
+        width: 100%;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .menu .pagina {
+        display: block;
+        width: 100%;
+    }
+
+    /* Ajuste dropdown para móvil */
+    .dropdown-content {
+        position: relative;
+        box-shadow: none;
+        border-radius: 0;
+        top: 0;
+    }
+
+    .dropdown:hover .dropdown-content {
+        display: block;
+    }
+}
+
+
+

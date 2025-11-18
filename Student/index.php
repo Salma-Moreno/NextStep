@@ -14,7 +14,7 @@ include '../Conexiones/db.php';
 <head>
     <meta charset="UTF-8">
     <title>Student</title>
-    <link rel="stylesheet" href="../assets/IndexStudent.css">
+    <link rel="stylesheet" href="../assets/Student/IndexStudent.css">
 </head>
 <body>
 <?php include '../Includes/HeaderMenuE.php'; ?>

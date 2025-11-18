@@ -15,7 +15,7 @@ include '../Conexiones/db.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Historial - Estudiante</title>
-    <link rel="stylesheet" href="../assets/becas.css">
+    <link rel="stylesheet" href="../assets/Student/becas.css">
     
 </head>
 <body>

@@ -16,7 +16,7 @@ include '../Conexiones/db.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Entregas - Estudiante</title>
-    <link rel="stylesheet" href="../assets/mapa.css">
+    <link rel="stylesheet" href="../assets/Student/mapa.css">
     
     <!-- Simulación de integración de mapa (más adelante podrías usar Google Maps o Leaflet) -->
     <style>

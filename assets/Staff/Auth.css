@@ -1,0 +1,84 @@
+/* === Reset y estilos generales === */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column; /* Header arriba, contenido debajo */
+    justify-content: flex-start;
+    align-items: center;
+    min-height: 100vh;
+    text-align: center;
+    background-color: #f4f4f4;
+}
+
+/* ==== Contenedor principal ==== */
+.auth-container {
+    background-color: #fff;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    width: 90%;
+    max-width: 400px;
+    margin-top: 30px; /* separación desde el header */
+}
+
+/* ==== Títulos y textos ==== */
+h2 {
+    color: #007BFF;
+    margin-bottom: 15px;
+}
+p {
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+    color: #444;
+}
+
+/* ==== Formulario ==== */
+.auth-form {
+    display: flex;
+    flex-direction: column;
+}
+.auth-form label {
+    text-align: left;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #333;
+}
+.auth-form input {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 1rem;
+}
+.auth-form input:focus {
+    border-color: #007BFF;
+    outline: none;
+}
+
+/* ==== Botón ==== */
+.btn {
+    padding: 10px;
+    background-color: #007BFF;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s;
+}
+.btn:hover {
+    background-color: #0056b3;
+}
+
+/* ==== Mensaje de error ==== */
+.error-msg {
+    color: #ff4444;
+    font-size: 0.9rem;
+    margin-top: 10px;
+}
