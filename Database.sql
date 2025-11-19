@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: localhost:3307
--- Tiempo de generación: 19-11-2025 a las 03:45:04
+-- Tiempo de generación: 19-11-2025 a las 05:47:35
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -43,8 +43,8 @@ CREATE TABLE `address` (
 
 CREATE TABLE `collection_point` (
   `ID_Point` int(11) NOT NULL,
-  `FK_ID_Company_Address` int(11) NOT NULL,
   `Name` varchar(15) NOT NULL,
+  `address` varchar(255) NOT NULL,
   `Phone_number` varchar(15) DEFAULT NULL,
   `FK_ID_Company` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -333,7 +333,6 @@ ALTER TABLE `address`
 --
 ALTER TABLE `collection_point`
   ADD PRIMARY KEY (`ID_Point`),
-  ADD KEY `FK_ID_Company_Address` (`FK_ID_Company_Address`),
   ADD KEY `FK_ID_Company` (`FK_ID_Company`);
 
 --
@@ -595,7 +594,6 @@ ALTER TABLE `address`
 -- Filtros para la tabla `collection_point`
 --
 ALTER TABLE `collection_point`
-  ADD CONSTRAINT `collection_point_ibfk_1` FOREIGN KEY (`FK_ID_Company_Address`) REFERENCES `company_address` (`ID_Company_Address`),
   ADD CONSTRAINT `collection_point_ibfk_2` FOREIGN KEY (`FK_ID_Company`) REFERENCES `company` (`ID_Company`);
 
 --
