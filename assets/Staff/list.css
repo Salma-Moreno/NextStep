@@ -1,0 +1,131 @@
+ * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column; /* Header arriba, contenido debajo */
+    justify-content: flex-start;
+    align-items: center;
+    min-height: 100vh;
+    text-align: left;
+    background-color: #f4f4f4;
+}
+
+/* === CONTENEDOR PRINCIPAL === */
+.container {
+    width: 85%;
+    margin: 40px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+         h2 {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #333;
+        }
+.search-box {
+            margin-bottom: 20px;
+}
+        .search-box input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        table thead {
+            background: #2a4d69;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+
+        table th, table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        tr:hover {
+            background: #f1f1f1;
+        }
+
+        .status {
+            padding: 6px 10px;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            text-align: center;
+            width: 90px;
+        }
+        .approved { background: #28a745; }
+        .pending  { background: #ffc107; color: black; }
+        .rejected { background: #dc3545; }
+        .none { background: #6c757d; }
+
+/* Botón base */
+.btn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px; /* separación entre icono y texto */
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: white;
+    background-color: #007bff;
+    border: none;
+    cursor: pointer;
+    transition: all 0.25s ease-in-out;
+    text-decoration: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* Hover general */
+.btn-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.20);
+}
+
+/* Botón azul — Ver Perfil */
+.btn-perfil {
+    background-color: #007bff;
+}
+
+.btn-perfil:hover {
+    background-color: #0056b3;
+}
+
+/* Botón verde — Ver Solicitudes */
+.btn-solicitudes {
+    background-color: #28a745;
+}
+
+.btn-solicitudes:hover {
+    background-color: #1e7e34;
+}
+
+/* Iconos dentro del botón (opcional) */
+.btn-action i {
+    font-size: 1rem;
+}
+
+
+table th:last-child,
+table td:last-child {
+    text-align: center;
+    width: 200px;
+}

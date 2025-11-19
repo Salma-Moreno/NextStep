@@ -45,17 +45,17 @@
                 <div class="form-group password-group">
                     <label>Contraseña:</label>
                     <div class="password-wrapper">
-                        <input type="password" id="password" placeholder="********" oninput="validatePasswords()">
-                        <button type="button" class="toggle-password" onclick="togglePassword('password')">👁️</button>
+                        <input type="password" id="password" placeholder="Contraseña" oninput="validatePasswords()">
+                        <button type="button" class="toggle-password" onclick="togglePassword('password')">Ver</button>
                     </div>
                 </div>
-                <div class="form-group password-group">
+                <div class="form-group">
                     <label>Confirmar contraseña:</label>
                     <div class="password-wrapper">
-                        <input type="password" id="confirm-password" placeholder="********" oninput="validatePasswords()">
-                        <button type="button" class="toggle-password" onclick="togglePassword('confirm-password')">👁️</button>
+                        <input type="password" id="confirm-password" placeholder="Contraseña" onkeyup="validatePasswords()">
+                        <button type="button" class="toggle-password" onclick="togglePassword('confirm-password')">Ver</button>
                     </div>
-                    <p id="password-error" class="error-message"></p>
+                <span id="password-error" class="error-message">Las contraseñas no coinciden.</span>
                 </div>
             </div>
 

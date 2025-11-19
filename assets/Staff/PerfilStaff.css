@@ -117,6 +117,36 @@ h2 {
         .btn:hover {
             background-color: #0056b3;
         }
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-wrapper input {
+    width: 100%;
+    padding-right: 40px; /* espacio para el botón */
+}
+
+.toggle-password {
+    position: absolute;
+    right: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+}
+.error-message {
+    color: #e00000 !important; /* Rojo más visible */
+    font-size: 0.9em;
+    margin-top: 4px;
+    font-weight: bold;
+    display: none; /* JS lo cambia a block */
+}
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
 
         /* === RESPONSIVE === */
         @media (max-width: 900px) {

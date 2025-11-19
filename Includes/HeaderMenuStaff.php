@@ -117,7 +117,7 @@ if (!isset($pageTitle)) {
 
     <ul class="menu">
         <li><a href="../Staff/Perfil.php" class="pagina">Datos personales</a></li>
-        <li><a href="#" class="pagina">Estudiantes</a></li>
+        <li><a href="../Staff/listStudents.php" class="pagina">Estudiantes</a></li>
         <!-- Dropdown -->
         <li class="dropdown">
             <a href="#" class="pagina">Becas ▾</a>
