@@ -304,26 +304,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                    <!--AGREGADO: value con datos de sesión -->
                 <input type="text" id="username" name="username" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['username'])) ? htmlspecialchars($_SESSION['form_data']['username']) : ''; ?>" required>            </div>
 
-           <div class="form-group">
-                <label for="password">Contraseña:</label>
-                <input type="password" id="password" name="password" required onkeyup="checkPassword()" onfocus="showRequirements()" onblur="hideRequirements()">                <!--mostrar mensajes -->
-                <ul id="password-requirements" style="list-style-type: none; padding-left: 10px; margin-top: 5px; font-size: 13px; display: none;">                    <li id="req-length" style="color: red;">✖ Mínimo 8 caracteres</li>
-                    <li id="req-upper" style="color: red;">✖ Al menos una mayúscula (A-Z)</li>
-                    <li id="req-number" style="color: red;">✖ Al menos un número (0-9)</li>
-                    <li id="req-symbol" style="color: red;">✖ Al menos un símbolo o carácter especial</li>
-                </ul>
-                
-                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                    Mínimo 8 caracteres, incluyendo mayúscula, número y símbolo.
-                </small>
-            </div>
-
             <div class="form-group">
-                <label for="confirm_password">Confirmar Contraseña:</label>
-                <input type="password" id="confirm_password" name="confirm_password" required>
-            </div>
+        <label for="password">Contraseña:</label>
+        
+        <div class="password-wrapper">
+            <input type="password" id="password" name="password" required onkeyup="checkPassword()" onfocus="showRequirements()" onblur="hideRequirements()">
+            <span class="toggle-password" onclick="togglePasswordIcon('password')">&#128065;</span> 
+        </div>
+        <ul id="password-requirements" style="list-style-type: none; padding-left: 10px; margin-top: 5px; font-size: 13px; display: none;">
+            <li id="req-length" style="color: red;">✖ Mínimo 8 caracteres</li>
+            <li id="req-upper" style="color: red;">✖ Al menos una mayúscula (A-Z)</li>
+            <li id="req-number" style="color: red;">✖ Al menos un número (0-9)</li>
+            <li id="req-symbol" style="color: red;">✖ Al menos un símbolo o carácter especial</li>
+        </ul>
 
-           
+       
+    </div>
+        <div class="form-group">
+            <label for="confirm_password">Confirmar Contraseña:</label>
+            
+            <div class="password-wrapper">
+                <input type="password" id="confirm_password" name="confirm_password" required>
+                <span class="toggle-password" onclick="togglePasswordIcon('confirm_password')">&#128065;</span> 
+            </div>
+            </div>
 
             <button type="submit" class="boton">Registrar Cuenta</button>
         </form>
@@ -379,6 +383,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             document.getElementById('password-requirements').style.display = 'none';
         }
     }
+        function togglePasswordIcon(id) {
+            const passwordInput = document.getElementById(id);
+            
+            // VERSIÓN ROBUSTA: Busca el ícono dentro del div padre, ignorando espacios en blanco.
+            const passwordWrapper = passwordInput.parentElement;
+            const toggleIcon = passwordWrapper.querySelector('.toggle-password'); // Busca por clase
+            
+            if (!toggleIcon) {
+                return; 
+            }
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.innerHTML = '&#128064;'; // Ojo cerrado (👁️‍🗨️)
+                toggleIcon.classList.add('closed');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.innerHTML = '&#128065;'; // Ojo abierto (👁️)
+                toggleIcon.classList.remove('closed');
+            }
+        }
     // Lógica para asegurar que la lista se muestre si hay datos  por error de PHP
     const initialPassword = document.getElementById('password').value;
     if (initialPassword.length > 0) {
