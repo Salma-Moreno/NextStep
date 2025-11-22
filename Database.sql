@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: localhost:3307
--- Tiempo de generación: 19-11-2025 a las 05:47:35
+-- Tiempo de generación: 22-11-2025 a las 01:02:36
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -33,6 +33,19 @@ CREATE TABLE `address` (
   `Street` varchar(15) NOT NULL,
   `City` varchar(15) NOT NULL,
   `Postal_Code` varchar(10) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `aplication`
+--
+
+CREATE TABLE `aplication` (
+  `ID_status` int(11) NOT NULL,
+  `FK_ID_Student` int(11) NOT NULL,
+  `FK_ID_Kit` int(11) NOT NULL,
+  `status` varchar(12) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -327,6 +340,14 @@ INSERT INTO `user` (`ID_User`, `FK_ID_Role`, `Username`, `Password`, `registrati
 ALTER TABLE `address`
   ADD PRIMARY KEY (`ID_Address`),
   ADD KEY `FK_ID_Student` (`FK_ID_Student`);
+
+--
+-- Indices de la tabla `aplication`
+--
+ALTER TABLE `aplication`
+  ADD PRIMARY KEY (`ID_status`),
+  ADD KEY `FK_ID_Student` (`FK_ID_Student`),
+  ADD KEY `FK_ID_Kit` (`FK_ID_Kit`);
 
 --
 -- Indices de la tabla `collection_point`

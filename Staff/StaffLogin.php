@@ -19,7 +19,7 @@ if (isset($_SESSION['usuario_id']) && $_SESSION['usuario_rol'] === 'Staff') {
     <?php include '../includes/header.php'; ?>  
 
 <div class="container">
-        <h1>Iniciar Sesión</h1>
+        <h1>Iniciar Sesión <br> (Staff)</h1>
 
         <?php
         // Esto ahora sí funcionará
