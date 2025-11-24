@@ -1,0 +1,55 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column; /* Header arriba, contenido debajo */
+    justify-content: flex-start;
+    align-items: center;
+    min-height: 100vh;
+    text-align: left;
+    background-color: #f4f4f4;
+}
+.container {
+    width: 85%;
+    margin: 40px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+#map {
+            width: 100%;
+            height: 450px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .branch-card {
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 12px;
+            box-shadow: 0 3px 7px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+
+        .btn-select {
+            background: #0a7cff;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-select:hover {
+            background: #005dc1;
+        }
+
+        .distance {
+            font-size: 14px;
+            color: #1e7e34;
+        }
