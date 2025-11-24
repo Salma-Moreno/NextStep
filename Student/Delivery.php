@@ -16,13 +16,15 @@ include '../Conexiones/db.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Entregas - Estudiante</title>
-    <link rel="stylesheet" href="../assets/Student/mapa.css">
+    <link rel="stylesheet" href="../assets/mapa.css">
     
-    <!-- Simulación de integración de mapa (más adelante podrías usar Google Maps o Leaflet) -->
+        <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    
     <style>
         #mapa {
             width: 100%;
-            height: 400px;
+            height: 400px; 
             border-radius: 12px;
             box-shadow: 0 3px 8px rgba(0,0,0,0.15);
         }
@@ -32,7 +34,7 @@ include '../Conexiones/db.php';
 
     <?php include '../Includes/HeaderMenuE.php'; ?>
 
-     <div class="container">
+    <div class="container">
         <h2>Puntos de Entrega Cercanos</h2>
         <p class="subtitle">Selecciona el punto de entrega más conveniente según tu ubicación.</p>
 
@@ -42,19 +44,12 @@ include '../Conexiones/db.php';
             <button class="btn">Buscar</button>
         </div>
 
-        <!-- Simulación del mapa -->
-        <div id="mapa">
-            <!-- Aquí se mostrará el mapa dinámico -->
-            <p style="text-align:center; padding-top:180px; color:#666;">
-                [Aquí se mostrará el mapa con tus sucursales cercanas]
-            </p>
-        </div>
+                <div id="mapa">
+                    </div>
 
         <h3 class="list-title">Sucursales disponibles</h3>
         <div class="branches">
-            <!-- Simulación de datos dinámicos -->
-            <!-- <?php while($row = mysqli_fetch_assoc($result)) { ?> -->
-            <div class="branch-card">
+                                    <div class="branch-card">
                 <h4>Centro Comunitario Reforma</h4>
                 <p><strong>Dirección:</strong> Av. Reforma #320, Col. Centro</p>
                 <p><strong>Código Postal:</strong> 24010</p>
@@ -77,17 +72,53 @@ include '../Conexiones/db.php';
                 <p><strong>Horario:</strong> Martes a Sábado, 10:00 a 18:00</p>
                 <button class="btn-select">Seleccionar</button>
             </div>
-            <!-- <?php } ?> -->
-        </div>
+                    </div>
     </div>
 
-    <!-- Ejemplo de mapa simulado (Leaflet placeholder) -->
-    <!-- En implementación real: cargaría marcadores basados en CP -->
-    <script>
-        // Este script es solo ilustrativo.
+        <script>
+        // Coordenadas de ejemplo (Centro de México)
+        const LATITUD_INICIAL = 19.4326; 
+        const LONGITUD_INICIAL = -99.1332;
+        const ZOOM_INICIAL = 12;
+
+        // 1. Crea la instancia del mapa en el div con id="mapa"
+        const map = L.map('mapa').setView([LATITUD_INICIAL, LONGITUD_INICIAL], ZOOM_INICIAL);
+
+        // 2. Agrega la capa de mosaicos (tiles) de OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Función para agregar marcadores (ejemplo estático)
+        function agregarMarcadoresSucursales() {
+            // Estas coordenadas son ejemplos. En la realidad, las obtendrías de tu base de datos.
+            const sucursales = [
+                { lat: 19.4326 + 0.01, lng: -99.1332 + 0.01, nombre: "Centro Comunitario Reforma" },
+                { lat: 19.4326 - 0.01, lng: -99.1332 - 0.01, nombre: "Universidad Autónoma Campus Norte" },
+                { lat: 19.4326 + 0.02, lng: -99.1332, nombre: "Biblioteca Estatal Justo Sierra" }
+            ];
+
+            sucursales.forEach(sucursal => {
+                L.marker([sucursal.lat, sucursal.lng])
+                    .addTo(map)
+                    .bindPopup(`<b>${sucursal.nombre}</b><br>Punto de entrega.`);
+            });
+        }
+        
+        // Llama a la función para mostrar los marcadores iniciales
+        agregarMarcadoresSucursales();
+
+
+        // Lógica de búsqueda del Código Postal
         document.querySelector('.btn').addEventListener('click', () => {
             const cp = document.getElementById('codigoPostal').value;
-            alert(`Buscar sucursales cercanas al código postal: ${cp}`);
+            alert(`Buscando sucursales cercanas al código postal: ${cp}`);
+            
+            // *** Pendiente de implementación real: ***
+            // 1. Llamada a PHP/BD con AJAX usando el CP.
+            // 2. Obtener las coordenadas del centro del CP y las sucursales.
+            // 3. Usar map.setView([nueva_lat, nueva_lng], 13); para centrar el mapa.
+            // 4. Limpiar marcadores viejos y llamar a agregarMarcadoresSucursales(nuevos_datos).
         });
     </script>
 </body>
