@@ -1,13 +1,39 @@
 <?php
 session_start();
 
-// Guardián: Si no hay sesión o el rol no es 'Student', expulsar al login
+// 1. Guardián de seguridad
 if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Student') {
     header('Location: StudentLogin.php');
     exit;
 }
-//Conexion a la base de datos
+
 include '../Conexiones/db.php';
+
+$puntos_recogida = [];
+
+if (isset($conn)) {
+    // 2. Consulta SQL
+    $sql = "SELECT 
+                cp.ID_Point, 
+                cp.Name, 
+                cp.address, 
+                cp.latitud, 
+                cp.longitud,
+                GROUP_CONCAT(DISTINCT s.Name SEPARATOR ', ') AS MaterialesAceptados
+            FROM collection_point cp
+            LEFT JOIN company c ON cp.FK_ID_Company = c.ID_Company
+            LEFT JOIN donation d ON c.ID_Company = d.FK_ID_Company
+            LEFT JOIN supplies s ON d.FK_ID_Supply = s.ID_Supply
+            GROUP BY cp.ID_Point";
+
+    $result = $conn->query($sql);
+
+    if ($result && $result->num_rows > 0) {
+        while($row = $result->fetch_assoc()) {
+            $puntos_recogida[] = $row;
+        }
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -16,18 +42,50 @@ include '../Conexiones/db.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Entregas - Estudiante</title>
-    <link rel="stylesheet" href="../assets/mapa.css">
     
-        <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="../assets/mapa.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     
     <style>
-        #mapa {
-            width: 100%;
+        #mapa { 
+            width: 100%; 
             height: 400px; 
-            border-radius: 12px;
-            box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+            border-radius: 12px; 
+            margin-bottom: 25px; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15); 
         }
+        
+        .branch-card { 
+            border: 1px solid #e0e0e0; 
+            padding: 20px; 
+            margin-bottom: 15px; 
+            border-radius: 10px; 
+            background: #fff; 
+            border-left: 5px solid #3498db; 
+            transition: transform 0.2s;
+        }
+        
+        .branch-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .branch-card h4 { margin-top: 0; color: #2c3e50; font-size: 1.4rem; margin-bottom: 10px; }
+        .info-label { color: #555; font-weight: 600; }
+        .lista-materiales { color: #d35400; font-weight: bold; }
+
+        /* Estilo modificado para que el enlace parezca botón */
+        .btn-select {
+            display: inline-block; /* Importante para que tome ancho/alto */
+            background-color: #3498db; 
+            color: white; 
+            text-decoration: none; /* Quita el subrayado del link */
+            padding: 10px 20px;
+            border-radius: 5px; 
+            margin-top: 15px;
+            font-weight: bold;
+            transition: background 0.3s;
+            text-align: center;
+        }
+        
+        .btn-select:hover { background-color: #2980b9; }
     </style>
 </head>
 <body>
@@ -36,89 +94,62 @@ include '../Conexiones/db.php';
 
     <div class="container">
         <h2>Puntos de Entrega Cercanos</h2>
-        <p class="subtitle">Selecciona el punto de entrega más conveniente según tu ubicación.</p>
+        <div id="mapa"></div>
 
-        <div class="search-section">
-            <label for="codigoPostal">Ingresa tu código postal:</label>
-            <input type="text" id="codigoPostal" placeholder="Ej. 24010">
-            <button class="btn">Buscar</button>
-        </div>
-
-                <div id="mapa">
-                    </div>
-
-        <h3 class="list-title">Sucursales disponibles</h3>
+        <h3 class="list-title">Sucursales y Materiales Aceptados</h3>
+        
         <div class="branches">
-                                    <div class="branch-card">
-                <h4>Centro Comunitario Reforma</h4>
-                <p><strong>Dirección:</strong> Av. Reforma #320, Col. Centro</p>
-                <p><strong>Código Postal:</strong> 24010</p>
-                <p><strong>Horario:</strong> Lunes a Viernes, 9:00 a 17:00</p>
-                <button class="btn-select">Seleccionar</button>
-            </div>
+            <?php foreach ($puntos_recogida as $punto): ?>
+                <div class="branch-card">
+                    <h4><?php echo htmlspecialchars($punto['Name']); ?></h4>
+                    
+                    <p>
+                        <span class="info-label">Se recibe:</span> 
+                        <span class="lista-materiales">
+                            <?php 
+                            if (!empty($punto['MaterialesAceptados'])) {
+                                echo htmlspecialchars($punto['MaterialesAceptados']); 
+                            } else {
+                                echo "Material escolar general";
+                            }
+                            ?>
+                        </span>
+                    </p>
 
-            <div class="branch-card">
-                <h4>Universidad Autónoma Campus Norte</h4>
-                <p><strong>Dirección:</strong> Blvd. del Estudiante s/n</p>
-                <p><strong>Código Postal:</strong> 24030</p>
-                <p><strong>Horario:</strong> Lunes a Viernes, 8:00 a 16:00</p>
-                <button class="btn-select">Seleccionar</button>
-            </div>
+                    <p><span class="info-label">Dirección:</span> <?php echo htmlspecialchars($punto['address']); ?></p>
+                    
+                    <a href="application.php?punto_id=<?php echo $punto['ID_Point']; ?>" class="btn-select">
+                        Solicitar
+                    </a>
 
-            <div class="branch-card">
-                <h4>Biblioteca Estatal Justo Sierra</h4>
-                <p><strong>Dirección:</strong> Calle 10 #150, Col. Morelos</p>
-                <p><strong>Código Postal:</strong> 24040</p>
-                <p><strong>Horario:</strong> Martes a Sábado, 10:00 a 18:00</p>
-                <button class="btn-select">Seleccionar</button>
-            </div>
-                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
     </div>
 
-        <script>
-        // Coordenadas de ejemplo (Centro de México)
-        const LATITUD_INICIAL = 19.4326; 
-        const LONGITUD_INICIAL = -99.1332;
-        const ZOOM_INICIAL = 12;
+    <script>
+        const map = L.map('mapa').setView([19.4326, -99.1332], 10);
 
-        // 1. Crea la instancia del mapa en el div con id="mapa"
-        const map = L.map('mapa').setView([LATITUD_INICIAL, LONGITUD_INICIAL], ZOOM_INICIAL);
-
-        // 2. Agrega la capa de mosaicos (tiles) de OpenStreetMap
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        // Función para agregar marcadores (ejemplo estático)
-        function agregarMarcadoresSucursales() {
-            // Estas coordenadas son ejemplos. En la realidad, las obtendrías de tu base de datos.
-            const sucursales = [
-                { lat: 19.4326 + 0.01, lng: -99.1332 + 0.01, nombre: "Centro Comunitario Reforma" },
-                { lat: 19.4326 - 0.01, lng: -99.1332 - 0.01, nombre: "Universidad Autónoma Campus Norte" },
-                { lat: 19.4326 + 0.02, lng: -99.1332, nombre: "Biblioteca Estatal Justo Sierra" }
-            ];
+        const sucursales = <?php echo json_encode($puntos_recogida); ?>;
 
-            sucursales.forEach(sucursal => {
-                L.marker([sucursal.lat, sucursal.lng])
+        sucursales.forEach(punto => {
+            if(punto.latitud && punto.longitud) {
+                let materiales = punto.MaterialesAceptados ? punto.MaterialesAceptados : "Material general";
+                
+                L.marker([punto.latitud, punto.longitud])
                     .addTo(map)
-                    .bindPopup(`<b>${sucursal.nombre}</b><br>Punto de entrega.`);
-            });
-        }
-        
-        // Llama a la función para mostrar los marcadores iniciales
-        agregarMarcadoresSucursales();
-
-
-        // Lógica de búsqueda del Código Postal
-        document.querySelector('.btn').addEventListener('click', () => {
-            const cp = document.getElementById('codigoPostal').value;
-            alert(`Buscando sucursales cercanas al código postal: ${cp}`);
-            
-            // *** Pendiente de implementación real: ***
-            // 1. Llamada a PHP/BD con AJAX usando el CP.
-            // 2. Obtener las coordenadas del centro del CP y las sucursales.
-            // 3. Usar map.setView([nueva_lat, nueva_lng], 13); para centrar el mapa.
-            // 4. Limpiar marcadores viejos y llamar a agregarMarcadoresSucursales(nuevos_datos).
+                    .bindPopup(`
+                        <div style="text-align:center;">
+                            <b>${punto.Name}</b><br>
+                            <span style="color:#d35400; font-size:0.9em;">${materiales}</span><br>
+                            <a href="application.php?punto_id=${punto.ID_Point}" style="color:#3498db; text-decoration:none; font-weight:bold;">Ir a Solicitar</a>
+                        </div>
+                    `);
+            }
         });
     </script>
 </body>
