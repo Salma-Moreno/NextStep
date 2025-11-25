@@ -243,6 +243,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <link rel="stylesheet" href="../assets/register.css">
 </head>
 <body>
+    
     <div class="container">
         <h1>Registro de Estudiante</h1>
         <p style="text-align: center; color: #666; margin-top: -15px; margin-bottom: 25px;">Crea tu cuenta de estudiante.</p>

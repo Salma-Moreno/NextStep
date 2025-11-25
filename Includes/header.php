@@ -32,6 +32,7 @@ if (!isset($pageTitle)) {
 .header .logo:hover {
     color: #ffdd57;
 }
+
 </style>
 <header class="header">
     <div class="container-header">
