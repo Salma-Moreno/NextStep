@@ -279,23 +279,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
            <!-- =========================================== -->
            <!-- Modifique para email -->
            <!-- =========================================== --> 
-            <div class="form-group">
-                <label for="email">Correo Electrónico:</label>
-                <input type="email" id="email" name="email" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['email'])) ? htmlspecialchars($_SESSION['form_data']['email']) : ''; ?>" placeholder="ejemplo@universidad.edu.mx" required>                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                    Usa tu correo institucional o personal válido (debe incluir dominio como .com, .edu.mx, etc.)
-                </small>
-            </div>
+<div class="form-group">
+    <label for="email">Correo Electrónico:</label>
+    <input type="email" id="email" name="email" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['email'])) ? htmlspecialchars($_SESSION['form_data']['email']) : ''; ?>" placeholder="ejemplo@universidad.edu.mx" required
+           onfocus="showHint('email-hint')" onblur="hideHint('email-hint')">
+    <small id="email-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
+        Usa tu correo institucional o personal válido (debe incluir dominio como .com, .edu.mx, etc.)
+    </small>
+</div>
 
-            <div class="form-group">
-                <label for="phone">Teléfono (Opcional):</label>
-                <!--input type="tel" id="phone" name="phone"-->
-
-                 <!-- AGREGADO: value con datos de sesión -->
-                 <input type="tel" id="phone" name="phone" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['phone'])) ? htmlspecialchars($_SESSION['form_data']['phone']) : ''; ?>" placeholder="Ej: 6641234567" pattern="[0-9]*" inputmode="numeric">
-                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                    Solo números, exactamente 10 dígitos (sin letras, espacios o signos)
-                </small>
-            </div>
+<div class="form-group">
+    <label for="phone">Teléfono (Opcional):</label>
+    <input type="tel" id="phone" name="phone" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['phone'])) ? htmlspecialchars($_SESSION['form_data']['phone']) : ''; ?>" placeholder="Ej: 6641234567" pattern="[0-9]*" inputmode="numeric"
+           onfocus="showHint('phone-hint')" onblur="hideHint('phone-hint')">
+    <small id="phone-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
+        Solo números, exactamente 10 dígitos (sin letras, espacios o signos)
+    </small>
+</div>
 
             <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;">
 
@@ -408,6 +408,26 @@ function togglePasswordIcon(id) {
     if (initialPassword.length > 0) {
         showRequirements();
     }
+
+    // Agrega estas funciones al final de tu bloque <script>
+
+function showHint(id) {
+    // Muestra el elemento de ayuda por su ID
+    const hintElement = document.getElementById(id);
+    if (hintElement) {
+        hintElement.style.display = 'block';
+    }
+}
+
+function hideHint(id) {
+    // Oculta el elemento de ayuda por su ID
+    const hintElement = document.getElementById(id);
+    if (hintElement) {
+        // En este caso, lo ocultamos inmediatamente al salir (a diferencia de la contraseña)
+        hintElement.style.display = 'none';
+    }
+}
+
     </script>
 
 
