@@ -126,16 +126,13 @@ foreach ($fields_no_spaces as $field) {
 
 
     // Validación de teléfono
-    if (!empty($phone)) {
-        if (!preg_match('/^[0-9]+$/', $phone)) {
-            $errors[] = "El teléfono solo puede contener números (sin letras, espacios, guiones o signos).";
-            $error_fields[] = 'phone';
-        }
-        if (strlen($phone) !== 10) {
-            $errors[] = "El número de teléfono debe tener exactamente 10 dígitos.";
-            $error_fields[] = 'phone';
-        }
+if (!empty($phone)) {
+    if (!preg_match('/^[0-9]{10}$/', $phone)) {
+        $errors[] = "El número de teléfono debe contener exactamente 10 dígitos (0-9).";
+        $error_fields[] = 'phone';
     }
+}
+
 
 
     // Validaciones de contraseña (solo si no está vacía)
@@ -181,41 +178,43 @@ foreach ($fields_no_spaces as $field) {
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
 
-    //Verificar duplicados
-    try {
-        // Email duplicado
-        $stmt = $conn->prepare("SELECT ID_Student FROM student WHERE Email_Address = ?");
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $stmt->store_result();
-        if ($stmt->num_rows > 0) {
-            $_SESSION['error'] = "El correo electrónico ya está en uso.";
-            $_SESSION['error_fields'] = ['email'];
-            header('Location: register.php');
-            exit;
-        }
-        $stmt->close();
-
-
-        // Username duplicado
-        $username_lower = strtolower($username);
-        $stmt = $conn->prepare("SELECT ID_User FROM user WHERE LOWER(Username) = ?");
-        $stmt->bind_param("s", $username_lower);
-        $stmt->execute();
-        $stmt->store_result();
-        if ($stmt->num_rows > 0) {
-            $_SESSION['error'] = "El nombre de usuario ya está en uso.";
-            $_SESSION['error_fields'] = ['username'];
-            header('Location: register.php');
-            exit;
-        }
-        $stmt->close();
-    } catch (Exception $e) {
-        $_SESSION['error'] = "Error al verificar duplicados: " . $e->getMessage();
+     // Verificar si el correo ya existe en students o staff
+try {
+    $stmt = $conn->prepare("
+        SELECT Email_Address FROM student WHERE Email_Address = ?
+        UNION
+        SELECT Email FROM staff WHERE Email = ?
+    ");
+    $stmt->bind_param("ss", $email, $email);
+    $stmt->execute();
+    $stmt->store_result();
+    if ($stmt->num_rows > 0) {
+        $_SESSION['error'] = "El correo electrónico ya está en uso.";
+        $_SESSION['error_fields'] = ['email'];
         header('Location: register.php');
         exit;
     }
+    $stmt->close();
 
+    // Verificar username duplicado en user
+    $username_lower = strtolower($username);
+    $stmt = $conn->prepare("SELECT ID_User FROM user WHERE LOWER(Username) = ?");
+    $stmt->bind_param("s", $username_lower);
+    $stmt->execute();
+    $stmt->store_result();
+    if ($stmt->num_rows > 0) {
+        $_SESSION['error'] = "El nombre de usuario ya está en uso.";
+        $_SESSION['error_fields'] = ['username'];
+        header('Location: register.php');
+        exit;
+    }
+    $stmt->close();
+
+} catch (Exception $e) {
+    $_SESSION['error'] = "Error al verificar duplicados: " . $e->getMessage();
+    header('Location: register.php');
+    exit;
+}
 
 
 
@@ -256,7 +255,7 @@ foreach ($fields_no_spaces as $field) {
         unset($_SESSION['form_data']);
        
         $_SESSION['success'] = "¡Cuenta de estudiante registrada exitosamente! Ahora puedes iniciar sesión.";
-        header('Location: StudentLogin.php');
+        header('Location: ../Student/register.php');
         exit;
 
 
@@ -329,7 +328,7 @@ foreach ($fields_no_spaces as $field) {
            onfocus="showHint('name-hint')" onblur="hideHint('name-hint')"
            <?php if (isset($_SESSION['error_fields']) && in_array('name', $_SESSION['error_fields'])) echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
     <small id="name-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
-        Solo letras y espacios (no se permiten números ni símbolos)
+        Solo letras  (no se permiten números ni símbolos)
     </small>
 </div>
 <div class="form-group">
@@ -338,7 +337,7 @@ foreach ($fields_no_spaces as $field) {
            onfocus="showHint('lastname-hint')" onblur="hideHint('lastname-hint')"
            <?php if (isset($_SESSION['error_fields']) && in_array('last_name', $_SESSION['error_fields'])) echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
     <small id="lastname-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
-        Solo letras y espacios (no se permiten números ni símbolos)
+        Solo letras  (no se permiten números ni símbolos)
     </small>
 </div>
            <!-- =========================================== -->
@@ -355,15 +354,21 @@ foreach ($fields_no_spaces as $field) {
             </div>
 
 
-            <div class="form-group">
-                <label for="phone">Teléfono (Opcional):</label>
-                <input type="tel" id="phone" name="phone" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['phone'])) ? htmlspecialchars($_SESSION['form_data']['phone']) : ''; ?>" placeholder="Ej: 6641234567" pattern="[0-9]*" inputmode="numeric" pattern="^\S+$" title="No se permiten espacios" 
-                       onfocus="showHint('phone-hint')" onblur="hideHint('phone-hint')"
-                       <?php if (isset($_SESSION['error_fields']) && in_array('phone', $_SESSION['error_fields'])) echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
-                <small id="phone-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
-                    Solo números, exactamente 10 dígitos (sin letras, espacios o signos)
-                </small>
-            </div>
+    <div class="form-group">
+        <label for="phone">Teléfono (Opcional):</label>
+        <input type="tel" id="phone" name="phone"
+            value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['phone'])) ? htmlspecialchars($_SESSION['form_data']['phone']) : ''; ?>"
+            placeholder="Ej: 6641234567"
+            pattern="^[0-9]{10}$"
+            inputmode="numeric"
+            title="Solo números, exactamente 10 dígitos"
+            onfocus="showHint('phone-hint')" onblur="hideHint('phone-hint')"
+            <?php if (isset($_SESSION['error_fields']) && in_array('phone', $_SESSION['error_fields'])) 
+                    echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
+        <small id="phone-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
+            Solo números, exactamente 10 dígitos (sin letras, espacios o signos)
+        </small>
+    </div>
 
 
             <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;">
