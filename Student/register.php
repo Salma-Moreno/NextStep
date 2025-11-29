@@ -134,7 +134,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Si hay errores de contraseña, guardamos el mensaje y redirigimos
     if (!empty($password_error)) { 
         // Generamos el mensaje de error específico
-        $_SESSION['password_error'] = "Debe incluir: " . implode(", ", $password_error) . "."; // ✅ CORREGIDO: Usando $password_error
+        $_SESSION['password_error'] = "Debe incluir: " . implode(", ", $password_error) . "."; //  CORREGIDO: Usando $password_error
         
         // Configuramos el error general para mostrar datos de formulario si otras validaciones fallan
         $_SESSION['error'] = "La contraseña no cumple con los requisitos.";
