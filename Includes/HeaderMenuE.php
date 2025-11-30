@@ -124,7 +124,7 @@ if (!isset($pageTitle)) {
     <div class="container-header">
         <a href="../Student/index.php" class="logo">
             <div class="logo-box">
-                <img src="../../img/Logo3.png" alt="Logo NextStep" class="logo-img">
+                <img src="../assets/Imagenes/Logo3.png" alt="Logo NextStep" class="logo-img">
             </div>
             <span>NextStep</span>
         </a>
