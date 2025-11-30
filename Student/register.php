@@ -1,27 +1,46 @@
 <?php
 session_start();
 
+
 //-----Añadi esto
-//datos se borren al refrescar y solo se guarden al llenar datos 
+//datos se borren al refrescar y solo se guarden al llenar datos
 /*if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-    unset($_SESSION['validation_in_progress']); 
+    unset($_SESSION['validation_in_progress']);
     unset($_SESSION['form_data']);
 }*/
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
+//  NUEVO: Limpiar errores al refrescar la página
+if (!isset($_SESSION['error'])) {
+    unset($_SESSION['error_fields']);
+}
+
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
     require '../Conexiones/db.php'; // conexión a la BD
 
-    // 1. Recolectar y limpiar datos
-    $name = $_POST['name'];
-    $last_name = $_POST['last_name'];
-    $email = $_POST['email'];
-    $phone = !empty($_POST['phone']) ? $_POST['phone'] : NULL;
-    $username = $_POST['username'];
-    $password = $_POST['password'];
-    $confirm_password = $_POST['confirm_password'];
 
-    //Añadido
+// 1. Recolectar y limpiar datos
+$name = trim($_POST['name']);
+$last_name = trim($_POST['last_name']);
+$email = trim($_POST['email']);
+$phone = trim($_POST['phone']);
+$username = trim($_POST['username']);
+$password = trim($_POST['password']);
+$confirm_password = trim($_POST['confirm_password']);
+
+$errors = [];
+$error_fields = [];
+$password_errors = [];
+
+//no aceptar espacios 
+$fields_no_spaces = ['name', 'last_name', 'email', 'phone', 'username', 'password', 'confirm_password'];
+foreach ($fields_no_spaces as $field) {
+    if (!empty($$field) && preg_match('/\s/', $$field)) {
+        $errors[] = ucfirst(str_replace('_', ' ', $field)) . " no puede contener espacios.";
+        $error_fields[] = $field;
+    }
+}
     //Para que no se borren todos los datos si las validaciones fallan
     //Guardar datos en sesión antes de validar
     $_SESSION['form_data'] = [
@@ -33,163 +52,180 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     ];
     $_SESSION['validation_in_progress'] = true;
 
-    // 2. Validaciones básicas
-    if (empty($name) || empty($last_name) || empty($email) || empty($username) || empty($password)) {
-        $_SESSION['error'] = "Por favor, completa todos los campos obligatorios.";
-        header('Location: register.php');
-        exit;
+
+   // 2. Array para acumular errores Y campos con error
+    $errors = [];
+    $password_errors = [];
+    $error_fields = []; // Para guardar qué campos tienen error
+
+
+    // Validaciones básicas de campos vacíos
+    if (empty($name)) {
+        $errors[] = "El nombre es obligatorio.";
+        $error_fields[] = 'name';
     }
 
-     //  Validar que nombre y apellido solo contengan letras
-    if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $name)) {
-        $_SESSION['error'] = "El nombre solo puede contener letras y espacios.";
-        header('Location: register.php');
-        exit;
+
+    if (empty($last_name)) {
+        $errors[] = "El apellido es obligatorio.";
+        $error_fields[] = 'last_name';
     }
 
-    if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $last_name)) {
-        $_SESSION['error'] = "El apellido solo puede contener letras y espacios.";
-        header('Location: register.php');
-        exit;
+
+    if (empty($email)) {
+        $errors[] = "El correo electrónico es obligatorio.";
+        $error_fields[] = 'email';
     }
-    
-    //validacion para correos-dominios
-    // 1. Validar formato básico de correo (usuario@dominio.com)
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $_SESSION['error'] = "Por favor, ingresa un correo electrónico válido con dominio (ej: usuario@dominio.com).";
-        header('Location: register.php');
-        exit;
+
+
+    if (empty($username)) {
+        $errors[] = "El nombre de usuario es obligatorio.";
+        $error_fields[] = 'username';
     }
-    // 2. Extraer el dominio del correo ingresado
-    $email_parts = explode('@', $email);
-    // Usamos strtolower() para ignorar mayúsculas/minúsculas en el dominio (ej: Gmail.com vs gmail.com)
-    $domain = strtolower(end($email_parts)); 
-    // 3. Lista de dominios permitidos 
-    //--Agreguen mas si desean
-    $allowed_domains = [
-        // Dominios Comerciales/Generales
-        'gmail.com',
-        'hotmail.com',
-        'outlook.com',
-        'yahoo.com',
-        'live.com', 
-        'msn.com',
-        'icloud.com',
-        // Dominios Institucionales/Educativos 
-        'tecnm.mx',
-        'tectijuana.edu.mx',
-        'uabc.mx',
-        'unam.mx',
-        'ipn.mx',
-        'udg.mx',
-        'uanl.mx',
+
+
+    if (empty($password)) {
+        $errors[] = "La contraseña es obligatoria.";
+        $error_fields[] = 'password';
+    }
+
+
+    // Validar que nombre y apellido solo contengan letras
+    if (!empty($name) && !preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $name)) {
+        $errors[] = "El nombre solo puede contener letras.";
+        $error_fields[] = 'name';
+    }
+   
+    if (!empty($last_name) && !preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $last_name)) {
+        $errors[] = "El apellido solo puede contener letras.";
+        $error_fields[] = 'last_name';
+    }
+
+
+    // Validación de correo electrónico
+    if (!empty($email)) {
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = "Por favor, ingresa un correo electrónico válido con dominio (ej: usuario@dominio.com).";
+            $error_fields[] = 'email';
+        } else {
+            // Validar dominio permitido
+            $email_parts = explode('@', $email);
+            $domain = strtolower(end($email_parts));
+            $allowed_domains = [
+                'gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'live.com',
+                'msn.com', 'icloud.com', 'tecnm.mx', 'tectijuana.edu.mx', 'uabc.mx',
+                'unam.mx', 'ipn.mx', 'udg.mx', 'uanl.mx',
+            ];
+           
+            if (!in_array($domain, $allowed_domains)) {
+                $errors[] = "El dominio de correo electrónico ('@" . htmlspecialchars($domain) . "') no está en la lista de dominios autorizados.";
+                $error_fields[] = 'email';
+            }
+        }
+    }
+
+
+    // Validación de teléfono
+if (!empty($phone)) {
+    if (!preg_match('/^[0-9]{10}$/', $phone)) {
+        $errors[] = "El número de teléfono debe contener exactamente 10 dígitos (0-9).";
+        $error_fields[] = 'phone';
+    }
+}
+
+
+
+    // Validaciones de contraseña (solo si no está vacía)
+    if (!empty($password)) {
+        if (strlen($password) < 8) {
+            $password_errors[] = "Mínimo 8 caracteres";
+        }
+        if (!preg_match('/[A-Z]/', $password)) {
+            $password_errors[] = "Al menos una letra mayúscula (A-Z)";
+        }
+        if (!preg_match('/[0-9]/', $password)) {
+            $password_errors[] = "Al menos un número (0-9)";
+        }
+        if (!preg_match('/[^a-zA-Z0-9\s]/', $password)) {
+            $password_errors[] = "Al menos un símbolo o carácter especial";
+        }
        
-    ];
-
-    // 4. Comprobar si el dominio existe en la lista de permitidos
-    if (!in_array($domain, $allowed_domains)) {
-        $_SESSION['error'] = "El dominio de correo electrónico ('@" . htmlspecialchars($domain) . "') no está en la lista de dominios autorizados. Por favor, revisa la ortografía o usa un dominio permitido.";
-        header('Location: register.php');
-        exit;
-    }
-
-       // Validación de teléfono - SOLO NÚMEROS
-    if (!empty($phone)) {
-        // Validar que solo contenga números
-        if (!preg_match('/^[0-9]+$/', $phone)) {
-            $_SESSION['error'] = "El teléfono solo puede contener números (sin letras, espacios, guiones o signos).";
-            header('Location: register.php');
-            exit;
+        // Si hay errores específicos de contraseña, los agregamos al array general
+        if (!empty($password_errors)) {
+            $errors[] = "La contraseña debe incluir: " . implode(", ", $password_errors) . ".";
+            $error_fields[] = 'password';
         }
-        
-        // Validar longitud (10 dígitos)
-        if (strlen($phone) !== 10 ) { // <--- CAMBIO AQUÍ
-        $_SESSION['error'] = "El número de teléfono debe tener exactamente 10 dígitos."; // <--- CAMBIO EN EL MENSAJE
-        header('Location: register.php');
-            exit;
+       
+        // Validar que las contraseñas coincidan
+        if ($password !== $confirm_password) {
+            $errors[] = "Las contraseñas no coinciden.";
+            $error_fields[] = 'password';
+            $error_fields[] = 'confirm_password';
         }
     }
-    //validaciones para contraseñas 
-    $password_error = [];
-    
-    // Mínimo 8 caracteres
-    if (strlen($password) < 8) {
-        $password_error[] = "Mínimo 8 caracteres";
-    }
 
-    // Al menos una letra mayúscula
-    if (!preg_match('/[A-Z]/', $password)) {
-        $password_error[] = "Al menos una letra mayúscula (A-Z)";
-    }
-    // Al menos un número
-    if (!preg_match('/[0-9]/', $password)) {
-        $password_error[] = "Al menos un número (0-9)";
-    }
-    // Al menos un símbolo (carácter especial)
-    // Se usa una expresión regular común para símbolos
-    if (!preg_match('/[^a-zA-Z0-9\s]/', $password)) { 
-        $password_error[] = "Al menos un símbolo o carácter especial";
-    }
 
-    // Si hay errores de contraseña, guardamos el mensaje y redirigimos
-    if (!empty($password_error)) { 
-        // Generamos el mensaje de error específico
-        $_SESSION['password_error'] = "Debe incluir: " . implode(", ", $password_error) . "."; // ✅ CORREGIDO: Usando $password_error
-        
-        // Configuramos el error general para mostrar datos de formulario si otras validaciones fallan
-        $_SESSION['error'] = "La contraseña no cumple con los requisitos.";
+    // Si hay errores, los mostramos todos juntos
+    if (!empty($errors)) {
+        $_SESSION['error'] = "Hay " . count($errors) . " campo(s) con error. Por favor revisa los datos ingresados y corrige según lo solicitado.";
+        $_SESSION['error_fields'] = $error_fields; // Guardamos los campos con error
         header('Location: register.php');
         exit;
     }
 
-    //
-    if ($password !== $confirm_password) {
-        $_SESSION['error'] = "Las contraseñas no coinciden.";
-        header('Location: register.php');
-        exit;
-    }
 
-    // 3. Cifrar contraseña
+    // CIFRAR CONTRASEÑA - ¡IMPORTANTE!
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-    // 4. Verificar duplicados
-    try {
-        // Email duplicado en tabla student
-        $stmt = $conn->prepare("SELECT ID_Student FROM student WHERE Email_Address = ?");
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $stmt->store_result();
-        if ($stmt->num_rows > 0) {
-            $_SESSION['error'] = "El correo electrónico ya está en uso.";
-            header('Location: register.php');
-            exit;
-        }
-        $stmt->close();
 
-        // Username duplicado en tabla user
-        $stmt = $conn->prepare("SELECT ID_User FROM user WHERE Username = ?");
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        $stmt->store_result();
-        if ($stmt->num_rows > 0) {
-            $_SESSION['error'] = "El nombre de usuario ya está en uso.";
-            header('Location: register.php');
-            exit;
-        }
-        $stmt->close();
-
-    } catch (Exception $e) {
-        $_SESSION['error'] = "Error al verificar duplicados: " . $e->getMessage();
+     // Verificar si el correo ya existe en students o staff
+try {
+    $stmt = $conn->prepare("
+        SELECT Email_Address FROM student WHERE Email_Address = ?
+        UNION
+        SELECT Email FROM staff WHERE Email = ?
+    ");
+    $stmt->bind_param("ss", $email, $email);
+    $stmt->execute();
+    $stmt->store_result();
+    if ($stmt->num_rows > 0) {
+        $_SESSION['error'] = "El correo electrónico ya está en uso.";
+        $_SESSION['error_fields'] = ['email'];
         header('Location: register.php');
         exit;
     }
+    $stmt->close();
 
-    // 5. Definir rol y status
+    // Verificar username duplicado en user
+    $username_lower = strtolower($username);
+    $stmt = $conn->prepare("SELECT ID_User FROM user WHERE LOWER(Username) = ?");
+    $stmt->bind_param("s", $username_lower);
+    $stmt->execute();
+    $stmt->store_result();
+    if ($stmt->num_rows > 0) {
+        $_SESSION['error'] = "El nombre de usuario ya está en uso.";
+        $_SESSION['error_fields'] = ['username'];
+        header('Location: register.php');
+        exit;
+    }
+    $stmt->close();
+
+} catch (Exception $e) {
+    $_SESSION['error'] = "Error al verificar duplicados: " . $e->getMessage();
+    header('Location: register.php');
+    exit;
+}
+
+
+
+    //Definir rol y status
     $student_role_id = 1; // el ID que corresponde a 'Student'
     $status = 'Active';
 
-    // 6. Transacción
+
+    //Transacción
     $conn->begin_transaction();
+
 
     try {
         // Insertar en tabla user
@@ -198,7 +234,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt_user->bind_param("isss", $student_role_id, $username, $hashed_password, $status);
         $stmt_user->execute();
 
+
         $new_user_id = $conn->insert_id;
+
 
         // Insertar en tabla student
         $sql_student = "INSERT INTO student (FK_ID_User, Name, Last_Name, Phone_Number, Email_Address) VALUES (?, ?, ?, ?, ?)";
@@ -206,27 +244,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt_student->bind_param("issss", $new_user_id, $name, $last_name, $phone, $email);
         $stmt_student->execute();
 
+
         // Confirmar transacción
         $conn->commit();
 
-       /* $_SESSION['success'] = "¡Cuenta de estudiante registrada exitosamente! Ahora puedes iniciar sesión.";
-        header('Location: StudentLogin.php');
-        exit;*/
 
             // LIMPIAR DATOS DE SESIÓN CUANDO EL REGISTRO ES EXITOSO
             //corregido
             unset($_SESSION['validation_in_progress']); // <-- ¡Añade esta línea!
         unset($_SESSION['form_data']);
-        
+       
         $_SESSION['success'] = "¡Cuenta de estudiante registrada exitosamente! Ahora puedes iniciar sesión.";
-        header('Location: StudentLogin.php');
+        header('Location: ../Student/register.php');
         exit;
+
 
     } catch (mysqli_sql_exception $e) {
         $conn->rollback();
         $_SESSION['error'] = "Error al registrar la cuenta: " . $e->getMessage();
         header('Location: register.php');
         exit;
+
 
     } finally {
         if (isset($stmt_user)) $stmt_user->close();
@@ -240,103 +278,164 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <meta charset="UTF-8">
     <title>Registro de Estudiante</title>
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+     
     <link rel="stylesheet" href="../assets/register.css">
 </head>
 <body>
-    
-    <div class="container">
+   
+   <div class="container">
         <h1>Registro de Estudiante</h1>
         <p style="text-align: center; color: #666; margin-top: -15px; margin-bottom: 25px;">Crea tu cuenta de estudiante.</p>
 
-        <?php
-        if (isset($_SESSION['error'])) {
-            echo '<div class="error">' . htmlspecialchars($_SESSION['error']) . '</div>';
-            unset($_SESSION['error']);
-        }
-        if (isset($_SESSION['success'])) {
-            echo '<div class="success">' . htmlspecialchars($_SESSION['success']) . '</div>';
-            unset($_SESSION['success']);
-        }
-        ?>
+
+        <?php if (isset($_SESSION['error'])): ?>
+            <div class="error" style="background: #fff3f3; border: 2px solid #ff6b6b; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: #ff6b6b; font-size: 20px;"></i>
+                    <strong style="color: #d63031;">Revisa tu información</strong>
+                </div>
+                <p style="margin: 10px 0 0 0; color: #666;">
+                    <?php
+                    echo $_SESSION['error'];
+                    unset($_SESSION['error']);
+                    ?>
+                </p>
+            </div>
+        <?php endif; ?>
+
+
+        <?php if (isset($_SESSION['success'])): ?>
+            <div class="success" style="background: #f0fff4; border: 2px solid #48bb78; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-circle-check" style="color: #48bb78; font-size: 20px;"></i>
+                    <strong style="color: #2d774a;">¡Éxito!</strong>
+                </div>
+                <p style="margin: 10px 0 0 0; color: #666;">
+                    <?php
+                    echo $_SESSION['success'];
+                    unset($_SESSION['success']);
+                    ?>
+                </p>
+            </div>
+        <?php endif; ?>
+
 
         <form action="" method="POST">
             <div class="form-group">
-                <label for="name">Nombre:</label>
-                  <!--input type="text" id="name" name="name" required-->
-
-                 <!--  AGREGADO: value con datos de sesión -->
-                <input type="text" id="name" name="name" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['name'])) ? htmlspecialchars($_SESSION['form_data']['name']) : ''; ?>" required>            </div>
-
-            <div class="form-group">
-                <label for="last_name">Apellido:</label>
-                <!--input type="text" id="last_name" name="last_name" required-->
-               
-                <!--AGREGADO -->
-                <input type="text" id="last_name" name="last_name" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['last_name'])) ? htmlspecialchars($_SESSION['form_data']['last_name']) : ''; ?>" required>            </div>
-
+    <label for="name">Nombre:</label>
+    <input type="text" id="name" name="name" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['name'])) ? htmlspecialchars($_SESSION['form_data']['name']) : ''; ?>" required pattern="^\S+$" title="No se permiten espacios"
+           onfocus="showHint('name-hint')" onblur="hideHint('name-hint')"
+           <?php if (isset($_SESSION['error_fields']) && in_array('name', $_SESSION['error_fields'])) echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
+    <small id="name-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
+        Solo letras  (no se permiten números ni símbolos)
+    </small>
+</div>
+<div class="form-group">
+    <label for="last_name">Apellido:</label>
+    <input type="text" id="last_name" name="last_name" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['last_name'])) ? htmlspecialchars($_SESSION['form_data']['last_name']) : ''; ?>" required pattern="^\S+$" title="No se permiten espacios"
+           onfocus="showHint('lastname-hint')" onblur="hideHint('lastname-hint')"
+           <?php if (isset($_SESSION['error_fields']) && in_array('last_name', $_SESSION['error_fields'])) echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
+    <small id="lastname-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
+        Solo letras  (no se permiten números ni símbolos)
+    </small>
+</div>
            <!-- =========================================== -->
            <!-- Modifique para email -->
-           <!-- =========================================== --> 
+           <!-- =========================================== -->
             <div class="form-group">
                 <label for="email">Correo Electrónico:</label>
-                <input type="email" id="email" name="email" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['email'])) ? htmlspecialchars($_SESSION['form_data']['email']) : ''; ?>" placeholder="ejemplo@universidad.edu.mx" required>                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                <input type="text" id="email" name="email" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['email'])) ? htmlspecialchars($_SESSION['form_data']['email']) : ''; ?>" placeholder="ejemplo@universidad.edu.mx" required pattern="^\S+$" title="No se permiten espacios"
+                       onfocus="showHint('email-hint')" onblur="hideHint('email-hint')"
+                       <?php if (isset($_SESSION['error_fields']) && in_array('email', $_SESSION['error_fields'])) echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
+                <small id="email-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
                     Usa tu correo institucional o personal válido (debe incluir dominio como .com, .edu.mx, etc.)
                 </small>
             </div>
 
-            <div class="form-group">
-                <label for="phone">Teléfono (Opcional):</label>
-                <!--input type="tel" id="phone" name="phone"-->
 
-                 <!-- AGREGADO: value con datos de sesión -->
-                 <input type="tel" id="phone" name="phone" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['phone'])) ? htmlspecialchars($_SESSION['form_data']['phone']) : ''; ?>" placeholder="Ej: 6641234567" pattern="[0-9]*" inputmode="numeric">
-                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                    Solo números, exactamente 10 dígitos (sin letras, espacios o signos)
-                </small>
-            </div>
+    <div class="form-group">
+        <label for="phone">Teléfono (Opcional):</label>
+        <input type="tel" id="phone" name="phone"
+            value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['phone'])) ? htmlspecialchars($_SESSION['form_data']['phone']) : ''; ?>"
+            placeholder="Ej: 6641234567"
+            pattern="^[0-9]{10}$"
+            inputmode="numeric"
+            title="Solo números, exactamente 10 dígitos"
+            onfocus="showHint('phone-hint')" onblur="hideHint('phone-hint')"
+            <?php if (isset($_SESSION['error_fields']) && in_array('phone', $_SESSION['error_fields'])) 
+                    echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
+        <small id="phone-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
+            Solo números, exactamente 10 dígitos (sin letras, espacios o signos)
+        </small>
+    </div>
+
 
             <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;">
 
 
-            <div class="form-group">
-                <label for="username">Nombre de Usuario:</label>
-                <!--input type="text" id="username" name="username" required-->
+<div class="form-group">
+    <label for="username">Nombre de Usuario:</label>
+    <input type="text" id="username" name="username" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['username'])) ? htmlspecialchars($_SESSION['form_data']['username']) : ''; ?>" required pattern="^\S+$" title="No se permiten espacios" 
+           onfocus="showHint('username-hint')" onblur="hideHint('username-hint')"
+           <?php if (isset($_SESSION['error_fields']) && in_array('username', $_SESSION['error_fields'])) echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
+    <small id="username-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
+        Elige un nombre único (puede contener letras, números, guiones y puntos)
+    </small>
+</div>
 
-                   <!--AGREGADO: value con datos de sesión -->
-                <input type="text" id="username" name="username" value="<?php echo (isset($_SESSION['validation_in_progress']) && isset($_SESSION['form_data']['username'])) ? htmlspecialchars($_SESSION['form_data']['username']) : ''; ?>" required>            </div>
 
-            <div class="form-group">
-        <label for="password">Contraseña:</label>
-        
-        <div class="password-wrapper">
-            <input type="password" id="password" name="password" required onkeyup="checkPassword()" onfocus="showRequirements()" onblur="hideRequirements()">
-            <span class="toggle-password" onclick="togglePasswordIcon('password')">&#128065;</span> 
-        </div>
-        <ul id="password-requirements" style="list-style-type: none; padding-left: 10px; margin-top: 5px; font-size: 13px; display: none;">
-            <li id="req-length" style="color: red;">✖ Mínimo 8 caracteres</li>
-            <li id="req-upper" style="color: red;">✖ Al menos una mayúscula (A-Z)</li>
-            <li id="req-number" style="color: red;">✖ Al menos un número (0-9)</li>
-            <li id="req-symbol" style="color: red;">✖ Al menos un símbolo o carácter especial</li>
-        </ul>
-
-       
-    </div>
-        <div class="form-group">
-            <label for="confirm_password">Confirmar Contraseña:</label>
-            
-            <div class="password-wrapper">
-                <input type="password" id="confirm_password" name="confirm_password" required>
-                <span class="toggle-password" onclick="togglePasswordIcon('confirm_password')">&#128065;</span> 
+ <div class="form-group">
+                <label for="password">Contraseña:</label>
+                <div class="password-wrapper">
+                    <input type="password" id="password" name="password" required onkeyup="checkPassword()" onfocus="showRequirements()" onblur="hideRequirements()" pattern="^\S+$" title="No se permiten espacios" 
+                           <?php if (isset($_SESSION['error_fields']) && in_array('password', $_SESSION['error_fields'])) echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
+                    <span class="toggle-password" onclick="togglePasswordIcon('password')">
+                        <i class="fa-solid fa-eye"></i>
+                    </span>
+                </div>
+                <ul id="password-requirements" style="list-style-type: none; padding-left: 10px; margin-top: 5px; font-size: 13px; display: none;">
+                    <li id="req-length" style="color: red;">✖ Mínimo 8 caracteres</li>
+                    <li id="req-upper" style="color: red;">✖ Al menos una mayúscula (A-Z)</li>
+                    <li id="req-number" style="color: red;">✖ Al menos un número (0-9)</li>
+                    <li id="req-symbol" style="color: red;">✖ Al menos un símbolo o carácter especial</li>
+                </ul>
             </div>
+
+
+            <div class="form-group">
+                <label for="confirm_password">Confirmar Contraseña:</label>
+                <div class="password-wrapper">
+                    <input type="password" id="confirm_password" name="confirm_password" required pattern="^\S+$" title="No se permiten espacios" 
+                           onfocus="showHint('confirm-hint')" onblur="hideHint('confirm-hint')"
+                           onkeyup="checkPasswordMatch()"
+                           <?php if (isset($_SESSION['error_fields']) && in_array('confirm_password', $_SESSION['error_fields'])) echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
+                    <span class="toggle-password" onclick="togglePasswordIcon('confirm_password')">
+                        <i class="fa-solid fa-eye"></i>
+                    </span>
+                </div>
+                <small id="confirm-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
+                    Debe ser exactamente igual a la contraseña que escribiste arriba
+                </small>
+                <!-- Mensaje de coincidencia -->
+                <small id="password-match-error" style="color: red; font-size: 12px; display: none; margin-top: 5px;">
+                    ❌ Las contraseñas no coinciden
+                </small>
+                <small id="password-match-success" style="color: green; font-size: 12px; display: none; margin-top: 5px;">
+                    ✅ Las contraseñas coinciden
+                </small>
             </div>
+
 
             <button type="submit" class="boton">Registrar Cuenta</button>
         </form>
+
 
         <p style="text-align: center; margin-top: 20px;">
             ¿Ya tienes cuenta? <a href="StudentLogin.php">Inicia Sesión aquí</a>
         </p>
     </div>
+
 
     <script>
     function checkPassword() {
@@ -348,7 +447,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         const upperMet = /[A-Z]/.test(password);
         const numberMet = /[0-9]/.test(password);
         // Símbolo: Cualquier cosa que NO sea letra, número o espacio
-        const symbolMet = /[^a-zA-Z0-9\s]/.test(password); 
+        const symbolMet = /[^a-zA-Z0-9\s]/.test(password);
         // 2. Actualizar el estado visual de cada requisito
         updateRequirement('req-length', lengthMet);
         updateRequirement('req-upper', upperMet);
@@ -356,26 +455,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         updateRequirement('req-symbol', symbolMet);
     }
 
+
     function updateRequirement(id, isMet) {
         const element = document.getElementById(id);
         if (element) { // Comprobación de seguridad
             if (isMet) {
                 // Requisito cumplido: Poner marca de verificación y color verde
-                element.innerHTML = '✔' + element.innerHTML.substring(1); 
+                element.innerHTML = '✔' + element.innerHTML.substring(1);
                 element.style.color = 'green';
             } else {
                 // Requisito fallido: Poner cruz y color rojo
-                element.innerHTML = '✖' + element.innerHTML.substring(1); 
+                element.innerHTML = '✖' + element.innerHTML.substring(1);
                 element.style.color = 'red';
             }
         }
     }
 
+
     function showRequirements() {
         // Muestra la lista de requisitos al hacer focus
         document.getElementById('password-requirements').style.display = 'block';
-        checkPassword(); 
+        checkPassword();
     }
+
 
     function hideRequirements() {
         const password = document.getElementById('password').value;
@@ -384,33 +486,85 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             document.getElementById('password-requirements').style.display = 'none';
         }
     }
-        function togglePasswordIcon(id) {
-            const passwordInput = document.getElementById(id);
-            
-            // VERSIÓN ROBUSTA: Busca el ícono dentro del div padre, ignorando espacios en blanco.
-            const passwordWrapper = passwordInput.parentElement;
-            const toggleIcon = passwordWrapper.querySelector('.toggle-password'); // Busca por clase
-            
-            if (!toggleIcon) {
-                return; 
-            }
+function togglePasswordIcon(id) {
+    const input = document.getElementById(id);
+    const iconSpan = input.nextElementSibling;
 
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                toggleIcon.innerHTML = '&#128064;'; // Ojo cerrado (👁️‍🗨️)
-                toggleIcon.classList.add('closed');
-            } else {
-                passwordInput.type = 'password';
-                toggleIcon.innerHTML = '&#128065;'; // Ojo abierto (👁️)
-                toggleIcon.classList.remove('closed');
-            }
-        }
+
+    if (input.type === "password") {
+        input.type = "text";
+        iconSpan.innerHTML = '<i class="fa-solid fa-eye-slash"></i>';
+    } else {
+        input.type = "password";
+        iconSpan.innerHTML = '<i class="fa-solid fa-eye"></i>';
+    }
+}
+
+
+
+
     // Lógica para asegurar que la lista se muestre si hay datos  por error de PHP
     const initialPassword = document.getElementById('password').value;
     if (initialPassword.length > 0) {
         showRequirements();
     }
+
+
+    // Agrega estas funciones al final de tu bloque <script>
+
+
+function showHint(id) {
+    // Muestra el elemento de ayuda por su ID
+    const hintElement = document.getElementById(id);
+    if (hintElement) {
+        hintElement.style.display = 'block';
+    }
+}
+
+
+function hideHint(id) {
+    // Oculta el elemento de ayuda por su ID
+    const hintElement = document.getElementById(id);
+    if (hintElement) {
+        // En este caso, lo ocultamos inmediatamente al salir (a diferencia de la contraseña)
+        hintElement.style.display = 'none';
+    }
+}
+
+
+// Función para verificar si las contraseñas coinciden
+function checkPasswordMatch() {
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
+    const errorElement = document.getElementById('password-match-error');
+    const successElement = document.getElementById('password-match-success');
+   
+    if (password.length > 0 && confirmPassword.length > 0) {
+        if (password === confirmPassword) {
+            errorElement.style.display = 'none';
+            successElement.style.display = 'block';
+        } else {
+            errorElement.style.display = 'block';
+            successElement.style.display = 'none';
+        }
+    } else {
+        errorElement.style.display = 'none';
+        successElement.style.display = 'none';
+    }
+}
+
+
+// También verificar cuando se escribe en la contraseña principal
+document.getElementById('password').addEventListener('keyup', checkPasswordMatch);
+
+
+
+
+
+
     </script>
+
+
 
 
 </body>
@@ -418,3 +572,4 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <?php
 unset($_SESSION['validation_in_progress']); //bandera conservar datos en validaciones
 ?>
+
