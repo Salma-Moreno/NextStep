@@ -1,7 +1,7 @@
 <?php
 session_start();
 
-// 1. Guardián de seguridad
+// Verificar sesión
 if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Student') {
     header('Location: StudentLogin.php');
     exit;
@@ -9,148 +9,144 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Student') {
 
 include '../Conexiones/db.php';
 
-$puntos_recogida = [];
+// Obtener todos los puntos con coordenadas válidas
+$query = "SELECT ID_Point, Name, address, Phone_number, latitude, longitude 
+          FROM collection_point
+          WHERE latitude IS NOT NULL AND longitude IS NOT NULL";
+$result = mysqli_query($conn, $query);
 
-if (isset($conn)) {
-    // 2. Consulta SQL
-    $sql = "SELECT 
-                cp.ID_Point, 
-                cp.Name, 
-                cp.address, 
-                cp.latitud, 
-                cp.longitud,
-                GROUP_CONCAT(DISTINCT s.Name SEPARATOR ', ') AS MaterialesAceptados
-            FROM collection_point cp
-            LEFT JOIN company c ON cp.FK_ID_Company = c.ID_Company
-            LEFT JOIN donation d ON c.ID_Company = d.FK_ID_Company
-            LEFT JOIN supplies s ON d.FK_ID_Supply = s.ID_Supply
-            GROUP BY cp.ID_Point";
-
-    $result = $conn->query($sql);
-
-    if ($result && $result->num_rows > 0) {
-        while($row = $result->fetch_assoc()) {
-            $puntos_recogida[] = $row;
-        }
-    }
+// Convertir a array para usar en JS
+$points = [];
+while ($row = mysqli_fetch_assoc($result)) {
+    $points[] = $row;
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Entregas - Estudiante</title>
-    
-    <link rel="stylesheet" href="../assets/mapa.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    
-    <style>
-        #mapa { 
-            width: 100%; 
-            height: 400px; 
-            border-radius: 12px; 
-            margin-bottom: 25px; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15); 
-        }
-        
-        .branch-card { 
-            border: 1px solid #e0e0e0; 
-            padding: 20px; 
-            margin-bottom: 15px; 
-            border-radius: 10px; 
-            background: #fff; 
-            border-left: 5px solid #3498db; 
-            transition: transform 0.2s;
-        }
-        
-        .branch-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        .branch-card h4 { margin-top: 0; color: #2c3e50; font-size: 1.4rem; margin-bottom: 10px; }
-        .info-label { color: #555; font-weight: 600; }
-        .lista-materiales { color: #d35400; font-weight: bold; }
+    <title>Puntos de Entrega - Estudiante</title>
+    <link rel="stylesheet" href="../assets/Student/Maps.css">
 
-        /* Estilo modificado para que el enlace parezca botón */
-        .btn-select {
-            display: inline-block; /* Importante para que tome ancho/alto */
-            background-color: #3498db; 
-            color: white; 
-            text-decoration: none; /* Quita el subrayado del link */
-            padding: 10px 20px;
-            border-radius: 5px; 
-            margin-top: 15px;
-            font-weight: bold;
-            transition: background 0.3s;
-            text-align: center;
-        }
-        
-        .btn-select:hover { background-color: #2980b9; }
-    </style>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
 </head>
 <body>
 
-    <?php include '../Includes/HeaderMenuE.php'; ?>
+<?php include '../Includes/HeaderMenuE.php'; ?>
 
-    <div class="container">
-        <h2>Puntos de Entrega Cercanos</h2>
-        <div id="mapa"></div>
+<div class="container">
 
-        <h3 class="list-title">Sucursales y Materiales Aceptados</h3>
-        
-        <div class="branches">
-            <?php foreach ($puntos_recogida as $punto): ?>
-                <div class="branch-card">
-                    <h4><?php echo htmlspecialchars($punto['Name']); ?></h4>
-                    
-                    <p>
-                        <span class="info-label">Se recibe:</span> 
-                        <span class="lista-materiales">
-                            <?php 
-                            if (!empty($punto['MaterialesAceptados'])) {
-                                echo htmlspecialchars($punto['MaterialesAceptados']); 
-                            } else {
-                                echo "Material escolar general";
-                            }
-                            ?>
-                        </span>
-                    </p>
+    <h2>Puntos de Entrega Cercanos</h2>
+    <p class="subtitle">Selecciona un punto de entrega cercano según tu ubicación.</p>
 
-                    <p><span class="info-label">Dirección:</span> <?php echo htmlspecialchars($punto['address']); ?></p>
-                    
-                    <a href="application.php?punto_id=<?php echo $punto['ID_Point']; ?>" class="btn-select">
-                        Solicitar
-                    </a>
+    <!-- MAPA -->
+    <div id="map"></div>
 
-                </div>
-            <?php endforeach; ?>
-        </div>
-    </div>
+    <h3>Sucursales disponibles</h3>
+    <div id="branches"></div>
 
-    <script>
-        const map = L.map('mapa').setView([19.4326, -99.1332], 10);
+</div>
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-        const sucursales = <?php echo json_encode($puntos_recogida); ?>;
+<!-- OpenRouteService (distancias/rutas) -->
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 
-        sucursales.forEach(punto => {
-            if(punto.latitud && punto.longitud) {
-                let materiales = punto.MaterialesAceptados ? punto.MaterialesAceptados : "Material general";
-                
-                L.marker([punto.latitud, punto.longitud])
-                    .addTo(map)
-                    .bindPopup(`
-                        <div style="text-align:center;">
-                            <b>${punto.Name}</b><br>
-                            <span style="color:#d35400; font-size:0.9em;">${materiales}</span><br>
-                            <a href="application.php?punto_id=${punto.ID_Point}" style="color:#3498db; text-decoration:none; font-weight:bold;">Ir a Solicitar</a>
-                        </div>
-                    `);
+<script>
+const ORS_API_KEY = "AQUI_TU_API_KEY";
+
+// Datos obtenidos desde PHP
+const points = <?php echo json_encode($points); ?>;
+
+let map = L.map('map').setView([19.4326, -99.1332], 12); // CDMX por defecto
+
+// Capa del mapa (OpenStreetMap gratuito)
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: 'Mapa por OpenStreetMap'
+}).addTo(map);
+
+let userMarker = null;
+let markers = [];
+
+// Obtener la ubicación del estudiante
+if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(position => {
+        let lat = position.coords.latitude;
+        let lng = position.coords.longitude;
+
+        map.setView([lat, lng], 14);
+
+        // Agregar marcador del usuario
+        userMarker = L.marker([lat, lng], { title: "Tu ubicación" }).addTo(map);
+
+        // Mostrar puntos y calcular distancias
+        renderPoints(lat, lng);
+    });
+} else {
+    alert("Tu navegador no permite obtener la ubicación.");
+    renderPoints(null, null);
+}
+
+function renderPoints(userLat, userLng) {
+    const container = document.getElementById("branches");
+    container.innerHTML = "";
+
+    points.forEach(async p => {
+        // Agregar marcador al mapa
+        let marker = L.marker([p.latitude, p.longitude]).addTo(map);
+        markers.push(marker);
+
+        let distanceText = "Ubicación no disponible";
+
+        if (userLat !== null) {
+            let dist = await getDistance(userLat, userLng, p.latitude, p.longitude);
+            distanceText = (dist / 1000).toFixed(2) + " km";
+        }
+
+        // Agregar card HTML
+        container.innerHTML += `
+            <div class="branch-card">
+                <h4>${p.Name}</h4>
+                <p><strong>Dirección:</strong> ${p.address}</p>
+                <p><strong>Teléfono:</strong> ${p.Phone_number}</p>
+                <p class="distance"><strong>Distancia:</strong> ${distanceText}</p>
+                <button class="btn-select">Seleccionar</button>
+            </div>
+        `;
+    });
+}
+
+// Función para obtener distancia con OpenRouteService
+async function getDistance(lat1, lng1, lat2, lng2) {
+    try {
+        let response = await axios.post(
+            "https://api.openrouteservice.org/v2/matrix/driving-car",
+            {
+                locations: [
+                    [lng1, lat1], // usuario
+                    [lng2, lat2]  // sucursal
+                ]
+            },
+            {
+                headers: {
+                    "Authorization": ORS_API_KEY,
+                    "Content-Type": "application/json"
+                }
             }
-        });
-    </script>
+        );
+
+        return response.data.distances[0][1]; // distancia en metros
+
+    } catch (err) {
+        console.error("Error ORS:", err);
+        return null;
+    }
+}
+</script>
+
 </body>
 </html>
