@@ -84,11 +84,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $telefono  = trim($_POST['telefono']  ?? '');
     $correo    = trim($_POST['correo']    ?? '');
 
-    // URL foto
-    $foto_url  = trim($_POST['foto_url']  ?? '');
-    if ($foto_url === '') {
-        $foto_url = null;
+    // ========== FOTO DE PERFIL ==========
+// Primero tomamos lo que esté en el input de texto
+$foto_url  = trim($_POST['foto_url']  ?? '');
+
+// Si se subió un archivo, le damos prioridad
+if (isset($_FILES['profile_file']) && $_FILES['profile_file']['error'] === UPLOAD_ERR_OK) {
+    $uploadDir = '../assets/uploads/';
+
+    // Crear carpeta si no existe
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0777, true);
     }
+
+    $tmpName      = $_FILES['profile_file']['tmp_name'];
+    $originalName = basename($_FILES['profile_file']['name']);
+    $ext          = pathinfo($originalName, PATHINFO_EXTENSION);
+
+    // Nombre seguro/único
+    $safeName = uniqid('profile_') . '.' . $ext;
+    $destPath = $uploadDir . $safeName;
+
+    if (move_uploaded_file($tmpName, $destPath)) {
+        // Guardamos la ruta relativa que usará el <img src="...">
+        // (por ejemplo "../assets/uploads/profile_xxx.png")
+        $foto_url = $destPath;
+    }
+}
+
+// Si sigue vacío, lo dejamos como null
+if ($foto_url === '') {
+    $foto_url = null;
+}
 
     // --- Datos académicos ---
     $fecha_nacimiento = $_POST['fecha_nacimiento'] ?? null;
@@ -295,7 +322,7 @@ $foto_perfil = !empty($alumno['Profile_Image'])
 
 <!-- === CONTENIDO PRINCIPAL === -->
 <div class="container">
-    <form method="post" action="">
+    <form method="post" action="" enctype="multipart/form-data">
         <div class="page-layout">
 
             <!-- Columna izquierda -->
@@ -303,7 +330,13 @@ $foto_perfil = !empty($alumno['Profile_Image'])
                 <div class="ns-card ns-card-profile">
                     <div class="profile-section">
                         <img src="<?php echo $foto_perfil; ?>" alt="Foto del estudiante" class="profile-pic">
-                        <button type="button" class="change-photo-btn" onclick="document.getElementById('foto_url').focus();">
+                        <!-- input file oculto -->
+                         <input type="file"
+                         id="profile_file"
+                         name="profile_file"
+                         accept="image/*"
+                         style="display:none">
+                         <button type="button" class="change-photo-btn" id="changePhotoBtn">
                             Cambiar foto
                         </button>
                     </div>
@@ -343,11 +376,11 @@ $foto_perfil = !empty($alumno['Profile_Image'])
                             <div class="form-group">
                                 <label>URL de la foto de perfil:</label>
                                 <input
-                                    type="url"
+                                    type="text"
                                     id="foto_url"
                                     name="foto_url"
                                     value="<?php echo e($alumno, 'Profile_Image'); ?>"
-                                    placeholder="https://ejemplo.com/mi-foto.jpg"
+                                    placeholder="Nombre de la imagen o URL"
                                 >
                                 <small>Usa un enlace directo a una imagen (JPG, PNG, etc.).</small>
                             </div>
@@ -459,6 +492,38 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }, 2500);
     }
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const changeBtn   = document.getElementById('changePhotoBtn');
+    const fileInput   = document.getElementById('profile_file');
+    const fotoUrlInput = document.getElementById('foto_url');
+    const previewImg  = document.querySelector('.profile-pic');
+
+    if (!changeBtn || !fileInput || !fotoUrlInput || !previewImg) return;
+
+    // Al hacer clic en "Cambiar foto" abrimos el explorador
+    changeBtn.addEventListener('click', function () {
+        fileInput.click();
+    });
+
+    // Cuando el usuario selecciona un archivo
+    fileInput.addEventListener('change', function () {
+        if (fileInput.files && fileInput.files[0]) {
+            const file = fileInput.files[0];
+
+            // 1) Mostrar el nombre del archivo en el campo URL de la foto de perfil
+            fotoUrlInput.value = file.name;
+
+            // 2) Mostrar una previsualización de la imagen elegida
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                previewImg.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
 });
 </script>
 </body>
