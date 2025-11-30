@@ -139,7 +139,7 @@ body {
     margin-bottom: 22px;
     font-size: 1.8rem;
     font-weight: 700;
-    /* 🔸 OJO: aquí ya NO ponemos text-align para no pelear con .main-title */
+    /* OJO: aquí ya NO ponemos text-align para no pelear con .main-title */
 }
 
 /* Grid de 3 columnas para datos est. / académicos / tutor */
@@ -241,6 +241,11 @@ body {
     text-align: center;
     font-weight: 600;
     color: #071529;
+}
+/* Modal de error (mismo estilo pero con acento rojo) */
+.ns-modal-content.ns-modal-error {
+    border-top: 4px solid #e11d48;   /* rojo */
+    color: #991b1b;
 }
 
 /* ========== RESPONSIVE ========== */

@@ -74,60 +74,63 @@ if ($student_id) {
     <?php include '../Includes/HeaderMenuE.php'; ?>
 
     <div class="container">
-        <h2>Historial de Solicitudes de Beca</h2>
-        <p class="subtitle">Consulta tus solicitudes anteriores y su estatus.</p>
+    <h2>Historial de Solicitudes de Beca</h2>
+    <p class="subtitle">Consulta tus solicitudes anteriores y su estatus.</p>
 
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID Solicitud</th>
+                <th>Fecha de Solicitud</th>
+                <th>Tipo de Beca</th>
+                <th>Periodo</th>
+                <th>Estatus</th>
+            </tr>
+        </thead>
+        <tbody>
         <?php if (empty($historial)): ?>
-            <p>No tienes solicitudes registradas todavía.</p>
+            <tr>
+                <td colspan="5" style="text-align:center;">
+                    No tienes solicitudes registradas todavía.
+                </td>
+            </tr>
         <?php else: ?>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>ID Solicitud</th>
-                        <th>Fecha de Solicitud</th>
-                        <th>Tipo de Beca</th>
-                        <th>Periodo</th>
-                        <th>Estatus</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($historial as $fila): ?>
-                        <?php
-                            // Clase CSS según el estatus
-                            $statusText = $fila['Estatus'];
-                            $statusClass = '';
+            <?php foreach ($historial as $fila): ?>
+                <?php
+                    // Clase CSS según el estatus
+                    $statusText = $fila['Estatus'];
+                    $statusClass = '';
 
-                            switch ($statusText) {
-                                case 'Aprobada':
-                                    $statusClass = 'approved';
-                                    break;
-                                case 'Rechazada':
-                                case 'Cancelada':
-                                    $statusClass = 'rejected';
-                                    break;
-                                case 'Enviada':
-                                case 'En revisión':
-                                default:
-                                    $statusClass = 'pending';
-                                    break;
-                            }
-                        ?>
-                        <tr>
-                            <td><?= htmlspecialchars($fila['ID_Solicitud']) ?></td>
-                            <td><?= htmlspecialchars($fila['FechaSolicitud']) ?></td>
-                            <td><?= htmlspecialchars($fila['TipoBeca']) ?></td>
-                            <td><?= htmlspecialchars($fila['Periodo']) ?></td>
-                            <td>
-                                <span class="status <?= $statusClass ?>">
-                                    <?= htmlspecialchars($statusText) ?>
-                                </span>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                    switch ($statusText) {
+                        case 'Aprobada':
+                            $statusClass = 'approved';
+                            break;
+                        case 'Rechazada':
+                        case 'Cancelada':
+                            $statusClass = 'rejected';
+                            break;
+                        case 'Enviada':
+                        case 'En revisión':
+                        default:
+                            $statusClass = 'pending';
+                            break;
+                    }
+                ?>
+                <tr>
+                    <td><?= htmlspecialchars($fila['ID_Solicitud']) ?></td>
+                    <td><?= htmlspecialchars($fila['FechaSolicitud']) ?></td>
+                    <td><?= htmlspecialchars($fila['TipoBeca']) ?></td>
+                    <td><?= htmlspecialchars($fila['Periodo']) ?></td>
+                    <td>
+                        <span class="status <?= $statusClass ?>">
+                            <?= htmlspecialchars($statusText) ?>
+                        </span>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
         <?php endif; ?>
-    </div>
-
+        </tbody>
+    </table>
+</div>
 </body>
 </html>

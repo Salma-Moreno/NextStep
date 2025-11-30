@@ -41,20 +41,24 @@ if ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-/* ======== 2. Verificar si el estudiante ya tiene una solicitud activa ========= */
+/* ======== 2. Verificar si el estudiante ya tiene una solicitud ACTIVA y de un kit vigente ========= */
 $tieneSolicitudActiva = false;
 $solicitud_activa = null;
 
 if ($student_id) {
-    $sql = "SELECT ID_status, FK_ID_Kit, status
-            FROM aplication
-            WHERE FK_ID_Student = ?
-              AND status <> 'Cancelada'
+    $sql = "SELECT a.ID_status, a.FK_ID_Kit, a.status
+            FROM aplication a
+            INNER JOIN kit k ON a.FK_ID_Kit = k.ID_Kit
+            WHERE a.FK_ID_Student = ?
+              AND a.status <> 'Cancelada'
+              AND k.Start_date <= CURDATE()
+              AND k.End_date   >= CURDATE()
             LIMIT 1";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $student_id);
     $stmt->execute();
     $res = $stmt->get_result();
+
     if ($fila = $res->fetch_assoc()) {
         $tieneSolicitudActiva = true;
         $solicitud_activa = $fila;
