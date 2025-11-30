@@ -106,17 +106,17 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
     }
 
     /* --------- Insertar solicitud en la tabla aplication ------- */
-    $sql_insert = "INSERT INTO aplication 
-                    (ID_status, FK_ID_Student, FK_ID_Kit, status)
-                   VALUES (?, ?, ?, ?)";
-    $stmt_insert = $conn->prepare($sql_insert);
-    $stmt_insert->bind_param(
-        "iiis",
-        $next_id_status,
-        $student_id,
-        $kit_id,
-        $initial_status
-    );
+$sql_insert = "INSERT INTO aplication 
+                    (ID_status, FK_ID_Student, FK_ID_Kit, status, Application_date)
+               VALUES (?, ?, ?, ?, NOW())";
+$stmt_insert = $conn->prepare($sql_insert);
+$stmt_insert->bind_param(
+    "iiis",
+    $next_id_status,
+    $student_id,
+    $kit_id,
+    $initial_status
+);
 
     if ($stmt_insert->execute()) {
         header('Location: application.php');
@@ -139,39 +139,51 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
 
 <div class="container">
     
-    <h1>Solicitud de Beca</h1>
+    <!-- ========= CARD SUPERIOR: TITULO Y DESCRIPCION GENERAL ========= -->
+    <div class="scholarship-header-card">
+        <h1>Solicitud de Beca</h1>
+
+        <?php if ($tieneDatosPersonales): ?>
+            <h2>Selecciona una de las becas disponibles para ti:</h2>
+        <?php else: ?>
+            <!-- Mensaje cuando el estudiante no tiene perfil completo -->
+            <h2>Información del Estudiante</h2>
+            <p class="warning">
+                No hemos encontrado tu información personal.<br>
+                Debes completar tu perfil para aplicar a una beca.
+            </p>
+            <a href="perfil.php" class="btn">Ir a mi perfil</a>
+        <?php endif; ?>
+    </div>
 
     <?php if ($tieneDatosPersonales): ?>
-    <!-- ========= BECA DISPONIBLE — EL ESTUDIANTE YA TIENE PERFIL COMPLETO ======== -->
-    <div class="scholarship-section">
-        <h2>Becas Disponibles</h2>
-        <p>Selecciona una de las becas disponibles para ti:</p>
+    <!-- ========= SECCION INFERIOR: CARDS DE BECAS ========= -->
 
         <div class="scholarship-list">
             <?php
             // Traer kits activos (becas disponibles)
             // La tabla kit no tiene Name ni Description, así que los creamos con alias
             $sql = "
-    SELECT 
-        k.ID_Kit,
-        CONCAT('Kit ', s.Period, ' ', s.Year) AS Name,
-        CONCAT(
-            'Material escolar para el periodo ',
-            s.Period,
-            ' ',
-            s.Year
-        ) AS ShortDescription,
-        CONCAT(
-            'Vigente del ',
-            DATE_FORMAT(k.Start_date, '%d/%m/%Y'),
-            ' al ',
-            DATE_FORMAT(k.End_date, '%d/%m/%Y')
-        ) AS LongDescription
-    FROM kit k
-    INNER JOIN semester s ON k.FK_ID_Semester = s.ID_Semester
-    WHERE k.Start_date <= CURDATE()
-      AND k.End_date   >= CURDATE()
-";  
+                SELECT 
+                    k.ID_Kit,
+                    CONCAT('Kit ', s.Period, ' ', s.Year) AS Name,
+                    CONCAT(
+                        'Material escolar para el periodo ',
+                        s.Period,
+                        ' ',
+                        s.Year
+                    ) AS ShortDescription,
+                    CONCAT(
+                        'Vigente del ',
+                        DATE_FORMAT(k.Start_date, '%d/%m/%Y'),
+                        ' al ',
+                        DATE_FORMAT(k.End_date, '%d/%m/%Y')
+                    ) AS LongDescription
+                FROM kit k
+                INNER JOIN semester s ON k.FK_ID_Semester = s.ID_Semester
+                WHERE k.Start_date <= CURDATE()
+                  AND k.End_date   >= CURDATE()
+            ";
             $result = $conn->query($sql);
 
             if ($result && $result->num_rows > 0):
@@ -179,7 +191,7 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
                     $kitId = (int)$row['ID_Kit'];
                     $esKitSolicitado = $tieneSolicitudActiva && $solicitud_activa && ((int)$solicitud_activa['FK_ID_Kit'] === $kitId);
             ?>
-            <!-- TARJETA DE BECA -->
+            <!-- Card de beca individual -->
             <div class="scholarship-card">
                 <div class="card-image"></div>
                 <div class="card-body">
@@ -222,21 +234,8 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
             endif;
             ?>
         </div>
-    </div>
-
-    <?php else: ?>
-    <!-- ====== NO TIENE PERFIL — MOSTRAR MENSAJE Y OBLIGAR A COMPLETARLO ====== -->
-    <div class="no-data-section">
-        <h2>Información del Estudiante</h2>
-        <p class="warning">
-            No hemos encontrado tu información personal.<br>
-            Debes completar tu perfil para aplicar a una beca.
-        </p>
-        <a href="perfil.php" class="btn">Ir a mi perfil</a>
-    </div>
     <?php endif; ?>
 
-</div>
-
+</div> <!-- fin .container -->
 </body>
 </html>
