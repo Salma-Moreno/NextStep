@@ -1,34 +1,28 @@
 <?php
 session_start();
 
-// Guardián: Si no hay sesión o el rol no es 'Student', expulsar al login
+// Guardián
 if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Student') {
     header('Location: StudentLogin.php');
     exit;
 }
 
-// Conexion a la base de datos
 include '../Conexiones/db.php';
-
-// Usamos $conexion como alias de $conn (sin cambiar tus variables originales)
 $conexion = $conn;
-
-// ID del usuario logueado
 $usuario_id = $_SESSION['usuario_id'];
 
-// Arrays para rellenar el formulario
 $alumno    = [];
 $detalles  = [];
 $tutor     = [];
 $direccion = [];
 $id_estudiante = null;
 
-// --- Función helper para imprimir valores de forma segura ----
+// helper
 function e($array, $key) {
     return htmlspecialchars($array[$key] ?? '', ENT_QUOTES, 'UTF-8');
 }
 
-// =============== OBTENER ID DEL ESTUDIANTE ===============
+/* ================= OBTENER ESTUDIANTE ================= */
 $sql = "SELECT * FROM student WHERE FK_ID_User = ? LIMIT 1";
 $stmt = $conexion->prepare($sql);
 $stmt->bind_param("i", $usuario_id);
@@ -40,7 +34,7 @@ if ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-// =============== SI YA EXISTE ESTUDIANTE, CARGAR DETALLES ===============
+/* ================= CARGAR DETALLES EXISTENTES ================= */
 if ($id_estudiante) {
     // student_details
     $sql = "SELECT * FROM student_details WHERE FK_ID_Student = ? LIMIT 1";
@@ -76,11 +70,12 @@ if ($id_estudiante) {
     $stmt->close();
 }
 
-// =============== PROCESAR FORMULARIO ===============
-$mensaje_ok = '';
-$mensaje_error = '';
-$mostrar_modal = false; // <-- NUEVO
+/* ================= MENSAJES / MODAL ================= */
+$mostrar_modal   = false;
+$mensaje_modal   = '';
+$tipo_modal      = ''; // 'success' o 'error'
 
+/* ================= PROCESAR FORMULARIO (POST) ================= */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // --- Datos del estudiante ---
@@ -89,10 +84,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $telefono  = trim($_POST['telefono']  ?? '');
     $correo    = trim($_POST['correo']    ?? '');
 
-    // URL de la foto de perfil
+    // URL foto
     $foto_url  = trim($_POST['foto_url']  ?? '');
     if ($foto_url === '') {
-        $foto_url = null; // permite dejarla vacía
+        $foto_url = null;
     }
 
     // --- Datos académicos ---
@@ -110,18 +105,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tutor_telefono  = trim($_POST['tutor_telefono']  ?? '');
     $tutor_direccion = trim($_POST['tutor_direccion'] ?? '');
 
-    // --- Domicilio del estudiante ---
-    $calle        = trim($_POST['calle']        ?? '');
-    $ciudad       = trim($_POST['ciudad']       ?? '');
-    $codigo_postal= trim($_POST['codigo_postal']?? '');
+    // --- Domicilio ---
+    $calle         = trim($_POST['calle']         ?? '');
+    $ciudad        = trim($_POST['ciudad']        ?? '');
+    $codigo_postal = trim($_POST['codigo_postal'] ?? '');
 
-    // Validación sencilla
+    /* ---------- VALIDACIONES ---------- */
+    $errores = [];
+
     if ($nombre === '' || $apellido === '' || $correo === '') {
-        $mensaje_error = "Nombre, apellido y correo son obligatorios.";
+        $errores[] = "Nombre, apellido y correo son obligatorios.";
+    }
+
+    // Sólo letras y espacios para nombre y apellido del alumno
+    if ($nombre !== '' && !preg_match('/^[\p{L}\s]+$/u', $nombre)) {
+        $errores[] = "El nombre del estudiante sólo debe contener letras.";
+    }
+    if ($apellido !== '' && !preg_match('/^[\p{L}\s]+$/u', $apellido)) {
+        $errores[] = "El apellido del estudiante sólo debe contener letras.";
+    }
+
+    // Tutor obligatorio + sólo letras
+    if ($tutor_nombre === '' || !preg_match('/^[\p{L}\s]+$/u', $tutor_nombre)) {
+        $errores[] = "El nombre del tutor es obligatorio y sólo debe contener letras.";
+    }
+    if ($tutor_apellidos === '' || !preg_match('/^[\p{L}\s]+$/u', $tutor_apellidos)) {
+        $errores[] = "Los apellidos del tutor son obligatorios y sólo deben contener letras.";
+    }
+
+    // Si hay errores, mostramos modal de error y NO guardamos
+    if (!empty($errores)) {
+        $tipo_modal    = 'error';
+        // Unimos mensajes con salto de línea HTML
+        $mensaje_modal = implode('<br>', array_map('htmlspecialchars', $errores));
+        $mostrar_modal = true;
     } else {
-        // Empezamos a guardar
+        // Todo OK, guardamos en BD
         try {
-            // ---------- student (insert o update) ----------
+            // student
             if ($id_estudiante) {
                 $sql = "UPDATE student 
                         SET Name = ?, Last_Name = ?, Phone_Number = ?, Email_Address = ?, Profile_Image = ?
@@ -140,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->close();
             }
 
-            // ---------- student_details ----------
+            // student_details
             $id_detalles = null;
             $sql = "SELECT ID_Details FROM student_details WHERE FK_ID_Student = ? LIMIT 1";
             $stmt = $conexion->prepare($sql);
@@ -155,14 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         SET Birthdate = ?, High_school = ?, Grade = ?, License = ?, Average = ?
                         WHERE ID_Details = ?";
                 $stmt = $conexion->prepare($sql);
-                $stmt->bind_param("ssssii",
-                    $fecha_nacimiento,
-                    $preparatoria,
-                    $grado,
-                    $licencia,
-                    $promedio,
-                    $id_detalles
-                );
+                $stmt->bind_param("ssssii", $fecha_nacimiento, $preparatoria, $grado, $licencia, $promedio, $id_detalles);
                 $stmt->execute();
                 $stmt->close();
             } else {
@@ -170,22 +184,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         (FK_ID_Student, Birthdate, High_school, Grade, License, Average)
                         VALUES (?, ?, ?, ?, ?, ?)";
                 $stmt = $conexion->prepare($sql);
-                $stmt->bind_param("issssi",
-                    $id_estudiante,
-                    $fecha_nacimiento,
-                    $preparatoria,
-                    $grado,
-                    $licencia,
-                    $promedio
-                );
+                $stmt->bind_param("issssi", $id_estudiante, $fecha_nacimiento, $preparatoria, $grado, $licencia, $promedio);
                 $stmt->execute();
                 $stmt->close();
             }
 
-            // ---------- tutor_data ----------
-            // Asegúrate de tener en la tabla dependency un registro con ID_Dependency = 1
+            // tutor_data
             $fk_dependency = 1;
-
             $id_tutor = null;
             $sql = "SELECT ID_Data FROM tutor_data WHERE FK_ID_Student = ? LIMIT 1";
             $stmt = $conexion->prepare($sql);
@@ -200,13 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         SET Tutor_name = ?, Tutor_lastname = ?, Phone_Number = ?, Address = ?
                         WHERE ID_Data = ?";
                 $stmt = $conexion->prepare($sql);
-                $stmt->bind_param("ssssi",
-                    $tutor_nombre,
-                    $tutor_apellidos,
-                    $tutor_telefono,
-                    $tutor_direccion,
-                    $id_tutor
-                );
+                $stmt->bind_param("ssssi", $tutor_nombre, $tutor_apellidos, $tutor_telefono, $tutor_direccion, $id_tutor);
                 $stmt->execute();
                 $stmt->close();
             } else {
@@ -214,19 +213,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         (FK_ID_Student, FK_ID_Dependency, Tutor_name, Tutor_lastname, Phone_Number, Address)
                         VALUES (?, ?, ?, ?, ?, ?)";
                 $stmt = $conexion->prepare($sql);
-                $stmt->bind_param("iissss",
-                    $id_estudiante,
-                    $fk_dependency,
-                    $tutor_nombre,
-                    $tutor_apellidos,
-                    $tutor_telefono,
-                    $tutor_direccion
-                );
+                $stmt->bind_param("iissss", $id_estudiante, $fk_dependency, $tutor_nombre, $tutor_apellidos, $tutor_telefono, $tutor_direccion);
                 $stmt->execute();
                 $stmt->close();
             }
 
-            // ---------- address ----------
+            // address
             $id_address = null;
             $sql = "SELECT ID_Address FROM address WHERE FK_ID_Student = ? LIMIT 1";
             $stmt = $conexion->prepare($sql);
@@ -253,74 +245,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->close();
             }
 
-            // Redirigir para evitar reenvío del formulario
+            // Redirect sólo cuando TODO fue bien
             header("Location: " . $_SERVER['PHP_SELF'] . "?guardado=1");
             exit;
 
         } catch (Exception $e) {
-            $mensaje_error = "Error al guardar la información: " . $e->getMessage();
+            $tipo_modal    = 'error';
+            $mensaje_modal = "Error al guardar la información.";
+            $mostrar_modal = true;
         }
     }
 }
 
-// Si venimos de la redirección
-if (isset($_GET['guardado']) && $_GET['guardado'] == '1') {
-    $mensaje_ok = "La información se guardó correctamente.";
-    $mostrar_modal = true; // <-- NUEVO
-
-    // volver a cargar datos (por si cambiaron)
-    if ($id_estudiante) {
-        // student
-        $sql = "SELECT * FROM student WHERE ID_Student = ? LIMIT 1";
-        $stmt = $conexion->prepare($sql);
-        $stmt->bind_param("i", $id_estudiante);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($row = $result->fetch_assoc()) {
-            $alumno = $row;
-        }
-        $stmt->close();
-
-        // detalles
-        $sql = "SELECT * FROM student_details WHERE FK_ID_Student = ? LIMIT 1";
-        $stmt = $conexion->prepare($sql);
-        $stmt->bind_param("i", $id_estudiante);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($row = $result->fetch_assoc()) {
-            $detalles = $row;
-        }
-        $stmt->close();
-
-        // tutor
-        $sql = "SELECT * FROM tutor_data WHERE FK_ID_Student = ? LIMIT 1";
-        $stmt = $conexion->prepare($sql);
-        $stmt->bind_param("i", $id_estudiante);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($row = $result->fetch_assoc()) {
-            $tutor = $row;
-        }
-        $stmt->close();
-
-        // address
-        $sql = "SELECT * FROM address WHERE FK_ID_Student = ? LIMIT 1";
-        $stmt = $conexion->prepare($sql);
-        $stmt->bind_param("i", $id_estudiante);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($row = $result->fetch_assoc()) {
-            $direccion = $row;
-        }
-        $stmt->close();
-    }
+/* ========== MENSAJE DE ÉXITO DESPUÉS DEL REDIRECT (GET) ========== */
+if (
+    $_SERVER['REQUEST_METHOD'] === 'GET' &&
+    isset($_GET['guardado']) &&
+    $_GET['guardado'] == '1'
+) {
+    $tipo_modal    = 'success';
+    $mensaje_modal = 'La información se guardó correctamente.';
+    $mostrar_modal = true;
 }
 
-// URL que se mostrará en la imagen de perfil
+/* ========== FOTO PERFIL ========== */
 $foto_perfil = !empty($alumno['Profile_Image'])
     ? e($alumno, 'Profile_Image')
     : 'https://via.placeholder.com/140?text=Foto+del+estudiante';
-
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -332,194 +283,183 @@ $foto_perfil = !empty($alumno['Profile_Image'])
 </head>
 <body>
 
-    <?php include '../Includes/HeaderMenuE.php'; ?>
+<?php include '../Includes/HeaderMenuE.php'; ?>
 
-    <!-- ===== MODAL DE ÉXITO ===== -->
-<div id="successModal" class="ns-modal <?php echo ($mostrar_modal && $mensaje_ok) ? 'is-visible' : ''; ?>">
+<!-- ===== MODAL ÚNICO (éxito / error) ===== -->
+<div id="nsModal" class="ns-modal <?php echo $mostrar_modal ? 'is-visible' : ''; ?>">
     <div class="ns-modal-backdrop"></div>
-    <div class="ns-modal-content">
-        <p><?php echo htmlspecialchars($mensaje_ok, ENT_QUOTES, 'UTF-8'); ?></p>
+    <div class="ns-modal-content <?php echo $tipo_modal === 'error' ? 'ns-modal-error' : 'ns-modal-success'; ?>">
+        <p><?php echo $mensaje_modal; /* ya viene escapado */ ?></p>
     </div>
 </div>
 
-    <!-- === CONTENIDO PRINCIPAL === -->
-    <div class="container">
+<!-- === CONTENIDO PRINCIPAL === -->
+<div class="container">
+    <form method="post" action="">
+        <div class="page-layout">
 
-        <?php if ($mensaje_error): ?>
-            <div class="alert error"><?php echo $mensaje_error; ?></div>
-        <?php endif; ?>
-        
-        <form method="post" action="">
-
-    <div class="page-layout">
-
-        <!-- COLUMNA IZQUIERDA: CARD DE PERFIL -->
-        <div class="side-column">
-            <div class="ns-card ns-card-profile">
-                <div class="profile-section">
-                    <img src="<?php echo $foto_perfil; ?>" alt="Foto del estudiante" class="profile-pic">
-                    <button type="button" class="change-photo-btn" onclick="document.getElementById('foto_url').focus();">
-                        Cambiar foto
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- COLUMNA DERECHA: CARDS CON LA INFORMACIÓN -->
-        <div class="main-column">
-            <!-- CARD 1: Ficha + datos del estudiante / académicos / tutor -->
-             <div class="ns-card ns-card-section">
-
-                <!-- TÍTULO CENTRADO DENTRO DE LA CARD -->
-                 <h2 class="main-title">Ficha del Estudiante</h2>
-
-                <div class="form-grid">
-                    <!-- Columna 1 - Datos del estudiante -->
-                    <div class="form-section">
-                        <h3>Datos del estudiante</h3>
-
-                        <div class="form-group">
-                            <label>Nombre:</label>
-                            <input type="text" name="nombre" value="<?php echo e($alumno, 'Name'); ?>" placeholder="Nombre">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Apellido:</label>
-                            <input type="text" name="apellido" value="<?php echo e($alumno, 'Last_Name'); ?>" placeholder="Apellido">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Teléfono:</label>
-                            <input type="tel" name="telefono" value="<?php echo e($alumno, 'Phone_Number'); ?>" placeholder="Ej. 5512345678">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Correo electrónico:</label>
-                            <input type="email" name="correo" value="<?php echo e($alumno, 'Email_Address'); ?>" placeholder="correo@ejemplo.com">
-                        </div>
-
-                        <div class="form-group">
-                            <label>URL de la foto de perfil:</label>
-                            <input
-                                type="url"
-                                id="foto_url"
-                                name="foto_url"
-                                value="<?php echo e($alumno, 'Profile_Image'); ?>"
-                                placeholder="https://ejemplo.com/mi-foto.jpg"
-                            >
-                            <small>Usa un enlace directo a una imagen (JPG, PNG, etc.).</small>
-                        </div>
-                    </div>
-
-                    <!-- Columna 2 - Detalles académicos -->
-                    <div class="form-section">
-                        <h3>Detalles académicos</h3>
-
-                        <div class="form-group">
-                            <label>Fecha de nacimiento:</label>
-                            <input type="date" name="fecha_nacimiento" value="<?php echo e($detalles, 'Birthdate'); ?>">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Preparatoria:</label>
-                            <input type="text" name="preparatoria" value="<?php echo e($detalles, 'High_school'); ?>" placeholder="Nombre de la preparatoria">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Grado:</label>
-                            <input type="text" name="grado" value="<?php echo e($detalles, 'Grade'); ?>" placeholder="Ej. 3°">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Licencia:</label>
-                            <input type="text" name="licencia" value="<?php echo e($detalles, 'License'); ?>" placeholder="Ej. B-12345">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Promedio:</label>
-                            <input type="number" name="promedio" value="<?php echo e($detalles, 'Average'); ?>" placeholder="0 - 100" min="0" max="100">
-                        </div>
-                    </div>
-
-                    <!-- Columna 3 - Datos del tutor -->
-                    <div class="form-section">
-                        <h3>Datos del tutor</h3>
-
-                        <div class="form-group">
-                            <label>Nombre:</label>
-                            <input type="text" name="tutor_nombre" value="<?php echo e($tutor, 'Tutor_name'); ?>" placeholder="Nombre del tutor">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Apellidos:</label>
-                            <input type="text" name="tutor_apellidos" value="<?php echo e($tutor, 'Tutor_lastname'); ?>" placeholder="Apellido del tutor">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Teléfono:</label>
-                            <input type="tel" name="tutor_telefono" value="<?php echo e($tutor, 'Phone_Number'); ?>" placeholder="Teléfono del tutor">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Dirección:</label>
-                            <input type="text" name="tutor_direccion" value="<?php echo e($tutor, 'Address'); ?>" placeholder="Domicilio del tutor">
-                        </div>
+            <!-- Columna izquierda -->
+            <div class="side-column">
+                <div class="ns-card ns-card-profile">
+                    <div class="profile-section">
+                        <img src="<?php echo $foto_perfil; ?>" alt="Foto del estudiante" class="profile-pic">
+                        <button type="button" class="change-photo-btn" onclick="document.getElementById('foto_url').focus();">
+                            Cambiar foto
+                        </button>
                     </div>
                 </div>
             </div>
 
-                <!-- CARD 2: Domicilio del estudiante -->
-                 <div class="ns-card ns-card-section ns-address-card">
+            <!-- Columna derecha -->
+            <div class="main-column">
+                <div class="ns-card ns-card-section">
+                    <h2 class="main-title">Ficha del Estudiante</h2>
+
+                    <div class="form-grid">
+                        <!-- Datos estudiante -->
+                        <div class="form-section">
+                            <h3>Datos del estudiante</h3>
+
+                            <div class="form-group">
+                                <label>Nombre:</label>
+                                <input type="text" name="nombre" value="<?php echo e($alumno, 'Name'); ?>" placeholder="Nombre">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Apellido:</label>
+                                <input type="text" name="apellido" value="<?php echo e($alumno, 'Last_Name'); ?>" placeholder="Apellido">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Teléfono:</label>
+                                <input type="tel" name="telefono" value="<?php echo e($alumno, 'Phone_Number'); ?>" placeholder="Ej. 5512345678">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Correo electrónico:</label>
+                                <input type="email" name="correo" value="<?php echo e($alumno, 'Email_Address'); ?>" placeholder="correo@ejemplo.com">
+                            </div>
+
+                            <div class="form-group">
+                                <label>URL de la foto de perfil:</label>
+                                <input
+                                    type="url"
+                                    id="foto_url"
+                                    name="foto_url"
+                                    value="<?php echo e($alumno, 'Profile_Image'); ?>"
+                                    placeholder="https://ejemplo.com/mi-foto.jpg"
+                                >
+                                <small>Usa un enlace directo a una imagen (JPG, PNG, etc.).</small>
+                            </div>
+                        </div>
+
+                        <!-- Detalles académicos -->
+                        <div class="form-section">
+                            <h3>Detalles académicos</h3>
+
+                            <div class="form-group">
+                                <label>Fecha de nacimiento:</label>
+                                <input type="date" name="fecha_nacimiento" value="<?php echo e($detalles, 'Birthdate'); ?>">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Preparatoria:</label>
+                                <input type="text" name="preparatoria" value="<?php echo e($detalles, 'High_school'); ?>" placeholder="Nombre de la preparatoria">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Grado:</label>
+                                <input type="text" name="grado" value="<?php echo e($detalles, 'Grade'); ?>" placeholder="Ej. 3°">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Licencia:</label>
+                                <input type="text" name="licencia" value="<?php echo e($detalles, 'License'); ?>" placeholder="Ej. B-12345">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Promedio:</label>
+                                <input type="number" name="promedio" value="<?php echo e($detalles, 'Average'); ?>" placeholder="0 - 100" min="0" max="100">
+                            </div>
+                        </div>
+
+                        <!-- Datos del tutor -->
+                        <div class="form-section">
+                            <h3>Datos del tutor</h3>
+
+                            <div class="form-group">
+                                <label>Nombre:</label>
+                                <input type="text" name="tutor_nombre" value="<?php echo e($tutor, 'Tutor_name'); ?>" placeholder="Nombre del tutor">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Apellidos:</label>
+                                <input type="text" name="tutor_apellidos" value="<?php echo e($tutor, 'Tutor_lastname'); ?>" placeholder="Apellido del tutor">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Teléfono:</label>
+                                <input type="tel" name="tutor_telefono" value="<?php echo e($tutor, 'Phone_Number'); ?>" placeholder="Teléfono del tutor">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Dirección:</label>
+                                <input type="text" name="tutor_direccion" value="<?php echo e($tutor, 'Address'); ?>" placeholder="Domicilio del tutor">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Domicilio -->
+                <div class="ns-card ns-card-section ns-address-card">
                     <div class="form-section address">
                         <h3>Domicilio del estudiante</h3>
 
-                    <div class="form-group">
-                        <label>Calle:</label>
-                        <input type="text" name="calle" value="<?php echo e($direccion, 'Street'); ?>" placeholder="Ej. Reforma #123">
-                    </div>
+                        <div class="form-group">
+                            <label>Calle:</label>
+                            <input type="text" name="calle" value="<?php echo e($direccion, 'Street'); ?>" placeholder="Ej. Reforma #123">
+                        </div>
 
-                    <div class="form-group">
-                        <label>Ciudad:</label>
-                        <input type="text" name="ciudad" value="<?php echo e($direccion, 'City'); ?>" placeholder="Ej. Guadalajara">
-                    </div>
+                        <div class="form-group">
+                            <label>Ciudad:</label>
+                            <input type="text" name="ciudad" value="<?php echo e($direccion, 'City'); ?>" placeholder="Ej. Guadalajara">
+                        </div>
 
-                    <div class="form-group">
-                        <label>Código postal:</label>
-                        <input type="text" name="codigo_postal" value="<?php echo e($direccion, 'Postal_Code'); ?>" placeholder="Ej. 44100">
+                        <div class="form-group">
+                            <label>Código postal:</label>
+                            <input type="text" name="codigo_postal" value="<?php echo e($direccion, 'Postal_Code'); ?>" placeholder="Ej. 44100">
+                        </div>
                     </div>
                 </div>
-            </div>
-            
-                <!-- CARD 3: Botón Guardar -->
-                 <div class="ns-card ns-card-footer">
+
+                <!-- Botón guardar -->
+                <div class="ns-card ns-card-footer">
                     <button type="submit" class="btn">Guardar información</button>
                 </div>
-            </div> <!-- /main-column -->
-        </div> <!-- /page-layout -->
-</form>
-    </div>
-    <?php if ($mostrar_modal && $mensaje_ok): ?>
+            </div>
+        </div>
+    </form>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const modal = document.getElementById('successModal');
+    const modal = document.getElementById('nsModal');
     if (!modal) return;
 
-    modal.classList.add('is-visible');
+    // Si el modal está visible, lo ocultamos después de 2.5s
+    if (modal.classList.contains('is-visible')) {
+        setTimeout(function () {
+            modal.classList.remove('is-visible');
 
-    // Ocultar después de 2.5 segundos
-    setTimeout(function () {
-        modal.classList.remove('is-visible');
-
-        // Opcional: quitar ?guardado=1 de la URL
-        if (window.history.replaceState) {
-            const url = new URL(window.location);
-            url.searchParams.delete('guardado');
-            window.history.replaceState({}, document.title, url.toString());
-        }
-    }, 2500);
+            // Quitar ?guardado=1 de la URL si existe
+            if (window.history.replaceState) {
+                const url = new URL(window.location);
+                url.searchParams.delete('guardado');
+                window.history.replaceState({}, document.title, url.toString());
+            }
+        }, 2500);
+    }
 });
 </script>
-<?php endif; ?>
 </body>
 </html>
-
