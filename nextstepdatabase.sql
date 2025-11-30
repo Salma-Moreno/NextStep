@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 30-11-2025 a las 02:56:38
+-- Tiempo de generación: 30-11-2025 a las 04:52:01
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -27,14 +27,12 @@ SET time_zone = "+00:00";
 -- Estructura de tabla para la tabla `address`
 --
 
-CREATE TABLE IF NOT EXISTS `address` (
-  `ID_Address` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `address` (
+  `ID_Address` int(11) NOT NULL,
   `FK_ID_Student` int(11) NOT NULL,
   `Street` varchar(15) NOT NULL,
   `City` varchar(15) NOT NULL,
-  `Postal_Code` varchar(10) NOT NULL,
-  PRIMARY KEY (`ID_Address`),
-  KEY `FK_ID_Student` (`FK_ID_Student`)
+  `Postal_Code` varchar(10) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -43,14 +41,11 @@ CREATE TABLE IF NOT EXISTS `address` (
 -- Estructura de tabla para la tabla `aplication`
 --
 
-CREATE TABLE IF NOT EXISTS `aplication` (
+CREATE TABLE `aplication` (
   `ID_status` int(11) NOT NULL,
   `FK_ID_Student` int(11) NOT NULL,
   `FK_ID_Kit` int(11) NOT NULL,
-  `status` varchar(12) DEFAULT NULL,
-  PRIMARY KEY (`ID_status`),
-  KEY `FK_ID_Student` (`FK_ID_Student`),
-  KEY `FK_ID_Kit` (`FK_ID_Kit`)
+  `status` varchar(12) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -59,16 +54,14 @@ CREATE TABLE IF NOT EXISTS `aplication` (
 -- Estructura de tabla para la tabla `collection_point`
 --
 
-CREATE TABLE IF NOT EXISTS `collection_point` (
-  `ID_Point` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `collection_point` (
+  `ID_Point` int(11) NOT NULL,
   `Name` varchar(15) NOT NULL,
   `address` varchar(255) NOT NULL,
   `Phone_number` varchar(15) DEFAULT NULL,
   `FK_ID_Company` int(11) DEFAULT NULL,
   `latitude` decimal(10,7) DEFAULT NULL,
-  `longitude` decimal(10,7) DEFAULT NULL,
-  PRIMARY KEY (`ID_Point`),
-  KEY `FK_ID_Company` (`FK_ID_Company`)
+  `longitude` decimal(10,7) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -77,24 +70,22 @@ CREATE TABLE IF NOT EXISTS `collection_point` (
 -- Estructura de tabla para la tabla `company`
 --
 
-CREATE TABLE IF NOT EXISTS `company` (
-  `ID_Company` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `company` (
+  `ID_Company` int(11) NOT NULL,
   `FK_ID_Company_Address` int(11) NOT NULL,
   `Name` varchar(15) NOT NULL,
   `RFC` varchar(15) NOT NULL,
   `Email` varchar(30) NOT NULL,
-  `Phone_Number` varchar(15) DEFAULT NULL,
-  PRIMARY KEY (`ID_Company`),
-  UNIQUE KEY `RFC` (`RFC`),
-  KEY `FK_ID_Company_Address` (`FK_ID_Company_Address`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `Phone_Number` varchar(15) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `company`
 --
 
-UPDATE `company` SET `ID_Company` = 1,`FK_ID_Company_Address` = 1,`Name` = 'Office Depot',`RFC` = 'ODM950324V2A ',`Email` = 'sclientes@officedepot.com.mx',`Phone_Number` = '0155-25-82-09-0' WHERE `company`.`ID_Company` = 1;
-UPDATE `company` SET `ID_Company` = 2,`FK_ID_Company_Address` = 2,`Name` = 'Monerick',`RFC` = 'PBR990524P76',`Email` = 'contacto@monerick.com',`Phone_Number` = '52 664 608 0040' WHERE `company`.`ID_Company` = 2;
+INSERT INTO `company` (`ID_Company`, `FK_ID_Company_Address`, `Name`, `RFC`, `Email`, `Phone_Number`) VALUES
+(1, 1, 'Office Depot', 'ODM950324V2A ', 'sclientes@officedepot.com.mx', '0155-25-82-09-0'),
+(2, 2, 'Monerick', 'PBR990524P76', 'contacto@monerick.com', '52 664 608 0040');
 
 -- --------------------------------------------------------
 
@@ -102,21 +93,21 @@ UPDATE `company` SET `ID_Company` = 2,`FK_ID_Company_Address` = 2,`Name` = 'Mone
 -- Estructura de tabla para la tabla `company_address`
 --
 
-CREATE TABLE IF NOT EXISTS `company_address` (
-  `ID_Company_Address` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `company_address` (
+  `ID_Company_Address` int(11) NOT NULL,
   `Street` varchar(100) NOT NULL,
   `City` varchar(100) NOT NULL,
   `State` varchar(100) NOT NULL,
-  `Postal_Code` varchar(10) NOT NULL,
-  PRIMARY KEY (`ID_Company_Address`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `Postal_Code` varchar(10) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `company_address`
 --
 
-UPDATE `company_address` SET `ID_Company_Address` = 1,`Street` = 'Av. Miguel Ángel de Quevedo 1144, locales A-4 y A-5, colonia Parque San Andrés',`City` = '-',`State` = 'Ciudad de México',`Postal_Code` = '04040' WHERE `company_address`.`ID_Company_Address` = 1;
-UPDATE `company_address` SET `ID_Company_Address` = 2,`Street` = 'Villasana 12045, Anexa 20 de Noviembre',`City` = 'Tijuana',`State` = 'Baja California ',`Postal_Code` = '22100' WHERE `company_address`.`ID_Company_Address` = 2;
+INSERT INTO `company_address` (`ID_Company_Address`, `Street`, `City`, `State`, `Postal_Code`) VALUES
+(1, 'Av. Miguel Ángel de Quevedo 1144, locales A-4 y A-5, colonia Parque San Andrés', '-', 'Ciudad de México', '04040'),
+(2, 'Villasana 12045, Anexa 20 de Noviembre', 'Tijuana', 'Baja California ', '22100');
 
 -- --------------------------------------------------------
 
@@ -124,16 +115,12 @@ UPDATE `company_address` SET `ID_Company_Address` = 2,`Street` = 'Villasana 1204
 -- Estructura de tabla para la tabla `delivery`
 --
 
-CREATE TABLE IF NOT EXISTS `delivery` (
-  `ID_Delivery` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `delivery` (
+  `ID_Delivery` int(11) NOT NULL,
   `FK_ID_Student` int(11) NOT NULL,
   `FK_ID_Kit` int(11) NOT NULL,
   `FK_ID_Point` int(11) NOT NULL,
-  `Date` datetime DEFAULT current_timestamp(),
-  PRIMARY KEY (`ID_Delivery`),
-  KEY `FK_ID_Student` (`FK_ID_Student`),
-  KEY `FK_ID_Kit` (`FK_ID_Kit`),
-  KEY `FK_ID_Point` (`FK_ID_Point`)
+  `Date` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -142,20 +129,20 @@ CREATE TABLE IF NOT EXISTS `delivery` (
 -- Estructura de tabla para la tabla `dependency`
 --
 
-CREATE TABLE IF NOT EXISTS `dependency` (
-  `ID_Dependency` int(11) NOT NULL AUTO_INCREMENT,
-  `Type` varchar(15) NOT NULL,
-  PRIMARY KEY (`ID_Dependency`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE `dependency` (
+  `ID_Dependency` int(11) NOT NULL,
+  `Type` varchar(15) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `dependency`
 --
 
-UPDATE `dependency` SET `ID_Dependency` = 1,`Type` = 'Padre/Madre' WHERE `dependency`.`ID_Dependency` = 1;
-UPDATE `dependency` SET `ID_Dependency` = 2,`Type` = 'Hermano/Hermana' WHERE `dependency`.`ID_Dependency` = 2;
-UPDATE `dependency` SET `ID_Dependency` = 3,`Type` = 'Tio/Tia' WHERE `dependency`.`ID_Dependency` = 3;
-UPDATE `dependency` SET `ID_Dependency` = 4,`Type` = 'Abuelo/Abuela' WHERE `dependency`.`ID_Dependency` = 4;
+INSERT INTO `dependency` (`ID_Dependency`, `Type`) VALUES
+(1, 'Padre/Madre'),
+(2, 'Hermano/Hermana'),
+(3, 'Tio/Tia'),
+(4, 'Abuelo/Abuela');
 
 -- --------------------------------------------------------
 
@@ -163,15 +150,12 @@ UPDATE `dependency` SET `ID_Dependency` = 4,`Type` = 'Abuelo/Abuela' WHERE `depe
 -- Estructura de tabla para la tabla `donation`
 --
 
-CREATE TABLE IF NOT EXISTS `donation` (
-  `ID_Donation` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `donation` (
+  `ID_Donation` int(11) NOT NULL,
   `FK_ID_Company` int(11) NOT NULL,
   `FK_ID_Supply` int(11) NOT NULL,
   `Quantity` int(11) NOT NULL,
-  `Date` datetime DEFAULT current_timestamp(),
-  PRIMARY KEY (`ID_Donation`),
-  KEY `FK_ID_Company` (`FK_ID_Company`),
-  KEY `FK_ID_Supply` (`FK_ID_Supply`)
+  `Date` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -180,19 +164,14 @@ CREATE TABLE IF NOT EXISTS `donation` (
 -- Estructura de tabla para la tabla `extra_delivery`
 --
 
-CREATE TABLE IF NOT EXISTS `extra_delivery` (
-  `ID_Extra` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `extra_delivery` (
+  `ID_Extra` int(11) NOT NULL,
   `FK_ID_Student` int(11) NOT NULL,
   `FK_ID_Supply` int(11) NOT NULL,
   `Date` datetime DEFAULT current_timestamp(),
   `Unit` int(11) NOT NULL,
   `FK_ID_Semester` int(11) NOT NULL,
-  `FK_ID_Point` int(11) NOT NULL,
-  PRIMARY KEY (`ID_Extra`),
-  KEY `FK_ID_Student` (`FK_ID_Student`),
-  KEY `FK_ID_Supply` (`FK_ID_Supply`),
-  KEY `FK_ID_Semester` (`FK_ID_Semester`),
-  KEY `FK_ID_Point` (`FK_ID_Point`)
+  `FK_ID_Point` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -201,13 +180,11 @@ CREATE TABLE IF NOT EXISTS `extra_delivery` (
 -- Estructura de tabla para la tabla `kit`
 --
 
-CREATE TABLE IF NOT EXISTS `kit` (
-  `ID_Kit` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `kit` (
+  `ID_Kit` int(11) NOT NULL,
   `FK_ID_Semester` int(11) NOT NULL,
   `Start_date` date NOT NULL,
-  `End_date` date NOT NULL,
-  PRIMARY KEY (`ID_Kit`),
-  KEY `FK_ID_Semester` (`FK_ID_Semester`)
+  `End_date` date NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -216,14 +193,11 @@ CREATE TABLE IF NOT EXISTS `kit` (
 -- Estructura de tabla para la tabla `kit_material`
 --
 
-CREATE TABLE IF NOT EXISTS `kit_material` (
-  `ID_KitMaterial` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `kit_material` (
+  `ID_KitMaterial` int(11) NOT NULL,
   `FK_ID_Kit` int(11) NOT NULL,
   `FK_ID_Supply` int(11) NOT NULL,
-  `Unit` int(11) NOT NULL,
-  PRIMARY KEY (`ID_KitMaterial`),
-  KEY `FK_ID_Kit` (`FK_ID_Kit`),
-  KEY `FK_ID_Supply` (`FK_ID_Supply`)
+  `Unit` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -232,14 +206,11 @@ CREATE TABLE IF NOT EXISTS `kit_material` (
 -- Estructura de tabla para la tabla `limit`
 --
 
-CREATE TABLE IF NOT EXISTS `limit` (
-  `ID_Limit` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `limit` (
+  `ID_Limit` int(11) NOT NULL,
   `FK_ID_Supply` int(11) NOT NULL,
   `FK_ID_Semester` int(11) NOT NULL,
-  `Maximum` int(11) NOT NULL,
-  PRIMARY KEY (`ID_Limit`),
-  KEY `FK_ID_Supply` (`FK_ID_Supply`),
-  KEY `FK_ID_Semester` (`FK_ID_Semester`)
+  `Maximum` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -248,18 +219,18 @@ CREATE TABLE IF NOT EXISTS `limit` (
 -- Estructura de tabla para la tabla `role`
 --
 
-CREATE TABLE IF NOT EXISTS `role` (
-  `ID_Role` int(11) NOT NULL AUTO_INCREMENT,
-  `Type` varchar(10) NOT NULL,
-  PRIMARY KEY (`ID_Role`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE `role` (
+  `ID_Role` int(11) NOT NULL,
+  `Type` varchar(10) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `role`
 --
 
-UPDATE `role` SET `ID_Role` = 1,`Type` = 'Student' WHERE `role`.`ID_Role` = 1;
-UPDATE `role` SET `ID_Role` = 2,`Type` = 'Staff' WHERE `role`.`ID_Role` = 2;
+INSERT INTO `role` (`ID_Role`, `Type`) VALUES
+(1, 'Student'),
+(2, 'Staff');
 
 -- --------------------------------------------------------
 
@@ -267,11 +238,10 @@ UPDATE `role` SET `ID_Role` = 2,`Type` = 'Staff' WHERE `role`.`ID_Role` = 2;
 -- Estructura de tabla para la tabla `semester`
 --
 
-CREATE TABLE IF NOT EXISTS `semester` (
-  `ID_Semester` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `semester` (
+  `ID_Semester` int(11) NOT NULL,
   `Period` varchar(15) NOT NULL,
-  `Year` int(11) NOT NULL,
-  PRIMARY KEY (`ID_Semester`)
+  `Year` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -280,24 +250,22 @@ CREATE TABLE IF NOT EXISTS `semester` (
 -- Estructura de tabla para la tabla `staff`
 --
 
-CREATE TABLE IF NOT EXISTS `staff` (
-  `ID_Staff` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `staff` (
+  `ID_Staff` int(11) NOT NULL,
   `FK_ID_User` int(11) NOT NULL,
   `Firstname` varchar(15) NOT NULL,
   `Lastname` varchar(15) NOT NULL,
   `Phone` varchar(15) DEFAULT NULL,
-  `Email` varchar(30) NOT NULL,
-  PRIMARY KEY (`ID_Staff`),
-  UNIQUE KEY `Email` (`Email`),
-  KEY `FK_ID_User` (`FK_ID_User`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `Email` varchar(30) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `staff`
 --
 
-UPDATE `staff` SET `ID_Staff` = 1,`FK_ID_User` = 4,`Firstname` = 'salma',`Lastname` = 'moreno',`Phone` = '1234567890',`Email` = 'unemail@gmail.com' WHERE `staff`.`ID_Staff` = 1;
-UPDATE `staff` SET `ID_Staff` = 2,`FK_ID_User` = 5,`Firstname` = 'salma',`Lastname` = 'moreno',`Phone` = '45454545454',`Email` = 'unemail2@gmail.com' WHERE `staff`.`ID_Staff` = 2;
+INSERT INTO `staff` (`ID_Staff`, `FK_ID_User`, `Firstname`, `Lastname`, `Phone`, `Email`) VALUES
+(1, 4, 'salma', 'moreno', '1234567890', 'unemail@gmail.com'),
+(2, 5, 'salma', 'moreno', '45454545454', 'unemail2@gmail.com');
 
 -- --------------------------------------------------------
 
@@ -305,26 +273,24 @@ UPDATE `staff` SET `ID_Staff` = 2,`FK_ID_User` = 5,`Firstname` = 'salma',`Lastna
 -- Estructura de tabla para la tabla `student`
 --
 
-CREATE TABLE IF NOT EXISTS `student` (
-  `ID_Student` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `student` (
+  `ID_Student` int(11) NOT NULL,
   `FK_ID_User` int(11) NOT NULL,
   `Name` varchar(15) NOT NULL,
   `Last_Name` varchar(15) NOT NULL,
   `Phone_Number` varchar(15) DEFAULT NULL,
   `Email_Address` varchar(50) NOT NULL,
-  `Profile_Image` text DEFAULT NULL,
-  PRIMARY KEY (`ID_Student`),
-  UNIQUE KEY `Email_Address` (`Email_Address`),
-  KEY `FK_ID_User` (`FK_ID_User`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `Profile_Image` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `student`
 --
 
-UPDATE `student` SET `ID_Student` = 1,`FK_ID_User` = 7,`Name` = 'Alexa',`Last_Name` = 'Bernabe',`Phone_Number` = '6641740936',`Email_Address` = 'unemail3@gmail.',`Profile_Image` = NULL WHERE `student`.`ID_Student` = 1;
-UPDATE `student` SET `ID_Student` = 2,`FK_ID_User` = 8,`Name` = 'Salma',`Last_Name` = 'Moreno',`Phone_Number` = '6641740936',`Email_Address` = 'l22211911@tecti',`Profile_Image` = NULL WHERE `student`.`ID_Student` = 2;
-UPDATE `student` SET `ID_Student` = 4,`FK_ID_User` = 10,`Name` = 'Salma',`Last_Name` = 'Bernabe',`Phone_Number` = '6641740936',`Email_Address` = 'unemail@gmail.c',`Profile_Image` = NULL WHERE `student`.`ID_Student` = 4;
+INSERT INTO `student` (`ID_Student`, `FK_ID_User`, `Name`, `Last_Name`, `Phone_Number`, `Email_Address`, `Profile_Image`) VALUES
+(1, 7, 'Alexa', 'Bernabe', '6641740936', 'unemail3@gmail.', NULL),
+(2, 8, 'Salma', 'Moreno', '6641740936', 'l22211911@tecti', NULL),
+(4, 10, 'Salma', 'Bernabe', '6641740936', 'unemail@gmail.c', NULL);
 
 -- --------------------------------------------------------
 
@@ -332,16 +298,14 @@ UPDATE `student` SET `ID_Student` = 4,`FK_ID_User` = 10,`Name` = 'Salma',`Last_N
 -- Estructura de tabla para la tabla `student_details`
 --
 
-CREATE TABLE IF NOT EXISTS `student_details` (
-  `ID_Details` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `student_details` (
+  `ID_Details` int(11) NOT NULL,
   `FK_ID_Student` int(11) NOT NULL,
   `Birthdate` date DEFAULT NULL,
   `High_school` varchar(30) DEFAULT NULL,
   `Grade` varchar(5) DEFAULT NULL,
   `License` varchar(20) DEFAULT NULL,
-  `Average` int(11) DEFAULT NULL,
-  PRIMARY KEY (`ID_Details`),
-  KEY `FK_ID_Student` (`FK_ID_Student`)
+  `Average` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -350,11 +314,10 @@ CREATE TABLE IF NOT EXISTS `student_details` (
 -- Estructura de tabla para la tabla `supplies`
 --
 
-CREATE TABLE IF NOT EXISTS `supplies` (
-  `ID_Supply` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `supplies` (
+  `ID_Supply` int(11) NOT NULL,
   `Name` varchar(15) NOT NULL,
-  `Unit` varchar(15) NOT NULL,
-  PRIMARY KEY (`ID_Supply`)
+  `Unit` varchar(15) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -363,17 +326,14 @@ CREATE TABLE IF NOT EXISTS `supplies` (
 -- Estructura de tabla para la tabla `tutor_data`
 --
 
-CREATE TABLE IF NOT EXISTS `tutor_data` (
-  `ID_Data` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `tutor_data` (
+  `ID_Data` int(11) NOT NULL,
   `FK_ID_Student` int(11) NOT NULL,
   `FK_ID_Dependency` int(11) NOT NULL,
   `Tutor_name` varchar(15) NOT NULL,
   `Tutor_lastname` varchar(15) NOT NULL,
   `Phone_Number` varchar(15) DEFAULT NULL,
-  `Address` varchar(15) DEFAULT NULL,
-  PRIMARY KEY (`ID_Data`),
-  KEY `FK_ID_Student` (`FK_ID_Student`),
-  KEY `FK_ID_Dependency` (`FK_ID_Dependency`)
+  `Address` varchar(15) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -382,27 +342,296 @@ CREATE TABLE IF NOT EXISTS `tutor_data` (
 -- Estructura de tabla para la tabla `user`
 --
 
-CREATE TABLE IF NOT EXISTS `user` (
-  `ID_User` int(11) NOT NULL AUTO_INCREMENT,
+CREATE TABLE `user` (
+  `ID_User` int(11) NOT NULL,
   `FK_ID_Role` int(11) NOT NULL,
   `Username` varchar(15) NOT NULL,
   `Password` varchar(255) NOT NULL,
   `registration_date` datetime DEFAULT current_timestamp(),
-  `Status` varchar(10) NOT NULL,
-  PRIMARY KEY (`ID_User`),
-  UNIQUE KEY `Username` (`Username`),
-  KEY `FK_ID_Role` (`FK_ID_Role`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `Status` varchar(10) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `user`
 --
 
-UPDATE `user` SET `ID_User` = 4,`FK_ID_Role` = 2,`Username` = 'Usuario',`Password` = '$2y$10$UX4r46tL2srHYVLWLN7u6.PXbq05bPMN/BHLTWtCcNocGyHNSwWOi',`registration_date` = '2025-10-27 01:52:46',`Status` = 'Active' WHERE `user`.`ID_User` = 4;
-UPDATE `user` SET `ID_User` = 5,`FK_ID_Role` = 2,`Username` = 'Usuario 2',`Password` = '$2y$10$euA4.iXZ5OXa1RMvVRDti.isPk0AW7kL9avhDrs6BwJAUAPq.9Dlq',`registration_date` = '2025-11-01 21:23:55',`Status` = 'Active' WHERE `user`.`ID_User` = 5;
-UPDATE `user` SET `ID_User` = 7,`FK_ID_Role` = 1,`Username` = 'Ale',`Password` = '$2y$10$TgE.MFa3fpoBREhFPvtJzudBggUx8pz3oUzwyBC9.lRinfGAD2kBa',`registration_date` = '2025-11-02 01:18:07',`Status` = 'Active' WHERE `user`.`ID_User` = 7;
-UPDATE `user` SET `ID_User` = 8,`FK_ID_Role` = 1,`Username` = 'Salma',`Password` = '$2y$10$36VTtfFCYMleMI1Ymn3.qOx5yE8UgdYuXapR97DsXkPj78Wyfww/m',`registration_date` = '2025-11-23 23:05:23',`Status` = 'Active' WHERE `user`.`ID_User` = 8;
-UPDATE `user` SET `ID_User` = 10,`FK_ID_Role` = 1,`Username` = 'admin',`Password` = '$2y$10$2gbxooOFb0TgU1uTRbKLtuT1aYqhBPndqrMbX6l8HshoIfQm4ZMr6',`registration_date` = '2025-11-24 00:04:05',`Status` = 'Active' WHERE `user`.`ID_User` = 10;
+INSERT INTO `user` (`ID_User`, `FK_ID_Role`, `Username`, `Password`, `registration_date`, `Status`) VALUES
+(4, 2, 'Usuario', '$2y$10$UX4r46tL2srHYVLWLN7u6.PXbq05bPMN/BHLTWtCcNocGyHNSwWOi', '2025-10-27 01:52:46', 'Active'),
+(5, 2, 'Usuario 2', '$2y$10$euA4.iXZ5OXa1RMvVRDti.isPk0AW7kL9avhDrs6BwJAUAPq.9Dlq', '2025-11-01 21:23:55', 'Active'),
+(7, 1, 'Ale', '$2y$10$TgE.MFa3fpoBREhFPvtJzudBggUx8pz3oUzwyBC9.lRinfGAD2kBa', '2025-11-02 01:18:07', 'Active'),
+(8, 1, 'Salma', '$2y$10$36VTtfFCYMleMI1Ymn3.qOx5yE8UgdYuXapR97DsXkPj78Wyfww/m', '2025-11-23 23:05:23', 'Active'),
+(10, 1, 'admin', '$2y$10$2gbxooOFb0TgU1uTRbKLtuT1aYqhBPndqrMbX6l8HshoIfQm4ZMr6', '2025-11-24 00:04:05', 'Active');
+
+--
+-- Índices para tablas volcadas
+--
+
+--
+-- Indices de la tabla `address`
+--
+ALTER TABLE `address`
+  ADD PRIMARY KEY (`ID_Address`),
+  ADD KEY `FK_ID_Student` (`FK_ID_Student`);
+
+--
+-- Indices de la tabla `aplication`
+--
+ALTER TABLE `aplication`
+  ADD PRIMARY KEY (`ID_status`),
+  ADD KEY `FK_ID_Student` (`FK_ID_Student`),
+  ADD KEY `FK_ID_Kit` (`FK_ID_Kit`);
+
+--
+-- Indices de la tabla `collection_point`
+--
+ALTER TABLE `collection_point`
+  ADD PRIMARY KEY (`ID_Point`),
+  ADD KEY `FK_ID_Company` (`FK_ID_Company`);
+
+--
+-- Indices de la tabla `company`
+--
+ALTER TABLE `company`
+  ADD PRIMARY KEY (`ID_Company`),
+  ADD UNIQUE KEY `RFC` (`RFC`),
+  ADD KEY `FK_ID_Company_Address` (`FK_ID_Company_Address`);
+
+--
+-- Indices de la tabla `company_address`
+--
+ALTER TABLE `company_address`
+  ADD PRIMARY KEY (`ID_Company_Address`);
+
+--
+-- Indices de la tabla `delivery`
+--
+ALTER TABLE `delivery`
+  ADD PRIMARY KEY (`ID_Delivery`),
+  ADD KEY `FK_ID_Student` (`FK_ID_Student`),
+  ADD KEY `FK_ID_Kit` (`FK_ID_Kit`),
+  ADD KEY `FK_ID_Point` (`FK_ID_Point`);
+
+--
+-- Indices de la tabla `dependency`
+--
+ALTER TABLE `dependency`
+  ADD PRIMARY KEY (`ID_Dependency`);
+
+--
+-- Indices de la tabla `donation`
+--
+ALTER TABLE `donation`
+  ADD PRIMARY KEY (`ID_Donation`),
+  ADD KEY `FK_ID_Company` (`FK_ID_Company`),
+  ADD KEY `FK_ID_Supply` (`FK_ID_Supply`);
+
+--
+-- Indices de la tabla `extra_delivery`
+--
+ALTER TABLE `extra_delivery`
+  ADD PRIMARY KEY (`ID_Extra`),
+  ADD KEY `FK_ID_Student` (`FK_ID_Student`),
+  ADD KEY `FK_ID_Supply` (`FK_ID_Supply`),
+  ADD KEY `FK_ID_Semester` (`FK_ID_Semester`),
+  ADD KEY `FK_ID_Point` (`FK_ID_Point`);
+
+--
+-- Indices de la tabla `kit`
+--
+ALTER TABLE `kit`
+  ADD PRIMARY KEY (`ID_Kit`),
+  ADD KEY `FK_ID_Semester` (`FK_ID_Semester`);
+
+--
+-- Indices de la tabla `kit_material`
+--
+ALTER TABLE `kit_material`
+  ADD PRIMARY KEY (`ID_KitMaterial`),
+  ADD KEY `FK_ID_Kit` (`FK_ID_Kit`),
+  ADD KEY `FK_ID_Supply` (`FK_ID_Supply`);
+
+--
+-- Indices de la tabla `limit`
+--
+ALTER TABLE `limit`
+  ADD PRIMARY KEY (`ID_Limit`),
+  ADD KEY `FK_ID_Supply` (`FK_ID_Supply`),
+  ADD KEY `FK_ID_Semester` (`FK_ID_Semester`);
+
+--
+-- Indices de la tabla `role`
+--
+ALTER TABLE `role`
+  ADD PRIMARY KEY (`ID_Role`);
+
+--
+-- Indices de la tabla `semester`
+--
+ALTER TABLE `semester`
+  ADD PRIMARY KEY (`ID_Semester`);
+
+--
+-- Indices de la tabla `staff`
+--
+ALTER TABLE `staff`
+  ADD PRIMARY KEY (`ID_Staff`),
+  ADD UNIQUE KEY `Email` (`Email`),
+  ADD KEY `FK_ID_User` (`FK_ID_User`);
+
+--
+-- Indices de la tabla `student`
+--
+ALTER TABLE `student`
+  ADD PRIMARY KEY (`ID_Student`),
+  ADD UNIQUE KEY `Email_Address` (`Email_Address`),
+  ADD KEY `FK_ID_User` (`FK_ID_User`);
+
+--
+-- Indices de la tabla `student_details`
+--
+ALTER TABLE `student_details`
+  ADD PRIMARY KEY (`ID_Details`),
+  ADD KEY `FK_ID_Student` (`FK_ID_Student`);
+
+--
+-- Indices de la tabla `supplies`
+--
+ALTER TABLE `supplies`
+  ADD PRIMARY KEY (`ID_Supply`);
+
+--
+-- Indices de la tabla `tutor_data`
+--
+ALTER TABLE `tutor_data`
+  ADD PRIMARY KEY (`ID_Data`),
+  ADD KEY `FK_ID_Student` (`FK_ID_Student`),
+  ADD KEY `FK_ID_Dependency` (`FK_ID_Dependency`);
+
+--
+-- Indices de la tabla `user`
+--
+ALTER TABLE `user`
+  ADD PRIMARY KEY (`ID_User`),
+  ADD UNIQUE KEY `Username` (`Username`),
+  ADD KEY `FK_ID_Role` (`FK_ID_Role`);
+
+--
+-- AUTO_INCREMENT de las tablas volcadas
+--
+
+--
+-- AUTO_INCREMENT de la tabla `address`
+--
+ALTER TABLE `address`
+  MODIFY `ID_Address` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `collection_point`
+--
+ALTER TABLE `collection_point`
+  MODIFY `ID_Point` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT de la tabla `company`
+--
+ALTER TABLE `company`
+  MODIFY `ID_Company` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT de la tabla `company_address`
+--
+ALTER TABLE `company_address`
+  MODIFY `ID_Company_Address` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT de la tabla `delivery`
+--
+ALTER TABLE `delivery`
+  MODIFY `ID_Delivery` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `dependency`
+--
+ALTER TABLE `dependency`
+  MODIFY `ID_Dependency` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT de la tabla `donation`
+--
+ALTER TABLE `donation`
+  MODIFY `ID_Donation` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `extra_delivery`
+--
+ALTER TABLE `extra_delivery`
+  MODIFY `ID_Extra` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `kit`
+--
+ALTER TABLE `kit`
+  MODIFY `ID_Kit` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `kit_material`
+--
+ALTER TABLE `kit_material`
+  MODIFY `ID_KitMaterial` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `limit`
+--
+ALTER TABLE `limit`
+  MODIFY `ID_Limit` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `role`
+--
+ALTER TABLE `role`
+  MODIFY `ID_Role` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT de la tabla `semester`
+--
+ALTER TABLE `semester`
+  MODIFY `ID_Semester` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `staff`
+--
+ALTER TABLE `staff`
+  MODIFY `ID_Staff` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT de la tabla `student`
+--
+ALTER TABLE `student`
+  MODIFY `ID_Student` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT de la tabla `student_details`
+--
+ALTER TABLE `student_details`
+  MODIFY `ID_Details` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `supplies`
+--
+ALTER TABLE `supplies`
+  MODIFY `ID_Supply` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `tutor_data`
+--
+ALTER TABLE `tutor_data`
+  MODIFY `ID_Data` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `user`
+--
+ALTER TABLE `user`
+  MODIFY `ID_User` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- Restricciones para tablas volcadas
