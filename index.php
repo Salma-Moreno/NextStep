@@ -2,7 +2,7 @@
 include 'Conexiones/db.php';
 
 // Define el título de la página
-$pageTitle = 'NextStep - Start';
+$pageTitle = 'NextStep - Inicio';
 
 // Encabezado común
 ?>
@@ -14,12 +14,12 @@ $pageTitle = 'NextStep - Start';
 </header>
 <main class="main-container">
     <div class="welcome-box">
-        <h1>¡Welcome to <span class="brand">NextStep</span>!</h1>
-        <p class="subtitle">Please, select your role to continue:</p>
+        <h1>¡Bienvenido a <span class="brand">NextStep</span>!</h1>
+        <p class="subtitle">Por favor, selecciona tu rol para continuar:</p>
 
         <div class="botones">
-            <a href="Staff/StaffLogin.php" class="boton">I'm Staff</a>
-            <a href="Student/StudentLogin.php" class="boton">I'm Student</a>
+            <a href="Staff/StaffLogin.php" class="boton">Soy Empleado</a>
+            <a href="Student/StudentLogin.php" class="boton">Soy Estudiante</a>
         </div>
     </div>
 </main>

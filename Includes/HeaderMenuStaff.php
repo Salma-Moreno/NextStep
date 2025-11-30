@@ -122,13 +122,14 @@ if (!isset($pageTitle)) {
         <li class="dropdown">
             <a href="#" class="pagina">Becas ▾</a>
             <ul class="dropdown-content">
-                <li><a href="#" class="submenu">Inventario</a></li>
+                <li><a href="../Staff/Inventario.php" class="submenu">Inventario</a></li>
                 <li><a href="#" class="submenu">Historial de Solicitudes</a></li>
-                <li><a href="#" class="submenu">Colaboradores</a></li>
+                <li><a href="../Staff/Company.php" class="submenu">Colaboradores</a>
+            </li>
             </ul>
         </li>
 
-        <li><a href="#" class="pagina">Sucursales</a></li>
+        <li><a href="../Staff/Sucursales.php" class="pagina">Sucursales</a></li>
         <li><a href="../Staff/logout.php" class="pagina logout">Cerrar sesión</a></li>
     </ul>
 </header>
