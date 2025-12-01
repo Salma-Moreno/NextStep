@@ -13,9 +13,54 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Student') {
 //Conexion a la base de datos
 include '../Conexiones/db.php';
 
-
 $user_id = $_SESSION['usuario_id'];
 
+/// 1. Obtener ID del estudiante usando FK_ID_User
+$sql_student = "SELECT ID_Student, Name, Last_Name, Phone_Number 
+                FROM student 
+                WHERE FK_ID_User = ?";
+$stmt_student = $conn->prepare($sql_student);
+$stmt_student->bind_param("i", $user_id);
+$stmt_student->execute();
+$result_student = $stmt_student->get_result();
+
+$tieneDatosPersonales = false;
+
+if ($result_student->num_rows > 0) {
+    $student = $result_student->fetch_assoc();
+    $student_id = $student['ID_Student'];
+
+    // Validar datos en tabla student
+    $datosCompletosStudent =
+        !empty($student['Name']) &&
+        !empty($student['Last_Name']) &&
+        !empty($student['Phone_Number']);
+
+    // 2. Validar tabla address
+    $sql_address = "SELECT Street, City, Postal_Code 
+                    FROM address 
+                    WHERE FK_ID_Student = ?";
+    $stmt_address = $conn->prepare($sql_address);
+    $stmt_address->bind_param("i", $student_id);
+    $stmt_address->execute();
+    $result_address = $stmt_address->get_result();
+
+    $datosCompletosAddress = false;
+
+    if ($result_address->num_rows > 0) {
+        $address = $result_address->fetch_assoc();
+
+        $datosCompletosAddress =
+            !empty($address['Street']) &&
+            !empty($address['City']) &&
+            !empty($address['Postal_Code']);
+    }
+
+    // Resultado final
+    if ($datosCompletosStudent && $datosCompletosAddress) {
+        $tieneDatosPersonales = true;
+    }
+}
 
 // --- LOGICA DE APLICACION DE BECA ---
 if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
@@ -92,7 +137,7 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
 <?php include '../Includes/HeaderMenuE.php'; ?>
      <div class="container">
         <h1>Solicitud de Beca</h1>
-<!-- <?php if ($tieneDatosPersonales) { ?> -->
+<?php if ($tieneDatosPersonales) { ?> 
         <div class="scholarship-section">
             <h2>Becas Disponibles</h2>
             <p>Selecciona una de las becas disponibles para ti:</p>
@@ -127,7 +172,7 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
                 }
                 ?>
             </div>
-            <!-- <?php } else { ?> -->
+             <?php } else { ?>
             <div class="no-data-section">
                 <h2>Información del Estudiante</h2>
                 <p class="warning">
@@ -135,7 +180,7 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
                     Completa tu perfil para poder aplicar a una beca.
                 </p><a href="perfil.php" class="btn">Ir a mi perfil</a>
             </div>
-        <!-- <?php } ?> -->
+        <?php } ?>
         </div>
 
 

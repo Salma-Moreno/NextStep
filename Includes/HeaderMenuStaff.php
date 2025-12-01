@@ -129,7 +129,7 @@ if (!isset($pageTitle)) {
             </ul>
         </li>
 
-        <li><a href="../Staff/Sucursales.php" class="pagina">Sucursales</a></li>
+        <li><a href="../Staff/Branches.php" class="pagina">Sucursales</a></li>
         <li><a href="../Staff/logout.php" class="pagina logout">Cerrar sesión</a></li>
     </ul>
 </header>

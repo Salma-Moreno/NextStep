@@ -1,0 +1,298 @@
+/* === Reset y estilos generales === */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column; /* Header arriba, contenido debajo */
+    justify-content: flex-start;
+    align-items: center;
+    min-height: 100vh;
+    text-align: left;
+    background-color: #f4f4f4;
+}
+
+/* ==== Contenedor principal ==== */
+.container {
+    background-color: #fff;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    width: 90%;
+    max-width: 90%;
+    margin-top: 30px; /* separación desde el header */
+    margin-bottom: 30px;
+}
+
+/* ============================
+   TÍTULO Y BOTONES
+============================ */
+h1 {
+    color: #0c71c3;
+    margin-bottom: 15px;
+}
+
+.btn {
+    background: #0c71c3;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: background .2s ease;
+    margin-bottom: 15px;
+}
+
+.btn:hover {
+    background: #095a9c;
+}
+
+.btn.secondary {
+    background: #6c757d;
+}
+
+.btn.secondary:hover {
+    background: #5a6268;
+}
+
+.btn.danger {
+    background: #d9534f;
+}
+
+.btn.danger:hover {
+    background: #c9302c;
+}
+
+.btn.small {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+}
+
+
+/* === Tarjetas de sucursales === */
+.branch-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Contenedor de tarjetas */
+.company-page {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 16px;
+    margin-top: 10px;
+}
+
+/* Tarjeta individual corregida */
+.branch-card {
+    background: #fff;
+    padding: 18px;
+    border-radius: 12px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.10);
+    border: 1px solid #e2e6ea;
+    transition: all .2s ease;
+
+    /* Altura fija para que todas las tarjetas sean iguales */
+    height: 260px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.branch-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+}
+
+.branch-card h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    color: #007BFF;
+    font-weight: bold;
+}
+
+.branch-card p {
+    margin: 3px 0;
+    font-size: 14px;
+    color: #333;
+}
+
+/* Acciones CORREGIDAS → siempre al fondo */
+.branch-card .actions {
+    margin-top: auto;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.branch-card .btn.small {
+    padding: 6px 10px;
+    font-size: 13px;
+    border-radius: 6px;
+}
+
+/* Botones de paginación */
+.pagination-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.pagination-controls .btn.small {
+    padding: 6px 14px;
+}
+
+/* ============================
+   MODAL
+============================ */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: none;
+    align-items: flex-start; /* alineamos al inicio para respetar header */
+    justify-content: center;
+    padding-top: 80px; /* espacio para el header fijo */
+    z-index: 999;
+    overflow-y: auto; /* permitir scroll si el contenido es alto */
+}
+
+.modal {
+    background: #ffffff;
+    width: 94%;
+    max-width: 540px;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+
+    max-height: calc(100vh - 100px); /* evita que el modal exceda la pantalla */
+    overflow-y: auto; /* scroll interno si se necesita */
+}
+
+
+.modal h2 {
+    margin-top: 0;
+    color: #0c71c3;
+}
+
+/* ============================
+   FORMULARIO
+============================ */
+label {
+    display: block;
+    margin: 10px 0 4px;
+    color: #0c71c3;
+    font-weight: bold;
+}
+
+input, select {
+    width: 100%;
+    padding: 9px;
+    border-radius: 8px;
+    border: 1px solid #d0d7e6;
+    font-size: 0.95rem;
+}
+
+.address-row {
+    display: flex;
+    gap: 8px;
+}
+
+.address-row input {
+    flex: 1;
+}
+
+.modal-actions {
+    margin-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* ============================
+   TOAST (CORREGIDO)
+============================ */
+.toast {
+    position: fixed;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    min-width: 260px;
+    max-width: 90%;
+    text-align: center;
+    border-radius: 8px;
+    font-size: 15px;
+    line-height: 1.3;
+    color: white;
+    opacity: 0;
+    transition: all .25s ease;
+    z-index: 9999;
+}
+
+.toast.show {
+    top: 20px;
+    opacity: 1;
+}
+
+.toast.info { background: #0c71c3; }
+.toast.success { background: #28a745; }
+.toast.error { background: #dc3545; }
+
+/* Autocomplete */
+.autocomplete-box {
+    position: absolute;
+    background: white;
+    width: calc(100% - 40px);
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.1);
+    z-index: 9999;
+    display: none;
+}
+
+.autocomplete-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+
+.autocomplete-item:hover {
+    background: #f0f7ff;
+}
+
+/* ============================
+   MAPA
+============================ */
+#map {
+    width: 100%;
+    height: 260px;
+    margin-top: 10px;
+    border-radius: 12px;
+    border: 2px solid #e1e6f0;
+}
+
+/* ============================
+   RESPONSIVE
+============================ */
+@media (max-width: 650px) {
+    .branch-list {
+        grid-template-columns: 1fr;
+    }
+
+    .address-row {
+        flex-direction: column;
+    }
+
+    .modal {
+        max-width: 94%;
+    }
+}
