@@ -1052,7 +1052,7 @@ $foto_perfil = !empty($alumno['Profile_Image']) ? e($alumno, 'Profile_Image') : 
                                     <?php endif; ?>
                                 </div>
                             </div>
-
+                    </div>
                             <!-- DOMICILIO -->
                             <div class="ns-card ns-card-section ns-address-card">
                                 <div class="form-section address">
