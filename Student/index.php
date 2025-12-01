@@ -20,19 +20,13 @@ include '../Conexiones/db.php';
 <body>
 <!--      MENÚ SUPERIOR           -->
 <header class="menu-student">
-
     <div class="menu-left">
-        <img src="../assets/Imagenes/Logo3.png" class="logo-img">
+        <img src="../assets/Imagenes/Logo3.png" alt="Logo NextStep"  class="logo-img">
+        <span>NextStep</span>
     </div>
-
-    <div class="menu-center">
-        <span class="student-name">
-            <?php echo htmlspecialchars($_SESSION['usuario_nombre']); ?>
-        </span>
-    </div>
-
+    
     <div class="menu-right">
-        <i class="fa-solid fa-circle-user"></i>
+        <a href="../Student/logout.php" class="pagina logout">Cerrar sesión</a>
     </div>
 
 </header>
