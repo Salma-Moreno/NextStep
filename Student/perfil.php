@@ -40,8 +40,13 @@ $result = $stmt->get_result();
 if ($row = $result->fetch_assoc()) {
     $alumno = $row;
     $id_estudiante = (int)$row['ID_Student'];
+    $stmt->close();
+} else {
+    $stmt->close();
+    // ERROR: Si está logueado como Student pero no tiene perfil, es un error del sistema
+    die("Error: No se encontró tu perfil de estudiante. Esto no debería pasar. Contacta al administrador.");
+    // O alternativamente: header('Location: error.php?codigo=perfil_no_encontrado');
 }
-$stmt->close();
 
 /* ================= CARGAR DETALLES EXISTENTES ================= */
 if ($id_estudiante) {
@@ -307,28 +312,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $campos_guardados = 0;
     $errores_guardado = [];
     
-    // PRIMERO: Verificar/Crear el registro del estudiante
-    if (!$id_estudiante) {
-        // Si no existe estudiante, crear uno con los datos mínimos
-        $sql = "INSERT INTO student (FK_ID_User, Name, Last_Name, Phone_Number, Email_Address, Profile_Image) VALUES (?, ?, ?, ?, ?, ?)";
-        $stmt = $conexion->prepare($sql);
-        // Usar valores válidos o vacíos
-        $nombre_ins = $campos_validos['nombre'] ? $nombre : '';
-        $apellido_ins = $campos_validos['apellido'] ? $apellido : '';
-        $telefono_ins = $campos_validos['telefono'] ? $telefono : '';
-        $correo_ins = $campos_validos['correo'] ? $correo : '';
-        
-        $stmt->bind_param("isssss", $usuario_id, $nombre_ins, $apellido_ins, $telefono_ins, $correo_ins, $foto_url);
-        if ($stmt->execute()) {
-            $id_estudiante = $stmt->insert_id;
-            $campos_guardados++;
-        } else {
-            $errores_guardado[] = "Error al crear registro de estudiante: " . $stmt->error;
-        }
-        $stmt->close();
-    }
-    
-    // SOLO continuar si tenemos un ID de estudiante
+    // SOLO continuar si tenemos un ID de estudiante (SIEMPRE deberíamos tenerlo)
     if ($id_estudiante) {
         // ACTUALIZAR CAMPOS DEL ESTUDIANTE UNO POR UNO
         // 1. Actualizar student table (solo campos válidos)
