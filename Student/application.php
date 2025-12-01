@@ -59,11 +59,6 @@ if ($result_student->num_rows > 0) {
         $tieneDatosPersonales = true;
     }
 }
-=======
-/* ======== 1. Verificar si el estudiante tiene datos personales para permitir aplicar a una beca ========= */
-$tieneDatosPersonales = false;
-$student_id = null;
->>>>>>> 6ad622712420b4a0c76a1459f979f61f4d47c488
 
 // Buscar registro en la tabla student
 $sql = "SELECT 
