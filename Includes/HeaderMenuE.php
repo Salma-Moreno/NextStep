@@ -8,8 +8,8 @@ if (!isset($pageTitle)) {
     /* === HEADER BASE === */
 .header {
     width: 100%;
-    background-color: #007BFF;
-    border-bottom: 2px solid #0056b3;
+    background-color: #071630;   /* Azul marino */
+    border-bottom: 2px solid #0d223f; /* Un poco más claro */
     padding: 1rem 2rem;
     position: sticky;
     top: 0;
@@ -29,8 +29,18 @@ if (!isset($pageTitle)) {
     text-decoration: none;
     cursor: pointer;
     transition: color 0.3s;
-}
 
+    /* AÑADIDOS para alinear logo + texto */
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+/* Ajustar tamaño del logo dentro de la caja */
+.logo-img {
+    height: auto;      
+    width: 80px;
+    display: block;
+}
 .header .logo:hover {
     color: #ffdd57;
 }
@@ -51,7 +61,7 @@ if (!isset($pageTitle)) {
 .menu .pagina {
     color: #fff;
     text-decoration: none;
-    font-size: 1rem;
+    font-size: 1.2rem;
     font-weight: 500;
     transition: color 0.3s, border-bottom 0.3s;
     padding-bottom: 4px;
@@ -68,7 +78,7 @@ if (!isset($pageTitle)) {
     position: absolute;
     top: 35px;
     left: 0;
-    background-color: #007BFF;
+    background-color: #6D86A4;
     border-radius: 6px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     list-style: none;
@@ -93,7 +103,7 @@ if (!isset($pageTitle)) {
 }
 
 .dropdown-content .submenu:hover {
-    background-color: #0056b3;
+    background-color: #556C85;
     color: #ffdd57;
 }
 
@@ -112,7 +122,12 @@ if (!isset($pageTitle)) {
 </style>
 <header class="header">
     <div class="container-header">
-        <a href="../Student/index.php" class="logo">NextStep</a>
+        <a href="../Student/index.php" class="logo">
+            <div class="logo-box">
+                <img src="../assets/Imagenes/Logo3.png" alt="Logo NextStep" class="logo-img">
+            </div>
+            <span>NextStep</span>
+        </a>
     </div>
 
     <ul class="menu">
@@ -132,4 +147,3 @@ if (!isset($pageTitle)) {
         <li><a href="../Student/logout.php" class="pagina logout">Cerrar sesión</a></li>
     </ul>
 </header>
-

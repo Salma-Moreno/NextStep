@@ -1,27 +1,36 @@
+/* ==========================================================================
+   Reseteo y configuración base
+   ========================================================================== */
+
+/* Ajuste de caja para asegurar que padding y border no modifiquen el tamaño real */
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
+
+/* Configuración general del body y su estructura */
 body {
     font-family: Arial, sans-serif;
     display: flex;
-    flex-direction: column; /* Header arriba, contenido debajo */
+    flex-direction: column; /* Mantiene el header arriba y el contenido debajo */
     justify-content: flex-start;
     align-items: center;
     min-height: 100vh;
     text-align: left;
-    background-color: #f4f4f4;
+    background-color: #f4f4f4; /* Fondo gris claro general */
 }
 
+/* Contenedor principal donde irá el contenido de la vista */
 .container {
     width: 85%;
     margin: 40px auto;
-    background: white;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
 }
+
+/* ==========================================================================
+   Estilos de títulos
+   ========================================================================== */
+
 h1 {
     color: #0056b3;
     margin-bottom: 25px;
@@ -32,6 +41,11 @@ h2 {
     margin-bottom: 15px;
 }
 
+
+/* ==========================================================================
+   Estilos de advertencias o mensajes importantes
+   ========================================================================== */
+
 .warning {
     background: #ffefc5;
     border: 1px solid #ffc107;
@@ -41,69 +55,159 @@ h2 {
     margin: 20px 0;
 }
 
-/* === Lista de becas === */
+/* ==========================================================================
+   Card superior de sección principal (Título y descripción)
+   ========================================================================== */
+
+/* Esta card contiene el título “Solicitud de Beca” y el texto introductorio */
+.scholarship-header-card {
+    background: #ffffff;
+    text-align: center;
+    border-radius: 18px;
+    padding: 32px 40px;
+    margin: 32px auto 24px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); /* Sombra suave */
+}
+
+/* ==========================================================================
+   Sección de cards de becas independientes
+   ========================================================================== */
+
+/* Contenedor que agrupa todas las cards de becas */
+.scholarship-cards-section {
+    margin: 0 auto 40px;
+}
+
+/* Título propio de esta sección si se requiere */
+.scholarship-cards-section .section-title {
+    font-size: 1.3rem;
+    margin-bottom: 16px;
+}
+
+/* ==========================================================================
+   Grid donde se distribuyen todas las cards de becas
+   ========================================================================== */
+
+/* Diseño tipo catálogo con ajuste automático */
 .scholarship-list {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(3, minmax(0, 1fr)); /* 3 columnas */
+    gap: 24px;                                        /* separación entre cards */
     margin-top: 30px;
 }
 
+/* ==========================================================================
+   Estilos de cada card individual (una beca)
+   ========================================================================== */
+
+/* Card individual de beca (versión compacta) */
 .scholarship-card {
-    background: #f8f9fa;
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-}
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    overflow: hidden;
 
-.scholarship-card h3 {
-    color: #0056b3;
-    margin-bottom: 10px;
-}
+    width: 360px;        /* Ancho de cada card: con esto caben 3 en una fila en pantalla ancha */
+    margin-bottom: 30px; /* Separación vertical entre filas */
 
-.apply-btn {
-    margin-top: 15px;
-    background: #007bff;
-    color: #fff;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.3s;
-}
-
-.apply-btn:hover {
-    background: #0056b3;
-}
-
-/* === Formulario de datos personales === */
-.personal-data-form {
-    margin-top: 20px;
-}
-
-.form-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-}
-
-.form-group {
     display: flex;
     flex-direction: column;
-    text-align: left;
 }
 
-.form-group label {
-    font-weight: bold;
-    margin-bottom: 5px;
+/* Sección superior simulando imagen o portada */
+.card-image {
+    height: 120px; 
+    background: linear-gradient(135deg, #1f3259, #6696f8);
+    border-radius: 18px 18px 0 0;
 }
 
-.form-group input {
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
+/* Contenido textual de la card (nombre, descripción, fechas) */
+.card-body {
+    padding: 16px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
+
+/* Título dentro de la card */
+.card-body h3 {
+    font-size: 1rem;
+    margin: 0;
+    color: #0056b3;
+}
+
+/* Descripción corta */
+.card-short-text {
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+/* Texto de detalle */
+.card-long-text {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+/* Pie de la card donde van botones o estado */
+.card-footer {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ==========================================================================
+   Botones dentro de las cards
+   ========================================================================== */
+
+/* Estilo base de los botones de acción */
+.apply-btn,
+.cancel-btn {
+    padding: 8px 14px;
+    border-radius: 999px; /* Forma circular */
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+/* Botón de solicitar beca */
+.apply-btn {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+/* Hover para interacción */
+.apply-btn:hover {
+    background: #1d4ed8;
+}
+
+/* Estado deshabilitado cuando ya hay una solicitud activa */
+.apply-btn.disabled {
+    background: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+/* Botón de cancelar la solicitud */
+.cancel-btn {
+    background: #ffffff;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+/* ==========================================================================
+   Etiqueta para mostrar estado de la beca solicitada
+   ========================================================================== */
+
+.status-label {
+    font-size: 0.8rem;
+    color: #16a34a; /* Verde de confirmación */
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   Botón general para acciones fuera de las cards
+   ========================================================================== */
 
 .btn {
     margin-top: 20px;
@@ -114,8 +218,58 @@ h2 {
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.3s;
+    display: inline-block;
+    text-decoration: none;
 }
 
 .btn:hover {
     background: #0056b3;
+}
+
+/* ==========================================================================
+   Estilos del formulario de datos personales (si se usa en la vista)
+   ========================================================================== */
+
+.personal-data-form {
+    margin-top: 20px;
+}
+
+/* Grid responsivo para formularios */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+/* Grupo de formulario */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+
+/* Etiquetas de formulario */
+.form-group label {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+/* Campos de texto */
+.form-group input {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+/* En pantallas medianas: 2 columnas */
+@media (max-width: 1100px) {
+    .scholarship-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* En pantallas pequeñas: 1 columna */
+@media (max-width: 768px) {
+    .scholarship-list {
+        grid-template-columns: 1fr;
+    }
 }
