@@ -30,6 +30,16 @@ function getValue($field, $default = '') {
     return htmlspecialchars($post_values[$field] ?? $default, ENT_QUOTES, 'UTF-8');
 }
 
+// Función para comparar si los valores son realmente diferentes
+function valoresDiferentes($valor1, $valor2) {
+    // Convertir ambos a string y trim
+    $v1 = trim((string)$valor1);
+    $v2 = trim((string)$valor2);
+    
+    // Comparar
+    return $v1 !== $v2;
+}
+
 /* ================= OBTENER ESTUDIANTE ================= */
 $sql = "SELECT * FROM student WHERE FK_ID_User = ? LIMIT 1";
 $stmt = $conexion->prepare($sql);
@@ -368,36 +378,36 @@ if ($ciudad) {
     // SOLO continuar si tenemos un ID de estudiante (SIEMPRE deberíamos tenerlo)
     if ($id_estudiante) {
         // ACTUALIZAR CAMPOS DEL ESTUDIANTE UNO POR UNO
-        // 1. Actualizar student table (solo campos válidos)
+        // 1. Actualizar student table (solo campos válidos y si son diferentes)
         $update_student_fields = [];
         $update_student_values = [];
         $update_types = "";
         
-        if ($campos_validos['nombre'] && $nombre !== '') {
+        if ($campos_validos['nombre'] && $nombre !== '' && valoresDiferentes($nombre, e($alumno, 'Name'))) {
             $update_student_fields[] = "Name = ?";
             $update_student_values[] = $nombre;
             $update_types .= "s";
         }
         
-        if ($campos_validos['apellido'] && $apellido !== '') {
+        if ($campos_validos['apellido'] && $apellido !== '' && valoresDiferentes($apellido, e($alumno, 'Last_Name'))) {
             $update_student_fields[] = "Last_Name = ?";
             $update_student_values[] = $apellido;
             $update_types .= "s";
         }
         
-        if ($campos_validos['telefono'] && $telefono !== '') {
+        if ($campos_validos['telefono'] && $telefono !== '' && valoresDiferentes($telefono, e($alumno, 'Phone_Number'))) {
             $update_student_fields[] = "Phone_Number = ?";
             $update_student_values[] = $telefono;
             $update_types .= "s";
         }
         
-        if ($campos_validos['correo'] && $correo !== '') {
+        if ($campos_validos['correo'] && $correo !== '' && valoresDiferentes($correo, $correo_actual)) {
             $update_student_fields[] = "Email_Address = ?";
             $update_student_values[] = $correo;
             $update_types .= "s";
         }
         
-        if ($foto_url !== null) {
+        if ($foto_url !== null && valoresDiferentes($foto_url, e($alumno, 'Profile_Image'))) {
             $update_student_fields[] = "Profile_Image = ?";
             $update_student_values[] = $foto_url;
             $update_types .= "s";
@@ -423,10 +433,7 @@ if ($ciudad) {
             $stmt->close();
         }
         
-        // [El resto del código de actualización de student_details, tutor_data y address se mantiene igual...]
-        // ... (mantener todo el código existente para las otras tablas)
-        
-        // 2. student_details (insertar o actualizar) [MANTENER IGUAL]
+        // 2. student_details (insertar o actualizar)
         $id_detalles = null;
         $sql = "SELECT ID_Details FROM student_details WHERE FK_ID_Student = ? LIMIT 1";
         $stmt = $conexion->prepare($sql);
@@ -437,36 +444,36 @@ if ($ciudad) {
         $stmt->close();
         
         if ($id_detalles) {
-            // Actualizar solo campos válidos
+            // Actualizar solo campos válidos y si son diferentes
             $update_details_fields = [];
             $update_details_values = [];
             $update_details_types = "";
             
-            if ($campos_validos['fecha_nacimiento'] && $fecha_nacimiento !== null) {
+            if ($campos_validos['fecha_nacimiento'] && $fecha_nacimiento !== null && valoresDiferentes($fecha_nacimiento, e($detalles, 'Birthdate'))) {
                 $update_details_fields[] = "Birthdate = ?";
                 $update_details_values[] = $fecha_nacimiento;
                 $update_details_types .= "s";
             }
             
-            if ($campos_validos['preparatoria'] && $preparatoria !== '') {
+            if ($campos_validos['preparatoria'] && $preparatoria !== '' && valoresDiferentes($preparatoria, e($detalles, 'High_school'))) {
                 $update_details_fields[] = "High_school = ?";
                 $update_details_values[] = $preparatoria;
                 $update_details_types .= "s";
             }
             
-            if ($campos_validos['grado'] && $grado !== '') {
+            if ($campos_validos['grado'] && $grado !== '' && valoresDiferentes($grado, e($detalles, 'Grade'))) {
                 $update_details_fields[] = "Grade = ?";
                 $update_details_values[] = $grado;
                 $update_details_types .= "s";
             }
             
-            if ($campos_validos['licencia'] && $licencia !== '') {
+            if ($campos_validos['licencia'] && $licencia !== '' && valoresDiferentes($licencia, e($detalles, 'License'))) {
                 $update_details_fields[] = "License = ?";
                 $update_details_values[] = $licencia;
                 $update_details_types .= "s";
             }
             
-            if ($campos_validos['promedio'] && $promedio !== null) {
+            if ($campos_validos['promedio'] && $promedio !== null && valoresDiferentes($promedio, e($detalles, 'Average'))) {
                 $update_details_fields[] = "Average = ?";
                 $update_details_values[] = $promedio;
                 $update_details_types .= "i";
@@ -487,7 +494,7 @@ if ($ciudad) {
                 $stmt->close();
             }
         } else {
-            // Insertar solo si tenemos datos válidos
+            // Insertar solo si tenemos datos válidos (esto solo pasa la primera vez)
             $tiene_datos_detalles = ($fecha_nacimiento !== null || $preparatoria !== '' || $grado !== '' || $licencia !== '' || $promedio !== null);
             
             if ($tiene_datos_detalles) {
@@ -510,7 +517,7 @@ if ($ciudad) {
             }
         }
         
-        // 3. tutor_data (insertar o actualizar) [MANTENER IGUAL]
+        // 3. tutor_data (insertar o actualizar)
         $id_tutor = null;
         $sql = "SELECT ID_Data FROM tutor_data WHERE FK_ID_Student = ? LIMIT 1";
         $stmt = $conexion->prepare($sql);
@@ -523,30 +530,30 @@ if ($ciudad) {
         $fk_dependency = 1; // Valor por defecto
         
         if ($id_tutor) {
-            // Actualizar solo campos válidos
+            // Actualizar solo campos válidos y si son diferentes
             $update_tutor_fields = [];
             $update_tutor_values = [];
             $update_tutor_types = "";
             
-            if ($campos_validos['tutor_nombre'] && $tutor_nombre !== '') {
+            if ($campos_validos['tutor_nombre'] && $tutor_nombre !== '' && valoresDiferentes($tutor_nombre, e($tutor, 'Tutor_name'))) {
                 $update_tutor_fields[] = "Tutor_name = ?";
                 $update_tutor_values[] = $tutor_nombre;
                 $update_tutor_types .= "s";
             }
             
-            if ($campos_validos['tutor_apellidos'] && $tutor_apellidos !== '') {
+            if ($campos_validos['tutor_apellidos'] && $tutor_apellidos !== '' && valoresDiferentes($tutor_apellidos, e($tutor, 'Tutor_lastname'))) {
                 $update_tutor_fields[] = "Tutor_lastname = ?";
                 $update_tutor_values[] = $tutor_apellidos;
                 $update_tutor_types .= "s";
             }
             
-            if ($campos_validos['tutor_telefono'] && $tutor_telefono !== '') {
+            if ($campos_validos['tutor_telefono'] && $tutor_telefono !== '' && valoresDiferentes($tutor_telefono, e($tutor, 'Phone_Number'))) {
                 $update_tutor_fields[] = "Phone_Number = ?";
                 $update_tutor_values[] = $tutor_telefono;
                 $update_tutor_types .= "s";
             }
             
-            if ($campos_validos['tutor_direccion'] && $tutor_direccion !== '') {
+            if ($campos_validos['tutor_direccion'] && $tutor_direccion !== '' && valoresDiferentes($tutor_direccion, e($tutor, 'Address'))) {
                 $update_tutor_fields[] = "Address = ?";
                 $update_tutor_values[] = $tutor_direccion;
                 $update_tutor_types .= "s";
@@ -567,7 +574,7 @@ if ($ciudad) {
                 $stmt->close();
             }
         } else {
-            // Insertar solo si tenemos datos válidos
+            // Insertar solo si tenemos datos válidos (esto solo pasa la primera vez)
             $tiene_datos_tutor = ($tutor_nombre !== '' || $tutor_apellidos !== '' || $tutor_telefono !== '' || $tutor_direccion !== '');
             
             if ($tiene_datos_tutor) {
@@ -589,7 +596,7 @@ if ($ciudad) {
             }
         }
         
-        // 4. address (insertar o actualizar) [MANTENER IGUAL]
+        // 4. address (insertar o actualizar)
         $id_address = null;
         $sql = "SELECT ID_Address FROM address WHERE FK_ID_Student = ? LIMIT 1";
         $stmt = $conexion->prepare($sql);
@@ -600,24 +607,24 @@ if ($ciudad) {
         $stmt->close();
         
         if ($id_address) {
-            // Actualizar solo campos válidos
+            // Actualizar solo campos válidos y si son diferentes
             $update_address_fields = [];
             $update_address_values = [];
             $update_address_types = "";
             
-            if ($campos_validos['calle'] && $calle !== '') {
+            if ($campos_validos['calle'] && $calle !== '' && valoresDiferentes($calle, e($direccion, 'Street'))) {
                 $update_address_fields[] = "Street = ?";
                 $update_address_values[] = $calle;
                 $update_address_types .= "s";
             }
             
-            if ($campos_validos['ciudad'] && $ciudad !== '') {
+            if ($campos_validos['ciudad'] && $ciudad !== '' && valoresDiferentes($ciudad, e($direccion, 'City'))) {
                 $update_address_fields[] = "City = ?";
                 $update_address_values[] = $ciudad;
                 $update_address_types .= "s";
             }
             
-            if ($campos_validos['codigo_postal'] && $codigo_postal !== '') {
+            if ($campos_validos['codigo_postal'] && $codigo_postal !== '' && valoresDiferentes($codigo_postal, e($direccion, 'Postal_Code'))) {
                 $update_address_fields[] = "Postal_Code = ?";
                 $update_address_values[] = $codigo_postal;
                 $update_address_types .= "s";
@@ -638,7 +645,7 @@ if ($ciudad) {
                 $stmt->close();
             }
         } else {
-            // Insertar solo si tenemos datos válidos
+            // Insertar solo si tenemos datos válidos (esto solo pasa la primera vez)
             $tiene_datos_direccion = ($calle !== '' || $ciudad !== '' || $codigo_postal !== '');
             
             if ($tiene_datos_direccion) {
@@ -676,7 +683,7 @@ if ($ciudad) {
         $campos_validos['codigo_postal'] && !empty($codigo_postal)
     );
     
-    // Mostrar mensaje apropiado
+    // ========== MOSTRAR MENSAJE APROPIADO ==========
     if (!empty($errores_campos)) {
         $tipo_modal = 'warning';
         $mensaje_modal = "Algunos campos tienen errores y no se guardaron. ";
@@ -692,20 +699,33 @@ if ($ciudad) {
         $mensaje_modal = "Error al guardar algunos datos en la base de datos: " . implode(", ", $errores_guardado);
         $mostrar_modal = true;
     } else {
-        // Todo OK
+        // Todo OK - Verificar si realmente hubo cambios que se guardaron
         $tipo_modal = 'success';
-        $mensaje_modal = 'La información se guardó correctamente.';
         
-        if ($perfil_completo) {
-            $mensaje_modal .= ' ¡Tu perfil está completo! Ya puedes aplicar a becas.';
+        if ($campos_guardados > 0) {
+            // Sí hubo cambios guardados
+            $mensaje_modal = 'La información se guardó correctamente.';
+            
+            if ($perfil_completo) {
+                $mensaje_modal .= ' ¡Tu perfil está completo! Ya puedes aplicar a becas.';
+            } else {
+                $mensaje_modal .= ' Aún necesitas completar todos los campos para aplicar a becas.';
+            }
         } else {
-            $mensaje_modal .= ' Aún necesitas completar todos los campos para aplicar a becas.';
+            // NO hubo cambios guardados (todo ya estaba actualizado)
+            $mensaje_modal = 'No se detectaron cambios para guardar. ';
+            
+            if ($perfil_completo) {
+                $mensaje_modal .= 'Tu perfil ya está completo y listo para aplicar a becas.';
+            } else {
+                $mensaje_modal .= 'Recuerda completar todos los campos para poder aplicar a becas.';
+            }
         }
         
         $mostrar_modal = true;
         
-        // Recargar los datos actualizados
-        if ($id_estudiante) {
+        // Recargar los datos actualizados solo si hubo cambios guardados
+        if ($campos_guardados > 0 && $id_estudiante) {
             // Recargar datos del estudiante
             $sql = "SELECT * FROM student WHERE FK_ID_User = ? LIMIT 1";
             $stmt = $conexion->prepare($sql);
