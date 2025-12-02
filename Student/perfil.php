@@ -40,12 +40,11 @@ $result = $stmt->get_result();
 if ($row = $result->fetch_assoc()) {
     $alumno = $row;
     $id_estudiante = (int)$row['ID_Student'];
+    $correo_actual = $row['Email_Address']; // Guardar el correo actual para comparar
     $stmt->close();
 } else {
     $stmt->close();
-    // ERROR: Si está logueado como Student pero no tiene perfil, es un error del sistema
     die("Error: No se encontró tu perfil de estudiante. Esto no debería pasar. Contacta al administrador.");
-    // O alternativamente: header('Location: error.php?codigo=perfil_no_encontrado');
 }
 
 /* ================= CARGAR DETALLES EXISTENTES ================= */
@@ -123,6 +122,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $post_values['telefono'] = $telefono;
     $post_values['correo'] = $correo;
 
+    // ========== VALIDACIÓN DE CORREO ÚNICO ==========
+    $correo_valido = true;
+    $correo_cambiado = false;
+    
+    if ($correo) {
+        // Verificar si el correo es diferente al actual
+        if (strtolower($correo) !== strtolower($correo_actual)) {
+            $correo_cambiado = true;
+            
+            // Verificar formato de correo
+            if (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+                $errores_campos['correo'] = "Correo inválido.";
+                $correo_valido = false;
+            } else {
+                // Verificar si el correo ya existe en student
+                $sql = "SELECT ID_Student FROM student WHERE Email_Address = ? AND ID_Student != ? LIMIT 1";
+                $stmt = $conexion->prepare($sql);
+                $stmt->bind_param("si", $correo, $id_estudiante);
+                $stmt->execute();
+                $stmt->store_result();
+                
+                if ($stmt->num_rows > 0) {
+                    $errores_campos['correo'] = "Este correo ya está registrado por otro estudiante.";
+                    $correo_valido = false;
+                }
+                $stmt->close();
+                
+                // Si pasa la primera verificación, verificar en staff
+                if ($correo_valido) {
+                    // CORRECCIÓN: Cambiar 'Email_Address' por 'Email'
+                    $sql = "SELECT ID_Staff FROM staff WHERE Email = ? LIMIT 1";  // ← CAMBIADO
+                    $stmt = $conexion->prepare($sql);
+                    $stmt->bind_param("s", $correo);
+                    $stmt->execute();
+                    $stmt->store_result();
+                    
+                    if ($stmt->num_rows > 0) {
+                        $errores_campos['correo'] = "Este correo ya está registrado por un miembro del staff.";
+                        $correo_valido = false;
+                    }
+                    $stmt->close();
+                }
+            }
+        }
+    }
+
     // ========== FOTO DE PERFIL ==========
     $foto_url = trim($_POST['foto_url'] ?? '');
     $post_values['foto_url'] = $foto_url;
@@ -188,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'nombre' => true,
         'apellido' => true,
         'telefono' => true,
-        'correo' => true,
+        'correo' => $correo_valido, // Usar la validación de correo único
         'fecha_nacimiento' => true,
         'preparatoria' => true,
         'grado' => true,
@@ -203,7 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'codigo_postal' => true
     ];
     
-    // Validación individual de cada campo
+    // Validación individual de cada campo (excepto correo que ya se validó)
     // Nombre
     if (!preg_match('/^[\p{L}]+$/u', $nombre)) {
         $errores_campos['nombre'] = "Sólo letras, sin espacios ni números.";
@@ -220,12 +265,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!preg_match('/^\d{10}$/', $telefono)) {
         $errores_campos['telefono'] = "Debe contener exactamente 10 números, sin espacios.";
         $campos_validos['telefono'] = false;
-    }
-    
-    // Correo
-    if ($correo && !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
-        $errores_campos['correo'] = "Correo inválido.";
-        $campos_validos['correo'] = false;
     }
     
     // Fecha nacimiento
@@ -255,12 +294,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $campos_validos['promedio'] = false;
     }
     
-    // Licencia
-    if ($licencia && !preg_match('/^[\p{L}\d-]+$/u', $licencia)) {
-        $errores_campos['licencia'] = "Sólo letras, números o guion.";
-        $campos_validos['licencia'] = false;
-    }
-    
+            // Licencia: Letra opcional al principio, seguida de números
+            if ($licencia && !preg_match('/^[A-Za-z]?\d+$/u', $licencia)) {
+                $errores_campos['licencia'] = "Formato: solo numeros o una letra al principio seguida de números (ej: A21210201 o 21210201).";
+                $campos_validos['licencia'] = false;
+            }
+
     // Nombre tutor
     if ($tutor_nombre && !preg_match('/^[\p{L}]+$/u', $tutor_nombre)) {
         $errores_campos['tutor_nombre'] = "Sólo letras, sin espacios.";
@@ -279,24 +318,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $campos_validos['tutor_telefono'] = false;
     }
     
-    // Dirección tutor
-    if ($tutor_direccion && !preg_match('/^[\p{L}\d#\s]+$/u', $tutor_direccion)) {
+// Dirección tutor: al menos 5 caracteres (sin contar espacios al inicio/fin)
+if ($tutor_direccion) {
+    if (!preg_match('/^[\p{L}\d#\s]+$/u', $tutor_direccion)) {
         $errores_campos['tutor_direccion'] = "Sólo letras, números y #.";
         $campos_validos['tutor_direccion'] = false;
+    } else if (strlen(trim($tutor_direccion)) <= 5) {
+        $errores_campos['tutor_direccion'] = "La dirección debe tener más de 5 caracteres.";
+        $campos_validos['tutor_direccion'] = false;
     }
-    
-    // Calle
-    if ($calle && !preg_match('/^[\p{L}\d#\s]+$/u', $calle)) {
+}
+
+// Calle: al menos 5 caracteres (sin contar espacios al inicio/fin)
+if ($calle) {
+    if (!preg_match('/^[\p{L}\d#\s]+$/u', $calle)) {
         $errores_campos['calle'] = "Sólo letras, números y #.";
         $campos_validos['calle'] = false;
+    } else if (strlen(trim($calle)) <= 5) {
+        $errores_campos['calle'] = "La calle debe tener más de 5 caracteres.";
+        $campos_validos['calle'] = false;
     }
-    
-    // Ciudad
-    if ($ciudad && !preg_match('/^[\p{L}\s]+$/u', $ciudad)) {
-        $errores_campos['ciudad'] = "Sólo letras.";
+}
+
+// Ciudad: Solo letras, sin espacios, al menos 5 letras
+if ($ciudad) {
+    if (!preg_match('/^[\p{L}]+$/u', $ciudad)) {
+        $errores_campos['ciudad'] = "Sólo letras, sin espacios ni números.";
+        $campos_validos['ciudad'] = false;
+    } else if (strlen($ciudad) <= 5) {
+        $errores_campos['ciudad'] = "La ciudad debe tener más de 5 letras.";
         $campos_validos['ciudad'] = false;
     }
-    
+}
     // Código postal
     if ($codigo_postal && (!preg_match('/^\d{5}$/', $codigo_postal) || (intval($codigo_postal) < 22000 || intval($codigo_postal) > 22599))) {
         $errores_campos['codigo_postal'] = "Debe ser un número de 5 dígitos válido de Tijuana (22000-22599).";
@@ -360,13 +413,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param($update_types, ...$update_student_values);
             if ($stmt->execute()) {
                 $campos_guardados++;
+                // Actualizar el correo actual si se cambió
+                if ($correo_cambiado && $correo_valido) {
+                    $correo_actual = $correo;
+                }
             } else {
                 $errores_guardado[] = "Error al actualizar estudiante: " . $stmt->error;
             }
             $stmt->close();
         }
         
-        // 2. student_details (insertar o actualizar)
+        // [El resto del código de actualización de student_details, tutor_data y address se mantiene igual...]
+        // ... (mantener todo el código existente para las otras tablas)
+        
+        // 2. student_details (insertar o actualizar) [MANTENER IGUAL]
         $id_detalles = null;
         $sql = "SELECT ID_Details FROM student_details WHERE FK_ID_Student = ? LIMIT 1";
         $stmt = $conexion->prepare($sql);
@@ -450,7 +510,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
-        // 3. tutor_data (insertar o actualizar)
+        // 3. tutor_data (insertar o actualizar) [MANTENER IGUAL]
         $id_tutor = null;
         $sql = "SELECT ID_Data FROM tutor_data WHERE FK_ID_Student = ? LIMIT 1";
         $stmt = $conexion->prepare($sql);
@@ -529,7 +589,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
-        // 4. address (insertar o actualizar)
+        // 4. address (insertar o actualizar) [MANTENER IGUAL]
         $id_address = null;
         $sql = "SELECT ID_Address FROM address WHERE FK_ID_Student = ? LIMIT 1";
         $stmt = $conexion->prepare($sql);
@@ -655,6 +715,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($row = $result->fetch_assoc()) {
                 $alumno = $row;
                 $id_estudiante = (int)$row['ID_Student'];
+                $correo_actual = $row['Email_Address']; // Actualizar el correo actual
             }
             $stmt->close();
             
@@ -903,17 +964,19 @@ $foto_perfil = !empty($alumno['Profile_Image']) ? e($alumno, 'Profile_Image') : 
                                         <span class="error-message"><?php echo $errores_campos['telefono']; ?></span>
                                     <?php endif; ?>
                                 </div>
-                                <!-- Correo -->
+                                <!-- Correo (AHORA EDITABLE) -->
                                 <div class="form-group">
                                     <label>Correo electrónico:</label>
                                     <input type="email" name="correo" value="<?php echo !empty($post_values) ? getValue('correo', e($alumno, 'Email_Address')) : e($alumno, 'Email_Address'); ?>" 
-                                           readonly placeholder="correo@ejemplo.com" 
-                                           title="No se puede modificar el correo" 
+                                           placeholder="correo@ejemplo.com" 
+                                           class="<?php echo isset($errores_campos['correo']) ? 'input-error' : ''; ?>" 
+                                           title="<?php echo $errores_campos['correo'] ?? 'Debe ser único y no estar registrado por otro estudiante o staff'; ?>" 
                                            required 
                                            data-required="true">
                                     <?php if (isset($errores_campos['correo'])): ?>
                                         <span class="error-message"><?php echo $errores_campos['correo']; ?></span>
                                     <?php endif; ?>
+                                    <small style="color: #666; font-size: 0.8em;">Puedes cambiar tu correo, pero debe ser único en el sistema.</small>
                                 </div>
                                 <!-- URL de Foto de Perfil -->
                                 <div class="form-group">
