@@ -9,16 +9,22 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Staff') {
 include '../Conexiones/db.php';
 $conexion = $conn;
 
-// Obtener todas las solicitudes de estudiantes
+// Obtener solo la solicitud más reciente por estudiante
 $sql = "SELECT 
         a.ID_status,
         s.Name AS estudiante_nombre,
         s.Last_Name AS estudiante_apellido,
         s.Email_Address AS estudiante_email,
         a.status,
-        a.FK_ID_Kit
+        a.FK_ID_Kit,
+        s.ID_Student  -- Agregar ID del estudiante para referencia
         FROM aplication a
         JOIN student s ON a.FK_ID_Student = s.ID_Student
+        WHERE a.ID_status IN (
+            SELECT MAX(ID_status) 
+            FROM aplication 
+            GROUP BY FK_ID_Student
+        )
         ORDER BY a.ID_status DESC";
 
 $result = $conexion->query($sql);
@@ -29,8 +35,19 @@ if (!$result) {
 }
 
 $solicitudes = [];
+$estudiantes_procesados = []; // Array para evitar duplicados adicionales
+
 if ($result->num_rows > 0) {
     while($row = $result->fetch_assoc()) {
+        $estudiante_id = $row['ID_Student'];
+        
+        // Verificar si ya procesamos a este estudiante (doble verificación)
+        if (in_array($estudiante_id, $estudiantes_procesados)) {
+            continue;
+        }
+        
+        $estudiantes_procesados[] = $estudiante_id;
+        
         // Agregar datos adicionales para cada kit
         $kit_id = $row['FK_ID_Kit'];
         
@@ -227,6 +244,12 @@ if ($result->num_rows > 0) {
             color: #004085;
             border: 1px solid #b8daff;
         }
+
+            .estado-cancelado {
+                background: #e9ecef;
+                color: #495057;
+                border: 1px solid #ced4da;
+            }
         
         /* Acciones */
         .acciones-container {
@@ -522,6 +545,8 @@ if ($result->num_rows > 0) {
             <div class="historial-container">
                 <div class="historial-header">
                     <h1>📋 Historial de Solicitudes de Kits</h1>
+                    <p style="margin-top: 10px; opacity: 0.9; font-size: 14px;">
+                    </p>
                 </div>
                 
                 <?php 
@@ -531,12 +556,13 @@ if ($result->num_rows > 0) {
                 $aprobadas = array_filter($solicitudes, function($s) { return $s['status'] == 'Approved'; });
                 $rechazadas = array_filter($solicitudes, function($s) { return $s['status'] == 'Rejected'; });
                 $entregadas = array_filter($solicitudes, function($s) { return $s['status'] == 'Delivered'; });
+                $canceladas = array_filter($solicitudes, function($s) { return $s['status'] == 'Canceled'; });
                 ?>
                 
                 <div class="stats-bar-historial">
                     <div class="stat-item-historial">
                         <span class="stat-number-historial"><?php echo $total; ?></span>
-                        <span class="stat-label-historial">Total</span>
+                        <span class="stat-label-historial">Estudiantes Únicos</span>
                     </div>
                     <div class="stat-item-historial">
                         <span class="stat-number-historial"><?php echo count($pendientes); ?></span>
@@ -554,6 +580,10 @@ if ($result->num_rows > 0) {
                         <span class="stat-number-historial"><?php echo count($entregadas); ?></span>
                         <span class="stat-label-historial">Entregadas</span>
                     </div>
+                    <div class="stat-item-historial">
+                            <span class="stat-number-historial"><?php echo count($canceladas); ?></span>
+                            <span class="stat-label-historial">Canceladas</span>
+                        </div>               
                 </div>
                 
                 <div class="filtros-container">
@@ -563,6 +593,7 @@ if ($result->num_rows > 0) {
                         <option value="Approved">Aprobado</option>
                         <option value="Rejected">Rechazado</option>
                         <option value="Delivered">Entregado</option>
+                         <option value="Canceled">Cancelado</option>
                     </select>
                     
                     <input type="text" id="filtro-nombre" placeholder="🔍 Buscar por nombre..." onkeyup="aplicarFiltros()">
@@ -620,13 +651,15 @@ if ($result->num_rows > 0) {
                                     case 'Approved': $clase_estado = 'estado-aprobado'; break;
                                     case 'Rejected': $clase_estado = 'estado-rechazado'; break;
                                     case 'Delivered': $clase_estado = 'estado-entregado'; break;
+                                    case 'Canceled': $clase_estado = 'estado-cancelado'; break;
                                 }
                                 
                                 $estados_texto = [
                                     'Pending' => 'Pendiente',
                                     'Approved' => 'Aprobado',
                                     'Rejected' => 'Rechazado',
-                                    'Delivered' => 'Entregado'
+                                    'Delivered' => 'Entregado',
+                                    'Canceled' => 'Cancelado'
                                 ];
                                 ?>
                                 <tr>
@@ -715,8 +748,7 @@ if ($result->num_rows > 0) {
     </div>
     
     <script>
-        // JavaScript aquí (igual que antes, pero con los nombres de clases actualizados)
-        // Variables para paginación
+        // JavaScript aquí
         let solicitudes = <?php echo json_encode($solicitudes); ?>;
         const itemsPorPagina = 10;
         let paginaActual = 1;
@@ -779,14 +811,16 @@ if ($result->num_rows > 0) {
             const aprobadas = solicitudesFiltradas.filter(s => s.status == 'Approved').length;
             const rechazadas = solicitudesFiltradas.filter(s => s.status == 'Rejected').length;
             const entregadas = solicitudesFiltradas.filter(s => s.status == 'Delivered').length;
+            const canceladas = solicitudesFiltradas.filter(s => s.status == 'Canceled').length;
             
             const stats = document.querySelectorAll('.stat-number-historial');
-            if (stats.length >= 5) {
+            if (stats.length >= 6) {
                 stats[0].textContent = total;
                 stats[1].textContent = pendientes;
                 stats[2].textContent = aprobadas;
                 stats[3].textContent = rechazadas;
                 stats[4].textContent = entregadas;
+                stats[5].textContent = canceladas;
             }
         }
         
@@ -800,12 +834,13 @@ if ($result->num_rows > 0) {
             
             // Restaurar estadísticas originales
             const stats = document.querySelectorAll('.stat-number-historial');
-            if (stats.length >= 5) {
+            if (stats.length >= 6) {
                 stats[0].textContent = <?php echo $total; ?>;
                 stats[1].textContent = <?php echo count($pendientes); ?>;
                 stats[2].textContent = <?php echo count($aprobadas); ?>;
                 stats[3].textContent = <?php echo count($rechazadas); ?>;
                 stats[4].textContent = <?php echo count($entregadas); ?>;
+                stats[5].textContent = <?php echo count($canceladas); ?>;
             }
             
             paginaActual = 1;
@@ -817,13 +852,14 @@ if ($result->num_rows > 0) {
             const solicitud = solicitudes.find(s => s.ID_status == idSolicitud);
             
             if (solicitud) {
-                document.getElementById('modalTitulo').textContent = `Solicitud #${solicitud.ID_status}`;
+                document.getElementById('modalTitulo').textContent = `Solicitud #${solicitud.ID_status} (Más reciente)`;
                 
                 const estadoTexto = {
                     'Pending': 'Pendiente',
                     'Approved': 'Aprobado',
                     'Rejected': 'Rechazado',
-                    'Delivered': 'Entregado'
+                    'Delivered': 'Entregado',
+                    'Canceled': 'Cancelado'
                 };
                 
                 const contenido = `
@@ -836,6 +872,10 @@ if ($result->num_rows > 0) {
                         <div class="detalle-item-historial">
                             <strong>Correo electrónico:</strong>
                             ${solicitud.estudiante_email}
+                        </div>
+                        <div class="detalle-item-historial">
+                            <strong>Nota:</strong>
+                            Esta es la solicitud más reciente de este estudiante
                         </div>
                     </div>
                     
@@ -889,6 +929,7 @@ if ($result->num_rows > 0) {
                 case 'Approved': return 'estado-aprobado';
                 case 'Rejected': return 'estado-rechazado';
                 case 'Delivered': return 'estado-entregado';
+                case 'Canceled': return 'estado-cancelado';
                 default: return '';
             }
         }
@@ -959,7 +1000,8 @@ if ($result->num_rows > 0) {
                     'Pending': 'Pendiente',
                     'Approved': 'Aprobado',
                     'Rejected': 'Rechazado',
-                    'Delivered': 'Entregado'
+                    'Delivered': 'Entregado',
+                    'Canceled': 'Cancelado'
                 };
                 
                 const clase_estado = getClaseEstado(solicitud.status);

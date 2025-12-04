@@ -24,16 +24,12 @@ if ($result_student->num_rows > 0) {
     $student_row = $result_student->fetch_assoc();
     $student_id = $student_row['ID_Student'];
 
-    // Paso 2: Consulta compleja para obtener la solicitud más reciente y sus detalles
-    // Nota: La tabla 'aplication' no tiene columna de fecha, pero la base de datos puede tener un campo de marca de tiempo (timestamp)
-    // Usaremos un ORDER BY y LIMIT 1 para obtener la más reciente.
-    // Además, 'aplication' no tiene fecha, usaremos la fecha del registro en 'user' temporalmente o asumiremos que existe en 'aplication'.
-    
-    // Si la tabla 'aplication' NO tiene fecha, asume que la más reciente es la de mayor ID:
+    // Paso 2: Consulta para obtener la solicitud más reciente
+    // Nota: La tabla 'kit' no tiene columna 'Name', usamos CONCAT
     $sql_aplication = "
         SELECT 
             A.status,
-            K.Name AS Beca_Name,
+            CONCAT('Kit - Semestre ', S.Period, ' ', S.Year) AS Beca_Name,
             S.Period,
             S.Year,
             SD.Average,
@@ -45,10 +41,10 @@ if ($result_student->num_rows > 0) {
         JOIN kit K ON A.FK_ID_Kit = K.ID_Kit
         JOIN semester S ON K.FK_ID_Semester = S.ID_Semester
         LEFT JOIN student_details SD ON ST.ID_Student = SD.FK_ID_Student
-        LEFT JOIN delivery D ON A.FK_ID_Student = D.FK_ID_Student AND A.FK_ID_Kit = D.FK_ID_Kit -- Asumiendo que delivery registra la info
+        LEFT JOIN delivery D ON A.FK_ID_Student = D.FK_ID_Student AND A.FK_ID_Kit = D.FK_ID_Kit
         LEFT JOIN collection_point P ON D.FK_ID_Point = P.ID_Point
         WHERE A.FK_ID_Student = ?
-        ORDER BY A.ID_status DESC -- Asume que el mayor ID es la más reciente.
+        ORDER BY A.ID_status DESC
         LIMIT 1
     ";
 
@@ -63,12 +59,14 @@ if ($result_student->num_rows > 0) {
 }
 
 // Mapeo del estado de la DB a los nombres de la barra de progreso
+// Estados en la BD: Pending, Approved, Rejected, Delivered, Canceled
 $status_map = [
-    'Enviada' => 'Enviada',
-    'Revision' => 'En revisión', // Asume que el estado en la DB es 'Revision' o similar
-    'Aprobada' => 'Aprobada',
-    'Rechazada' => 'Rechazada',
-    'Entregada' => 'Entrega' // Asume que el estado en la DB es 'Entregada'
+    'Pending' => 'Enviada',
+    'Revision' => 'En revisión',
+    'Approved' => 'Aprobada',
+    'Rejected' => 'Rechazada',
+    'Delivered' => 'Entrega',
+    'Canceled' => 'Cancelada'
 ];
 
 // Definición de los pasos y sus posibles estados
@@ -79,7 +77,16 @@ $steps = [
     'Entrega'
 ];
 
-$current_status = $solicitud ? $status_map[$solicitud['status']] : '';
+$current_status = '';
+if ($solicitud) {
+    // Para debug
+    // echo "<!-- Debug: status en BD = " . $solicitud['status'] . " -->";
+    
+    // Si no existe el estado en el mapeo, usar valor por defecto
+    $current_status = isset($status_map[$solicitud['status']]) 
+        ? $status_map[$solicitud['status']] 
+        : $solicitud['status'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -88,7 +95,27 @@ $current_status = $solicitud ? $status_map[$solicitud['status']] : '';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estatus - Estudiante</title>
     <link rel="stylesheet" href="../assets/Student/becas.css">
-    
+    <style>
+        /* Estilos adicionales para estados especiales */
+        .step.canceled {
+            background-color: #6c757d;
+            color: white;
+            border-color: #6c757d;
+        }
+        
+        .step.canceled::after {
+            background-color: #6c757d;
+        }
+        
+        .step.rejected {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .step.rejected::after {
+            background-color: #dc3545;
+        }
+    </style>
 </head>
 <body>
     <?php include '../Includes/HeaderMenuE.php'; ?>
@@ -98,36 +125,57 @@ $current_status = $solicitud ? $status_map[$solicitud['status']] : '';
 
         <?php if ($solicitud): ?>
         <div class="card">
-                        <h3><?php echo htmlspecialchars($solicitud['Beca_Name']) . ' - Periodo ' . htmlspecialchars($solicitud['Year'] . '-' . $solicitud['Period']); ?></h3>
+            <h3><?php echo htmlspecialchars($solicitud['Beca_Name']) . ' - Periodo ' . htmlspecialchars($solicitud['Year'] . '-' . $solicitud['Period']); ?></h3>
             <p><strong>Fecha de solicitud:</strong> <?php echo htmlspecialchars($solicitud['Fecha_Solicitud']); ?></p>
             <p><strong>Promedio registrado:</strong> <?php echo htmlspecialchars($solicitud['Average'] ?? 'N/A'); ?></p>
-            <p><strong>Dependencia:</strong> Secretaría de Educación</p>             <p><strong>Punto de entrega:</strong> <?php echo htmlspecialchars($solicitud['Punto_Entrega_Name'] ?? 'Pendiente de Asignar'); ?></p>
+            <p><strong>Dependencia:</strong> Secretaría de Educación</p>             
+            <p><strong>Punto de entrega:</strong> <?php echo htmlspecialchars($solicitud['Punto_Entrega_Name'] ?? 'Pendiente de Asignar'); ?></p>
             
             <div class="status-bar">
                 <?php 
                 $completed = true; 
                 $found_current = false;
+                $estado_actual_db = $solicitud['status'];
 
                 foreach ($steps as $step) {
                     $class = '';
 
                     if ($step == $current_status) {
-                        $class = 'active'; // Estado actual
-                        $completed = false; // Los siguientes no serán completados
+                        if ($estado_actual_db === 'Rejected') {
+                            $class = 'rejected';
+                        } elseif ($estado_actual_db === 'Canceled') {
+                            $class = 'canceled';
+                        } else {
+                            $class = 'active';
+                        }
+                        
+                        $completed = false;
                         $found_current = true;
                     } elseif ($completed && !$found_current) {
-                        $class = 'completed'; // Pasos anteriores
+                        $class = 'completed';
                     }
 
-                    // Si la solicitud fue rechazada, marcamos los anteriores como completed
-                    if ($solicitud['status'] === 'Rechazada' && $class === 'active') {
-                        $class = 'rejected';
+                    // Para estados cancelados/rechazados, no mostrar pasos siguientes
+                    if (($estado_actual_db === 'Rejected' || $estado_actual_db === 'Canceled') && !$found_current && $class === 'active') {
+                        $class = $estado_actual_db === 'Canceled' ? 'canceled' : 'rejected';
+                        $found_current = true;
                     }
                     
                     echo "<div class='step $class'>" . htmlspecialchars($step) . "</div>";
                 }
                 ?>
             </div>
+            
+            <!-- Mostrar mensaje especial para estados cancelados/rechazados -->
+            <?php if ($estado_actual_db === 'Canceled'): ?>
+                <div class="alert alert-warning" style="margin-top: 15px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;">
+                    <strong>Solicitud Cancelada:</strong> Tu solicitud ha sido cancelada. Para más información, contacta al administrador.
+                </div>
+            <?php elseif ($estado_actual_db === 'Rejected'): ?>
+                <div class="alert alert-danger" style="margin-top: 15px; padding: 10px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 5px;">
+                    <strong> Solicitud Rechazada:</strong> Tu solicitud ha sido rechazada. Para más información, contacta al administrador.
+                </div>
+            <?php endif; ?>
         </div>
         <?php else: ?>
             <div class="card">
@@ -139,4 +187,3 @@ $current_status = $solicitud ? $status_map[$solicitud['status']] : '';
     </div>
     </body>
 </html>
-
