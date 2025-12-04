@@ -6,7 +6,12 @@ if (!isset($pageTitle)) {
 ?>
 <style>
     /* === HEADER BASE === */
-.header {
+body {
+    margin: 0;
+    padding: 0;
+}
+
+    .header {
     width: 100%;
     background-color: #007BFF;
     border-bottom: 2px solid #0056b3;
@@ -107,8 +112,49 @@ if (!isset($pageTitle)) {
 
 .menu .logout:hover {
     background-color: #cc0000;
-    border-bottom: none;
+    border-botto
+    m: none;
 }
+
+header.header {
+    margin: 0 !important;
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+}
+
+header {
+    height: 60px;                  /* ← Altura EXACTA del menú */
+    background-color: #007bff;     /* color azul */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 30px;               /* separa logo y menú */
+    box-sizing: border-box;   
+    width: 100%;    
+}
+
+header * {
+    margin: 0;
+    padding: 0;
+}
+
+nav ul {
+    display: flex;
+    gap: 40px;                     /* separación entre opciones */
+    list-style: none;
+    margin: 0;
+}
+
+nav ul li {
+    line-height: 60px;             /* alineación vertical exacta */
+}
+
+.dropdown-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
 </style>
 <header class="header">
     <div class="container-header">
@@ -123,8 +169,7 @@ if (!isset($pageTitle)) {
             <a href="#" class="pagina">Becas ▾</a>
             <ul class="dropdown-content">
                 <li><a href="../Staff/Inventario.php" class="submenu">Inventario</a></li>
-                <li><a href="#" class="submenu">Historial de Solicitudes</a></li>
-                <li><a href="../Staff/Company.php" class="submenu">Colaboradores</a>
+        <li><a href="../Staff/HistorialSolicitudes.php" class="submenu">Historial de Solicitudes</a></li>                <li><a href="../Staff/Company.php" class="submenu">Colaboradores</a>
             </li>
             </ul>
         </li>
