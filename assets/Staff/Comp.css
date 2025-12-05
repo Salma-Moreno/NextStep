@@ -1,15 +1,189 @@
-body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f9f9f9; color:#111;}
-.container { max-width: 900px; margin: 2rem auto; padding: 1rem; }
-.controls-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; }
-.controls-left input { padding:0.5rem; width:300px; }
-.btn { padding:0.5rem 1rem; cursor:pointer; background:#007bff; color:#fff; border:none; border-radius:4px; }
-.btn.secondary { background:#6c757d; }
-.carousel-shell { display:flex; align-items:center; margin-top:1rem; }
-.cards-viewport { display:flex; flex-wrap:nowrap; overflow:hidden; flex:1; justify-content:center; }
-.company-preview { background:#fff; border:1px solid #ccc; border-radius:5px; padding:1rem; margin:0 0.5rem; width:200px; cursor:pointer; display:flex; flex-direction:column; }
-.company-preview.center { transform:scale(1.1); }
-.modal-backdrop { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; }
-.modal { background:#fff; padding:1rem 2rem; border-radius:5px; width:400px; max-width:90%; }
-.form-row { display:flex; gap:1rem; margin-bottom:0.5rem; }
-.form-col { flex:1; display:flex; flex-direction:column; }
-.form-actions { display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem; }
+/* ======== ESTILOS BASE ======== */
+body { background: pink !important; }
+body { 
+    font-family: Arial, sans-serif; 
+    margin:0; 
+    padding:0; 
+    background:#f3f4f6; 
+    color:#111;
+}
+
+.container { 
+    max-width: 1200px; 
+    margin: 2rem auto; 
+    padding: 1rem; 
+}
+
+.controls-row { 
+    display:flex; 
+    justify-content:space-between; 
+    align-items:center; 
+    margin-bottom:1rem; 
+}
+
+.controls-left input { 
+    padding:0.5rem; 
+    width:320px; 
+}
+
+/* Input buscador estilo redondeado */
+#search {
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    font-size: 0.95rem;
+    padding: 10px 16px;
+}
+
+/* Botones generales */
+.btn { 
+    padding:0.6rem 1.2rem; 
+    cursor:pointer; 
+    background:#007bff; 
+    color:#fff; 
+    border:none; 
+    border-radius:999px; 
+    font-size:0.9rem;
+}
+
+.btn.secondary { 
+    background:#6c757d; 
+}
+
+/* ======== MODAL FORMULARIO ======== */
+.modal-backdrop { 
+    display:none; 
+    position:fixed; 
+    top:0; 
+    left:0; 
+    width:100%; 
+    height:100%; 
+    background:rgba(0,0,0,0.45); 
+    justify-content:center; 
+    align-items:center; 
+    z-index:1000;
+}
+
+.modal { 
+    background:#fff; 
+    padding:1.5rem 2rem; 
+    border-radius:16px; 
+    width:520px; 
+    max-width:90%; 
+    box-shadow:0 20px 40px rgba(15,23,42,0.2);
+}
+
+.form-row { 
+    display:flex; 
+    gap:1rem; 
+    margin-bottom:0.75rem; 
+}
+
+.form-col { 
+    flex:1; 
+    display:flex; 
+    flex-direction:column; 
+}
+
+.form-col label{
+    font-size:0.85rem;
+    margin-bottom:0.2rem;
+    color:#4b5563;
+}
+
+.form-col input{
+    padding:0.45rem 0.6rem;
+    border-radius:8px;
+    border:1px solid #d1d5db;
+    font-size:0.9rem;
+}
+
+.form-actions { 
+    display:flex; 
+    justify-content:flex-end; 
+    gap:0.5rem; 
+    margin-top:1rem; 
+}
+
+/* ======== PANEL TIPO "BECAS" ======== */
+
+.companies-panel {
+    background: #f9fafb;
+    border-radius: 32px;
+    padding: 32px 32px 40px;
+    margin-top: 32px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.15);
+}
+
+.companies-panel-title {
+    text-align: center;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #0b63d1;
+    margin-bottom: 8px;
+}
+
+.companies-panel-subtitle {
+    text-align: center;
+    font-size: 1rem;
+    color: #4b5563;
+    margin-bottom: 24px;
+}
+
+/* ======== GRID DE CARDS ======== */
+
+.scholarship-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+    gap: 24px; 
+    justify-items: center;
+}
+
+/* ======== CARD INDIVIDUAL (COMPAÑÍA) ======== */
+
+.scholarship-card {
+    width: 100%;   
+    max-width: 360px;
+    background: #ffffff;
+    border-radius: 24px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.scholarship-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+}
+
+/* banda degradada como las becas */
+.card-image {
+    height: 110px;
+    background: linear-gradient(135deg, #1f3259, #6696f8);
+}
+
+/* contenido */
+.card-body {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.card-body h3 {
+    font-size: 1.05rem;
+    margin: 0 0 4px 0;
+    color: #0056b3;
+}
+
+.card-short-text {
+    font-size: 0.9rem;
+    color: #111827;
+}
+
+.card-long-text {
+    font-size: 0.8rem;
+    color: #4b5563;
+}
