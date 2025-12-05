@@ -2,12 +2,7 @@
 /* -----------------------
    Conexión
    ----------------------- */
-$mysqli = new mysqli($db_host, $db_user, $db_pass, $db_name);
-if ($mysqli->connect_errno) {
-    die("Falló conexión a BD: (" . $mysqli->connect_errno . ") " . $mysqli->connect_error);
-}
-$mysqli->set_charset("utf8mb4");
-
+require '../Conexiones/db.php';
 /* -----------------------
    Helpers
    ----------------------- */
@@ -24,11 +19,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $end_date = $_POST['end_date'] ?? null;
 
     if ($fk_semester && $start_date && $end_date) {
-        $stmt = $mysqli->prepare("INSERT INTO kit (FK_ID_Semester, Start_date, End_date) VALUES (?, ?, ?)");
+        $stmt = $conn->prepare("INSERT INTO kit (FK_ID_Semester, Start_date, End_date) VALUES (?, ?, ?)");
         $stmt->bind_param("iss", $fk_semester, $start_date, $end_date);
         $stmt->execute();
         $stmt->close();
-        header("Location: inventario_kits.php?msg=kit_created");
+        header("Location: " . $_SERVER['PHP_SELF'] . "?msg=kit_created");
         exit;
     } else {
         $error = "Todos los campos son obligatorios para crear un kit.";
@@ -43,12 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $end_date = $_POST['end_date'] ?? null;
 
     if ($id && $fk_semester && $start_date && $end_date) {
-        $stmt = $mysqli->prepare("UPDATE kit SET FK_ID_Semester = ?, Start_date = ?, End_date = ? WHERE ID_Kit = ?");
+        $stmt = $conn->prepare("UPDATE kit SET FK_ID_Semester = ?, Start_date = ?, End_date = ? WHERE ID_Kit = ?");
         $stmt->bind_param("issi", $fk_semester, $start_date, $end_date, $id);
         $stmt->execute();
         $stmt->close();
-        header("Location: inventario_kits.php?msg=kit_updated");
-        exit;
+        header("Location: " . $_SERVER['PHP_SELF'] . "?msg=kit_updated");
+exit;
     } else {
         $error = "Todos los campos son obligatorios para editar un kit.";
     }
@@ -59,19 +54,19 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete_kit' && isset($_GET['i
     $id = intval($_GET['id']);
     if ($id) {
         // Primero eliminar kit_material asociados (por integridad)
-        $stmt = $mysqli->prepare("DELETE FROM kit_material WHERE FK_ID_Kit = ?");
+        $stmt = $conn->prepare("DELETE FROM kit_material WHERE FK_ID_Kit = ?");
         $stmt->bind_param("i", $id);
         $stmt->execute();
         $stmt->close();
 
         // Luego eliminar el kit
-        $stmt = $mysqli->prepare("DELETE FROM kit WHERE ID_Kit = ?");
+        $stmt = $conn->prepare("DELETE FROM kit WHERE ID_Kit = ?");
         $stmt->bind_param("i", $id);
         $stmt->execute();
         $stmt->close();
 
-        header("Location: inventario_kits.php?msg=kit_deleted");
-        exit;
+        header("Location: " . $_SERVER['PHP_SELF'] . "?msg=kit_deleted");
+exit;
     }
 }
 
@@ -83,27 +78,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     if ($fk_kit && $fk_supply && $unit >= 0) {
         // Si ya existe esa combinación FK_ID_Kit + FK_ID_Supply, actualizar la unidad (sumar)
-        $stmt = $mysqli->prepare("SELECT ID_KitMaterial, Unit FROM kit_material WHERE FK_ID_Kit = ? AND FK_ID_Supply = ?");
+        $stmt = $conn->prepare("SELECT ID_KitMaterial, Unit FROM kit_material WHERE FK_ID_Kit = ? AND FK_ID_Supply = ?");
         $stmt->bind_param("ii", $fk_kit, $fk_supply);
         $stmt->execute();
         $res = $stmt->get_result();
         if ($row = $res->fetch_assoc()) {
             $newUnit = intval($row['Unit']) + $unit;
             $stmt->close();
-            $up = $mysqli->prepare("UPDATE kit_material SET Unit = ? WHERE ID_KitMaterial = ?");
+            $up = $conn->prepare("UPDATE kit_material SET Unit = ? WHERE ID_KitMaterial = ?");
             $up->bind_param("ii", $newUnit, $row['ID_KitMaterial']);
             $up->execute();
             $up->close();
         } else {
             $stmt->close();
-            $ins = $mysqli->prepare("INSERT INTO kit_material (FK_ID_Kit, FK_ID_Supply, Unit) VALUES (?, ?, ?)");
+            $ins = $conn->prepare("INSERT INTO kit_material (FK_ID_Kit, FK_ID_Supply, Unit) VALUES (?, ?, ?)");
             $ins->bind_param("iii", $fk_kit, $fk_supply, $unit);
             $ins->execute();
             $ins->close();
         }
 
-        header("Location: inventario_kits.php?action=view_materials&id=" . $fk_kit . "&msg=material_added");
-        exit;
+        header("Location: " . $_SERVER['PHP_SELF'] . "?action=view_materials&id=" . $fk_kit . "&msg=material_added");
+exit;
     } else {
         $error = "Datos inválidos al intentar agregar material.";
     }
@@ -115,21 +110,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $unit = intval($_POST['unit'] ?? 0);
 
     if ($id && $unit >= 0) {
-        $stmt = $mysqli->prepare("UPDATE kit_material SET Unit = ? WHERE ID_KitMaterial = ?");
+        $stmt = $conn->prepare("UPDATE kit_material SET Unit = ? WHERE ID_KitMaterial = ?");
         $stmt->bind_param("ii", $unit, $id);
         $stmt->execute();
         $stmt->close();
 
         // obtener fk_kit para redirigir
-        $stmt2 = $mysqli->prepare("SELECT FK_ID_Kit FROM kit_material WHERE ID_KitMaterial = ?");
+        $stmt2 = $conn->prepare("SELECT FK_ID_Kit FROM kit_material WHERE ID_KitMaterial = ?");
         $stmt2->bind_param("i", $id);
         $stmt2->execute();
         $res2 = $stmt2->get_result();
         $fk_kit = $res2->fetch_assoc()['FK_ID_Kit'] ?? 0;
         $stmt2->close();
 
-        header("Location: inventario_kits.php?action=view_materials&id=" . $fk_kit . "&msg=material_updated");
-        exit;
+        header("Location: " . $_SERVER['PHP_SELF'] . "?action=view_materials&id=" . $fk_kit . "&msg=material_updated");
+exit;
     } else {
         $error = "Datos inválidos al intentar editar material.";
     }
@@ -140,20 +135,20 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete_material' && isset($_G
     $id = intval($_GET['id']);
     if ($id) {
         // obtener fk_kit antes de borrar para redirigir
-        $stmt = $mysqli->prepare("SELECT FK_ID_Kit FROM kit_material WHERE ID_KitMaterial = ?");
+        $stmt = $conn->prepare("SELECT FK_ID_Kit FROM kit_material WHERE ID_KitMaterial = ?");
         $stmt->bind_param("i", $id);
         $stmt->execute();
         $res = $stmt->get_result();
         $fk_kit = $res->fetch_assoc()['FK_ID_Kit'] ?? 0;
         $stmt->close();
 
-        $del = $mysqli->prepare("DELETE FROM kit_material WHERE ID_KitMaterial = ?");
+        $del = $conn->prepare("DELETE FROM kit_material WHERE ID_KitMaterial = ?");
         $del->bind_param("i", $id);
         $del->execute();
         $del->close();
 
-        header("Location: inventario_kits.php?action=view_materials&id=" . $fk_kit . "&msg=material_deleted");
-        exit;
+        header("Location: " . $_SERVER['PHP_SELF'] . "?action=view_materials&id=" . $fk_kit . "&msg=material_deleted");
+exit;
     }
 }
 
@@ -163,12 +158,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $unit = trim($_POST['s_unit'] ?? '');
 
     if ($name !== '' && $unit !== '') {
-        $stmt = $mysqli->prepare("INSERT INTO supplies (Name, Unit) VALUES (?, ?)");
+        $stmt = $conn->prepare("INSERT INTO supplies (Name, Unit) VALUES (?, ?)");
         $stmt->bind_param("ss", $name, $unit);
         $stmt->execute();
         $stmt->close();
-        header("Location: inventario_kits.php?msg=supply_created");
-        exit;
+        header("Location: " . $_SERVER['PHP_SELF'] . "?msg=supply_created");
+exit;
     } else {
         $error = "Nombre y unidad son obligatorios para crear un suministro.";
     }
@@ -180,13 +175,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 /* Obtener semestres para select */
 $semesters = [];
-$res = $mysqli->query("SELECT ID_Semester, Period, Year FROM semester ORDER BY Year DESC, Period ASC");
+$res = $conn->query("SELECT ID_Semester, Period, Year FROM semester ORDER BY Year DESC, Period ASC");
 while ($r = $res->fetch_assoc()) $semesters[] = $r;
 $res->free();
 
 /* Obtener supplies para select */
 $supplies = [];
-$res = $mysqli->query("SELECT ID_Supply, Name, Unit FROM supplies ORDER BY Name");
+$res = $conn->query("SELECT ID_Supply, Name, Unit FROM supplies ORDER BY Name");
 while ($r = $res->fetch_assoc()) $supplies[] = $r;
 $res->free();
 
@@ -196,7 +191,7 @@ $q = "SELECT k.ID_Kit, k.FK_ID_Semester, k.Start_date, k.End_date, s.Period, s.Y
       FROM kit k
       LEFT JOIN semester s ON k.FK_ID_Semester = s.ID_Semester
       ORDER BY k.ID_Kit DESC";
-$res = $mysqli->query($q);
+$res = $conn->query($q);
 while ($r = $res->fetch_assoc()) $kits[] = $r;
 $res->free();
 
@@ -312,7 +307,7 @@ $msg = $_GET['msg'] ?? null;
             if (isset($_GET['action']) && $_GET['action'] === 'view_materials' && isset($_GET['id'])):
                 $id_kit = intval($_GET['id']);
                 // Obtener datos del kit
-                $stmt = $mysqli->prepare("SELECT k.ID_Kit, k.Start_date, k.End_date, s.Period, s.Year FROM kit k LEFT JOIN semester s ON k.FK_ID_Semester = s.ID_Semester WHERE k.ID_Kit = ?");
+                $stmt = $conn->prepare("SELECT k.ID_Kit, k.Start_date, k.End_date, s.Period, s.Year FROM kit k LEFT JOIN semester s ON k.FK_ID_Semester = s.ID_Semester WHERE k.ID_Kit = ?");
                 $stmt->bind_param("i", $id_kit);
                 $stmt->execute();
                 $res = $stmt->get_result();
@@ -321,7 +316,7 @@ $msg = $_GET['msg'] ?? null;
 
                 // Obtener materiales del kit
                 $materials = [];
-                $qm = $mysqli->prepare("SELECT km.ID_KitMaterial, km.FK_ID_Supply, km.Unit, sp.Name AS supply_name, sp.Unit AS supply_unit FROM kit_material km JOIN supplies sp ON km.FK_ID_Supply = sp.ID_Supply WHERE km.FK_ID_Kit = ? ORDER BY sp.Name");
+                $qm = $conn->prepare("SELECT km.ID_KitMaterial, km.FK_ID_Supply, km.Unit, sp.Name AS supply_name, sp.Unit AS supply_unit FROM kit_material km JOIN supplies sp ON km.FK_ID_Supply = sp.ID_Supply WHERE km.FK_ID_Kit = ? ORDER BY sp.Name");
                 $qm->bind_param("i", $id_kit);
                 $qm->execute();
                 $rm = $qm->get_result();
@@ -486,7 +481,7 @@ $msg = $_GET['msg'] ?? null;
     <?php
     if (isset($_GET['action']) && $_GET['action'] === 'edit_material' && isset($_GET['id'])):
         $idmat = intval($_GET['id']);
-        $stmt = $mysqli->prepare("SELECT km.ID_KitMaterial, km.Unit, km.FK_ID_Kit, sp.Name FROM kit_material km JOIN supplies sp ON km.FK_ID_Supply = sp.ID_Supply WHERE km.ID_KitMaterial = ?");
+        $stmt = $conn->prepare("SELECT km.ID_KitMaterial, km.Unit, km.FK_ID_Kit, sp.Name FROM kit_material km JOIN supplies sp ON km.FK_ID_Supply = sp.ID_Supply WHERE km.ID_KitMaterial = ?");
         $stmt->bind_param("i", $idmat);
         $stmt->execute();
         $res = $stmt->get_result();

@@ -123,7 +123,7 @@ if (!isset($pageTitle)) {
             <a href="#" class="pagina">Becas ▾</a>
             <ul class="dropdown-content">
                 <li><a href="../Staff/Inventario.php" class="submenu">Inventario</a></li>
-                <li><a href="#" class="submenu">Historial de Solicitudes</a></li>
+                <li><a href="../Staff/HistorialSolicitudes.php" class="submenu">Historial de Solicitudes</a></li>
                 <li><a href="../Staff/Company.php" class="submenu">Colaboradores</a>
             </li>
             </ul>
