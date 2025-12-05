@@ -17,7 +17,7 @@ $sql = "SELECT
         s.Email_Address AS estudiante_email,
         a.status,
         a.FK_ID_Kit,
-        s.ID_Student  -- Agregar ID del estudiante para referencia
+        s.ID_Student
         FROM aplication a
         JOIN student s ON a.FK_ID_Student = s.ID_Student
         WHERE a.ID_status IN (
@@ -29,29 +29,24 @@ $sql = "SELECT
 
 $result = $conexion->query($sql);
 
-// Verificar si hay error
 if (!$result) {
     die("Error en la consulta: " . $conexion->error);
 }
 
 $solicitudes = [];
-$estudiantes_procesados = []; // Array para evitar duplicados adicionales
+$estudiantes_procesados = [];
 
 if ($result->num_rows > 0) {
     while($row = $result->fetch_assoc()) {
         $estudiante_id = $row['ID_Student'];
         
-        // Verificar si ya procesamos a este estudiante (doble verificación)
         if (in_array($estudiante_id, $estudiantes_procesados)) {
             continue;
         }
         
         $estudiantes_procesados[] = $estudiante_id;
-        
-        // Agregar datos adicionales para cada kit
         $kit_id = $row['FK_ID_Kit'];
         
-        // Obtener información del kit si existe
         if ($kit_id) {
             $sql_kit = "SELECT k.Start_date, k.End_date, se.Period, se.Year 
                        FROM kit k 
@@ -75,7 +70,6 @@ if ($result->num_rows > 0) {
             }
             $stmt_kit->close();
             
-            // Obtener materiales del kit
             $sql_materiales = "SELECT sup.Name, km.Unit 
                               FROM kit_material km 
                               LEFT JOIN supplies sup ON km.FK_ID_Supply = sup.ID_Supply 
@@ -102,6 +96,30 @@ if ($result->num_rows > 0) {
         $solicitudes[] = $row;
     }
 }
+
+// Función auxiliar PHP para normalizar estados
+function normalizarEstadoPHP($status) {
+    $map = [
+        'Pending' => 'Pendiente', 'En revisión' => 'Pendiente', 'Revisión' => 'Pendiente',
+        'Approved' => 'Aprobado',
+        'Rejected' => 'Rechazado',
+        'Delivered' => 'Entregado', 'Entrega' => 'Entregado', 'Entregado' => 'Entregado',
+        'Canceled' => 'Cancelado'
+    ];
+    return $map[$status] ?? $status;
+}
+
+function obtenerClaseCSS($status) {
+    $estadoNormalizado = normalizarEstadoPHP($status);
+    switch ($estadoNormalizado) {
+        case 'Pendiente': return 'estado-pendiente';
+        case 'Aprobado': return 'estado-aprobado';
+        case 'Rechazado': return 'estado-rechazado';
+        case 'Entregado': return 'estado-entregado';
+        case 'Cancelado': return 'estado-cancelado';
+        default: return 'estado-pendiente';
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -111,17 +129,13 @@ if ($result->num_rows > 0) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Historial de Solicitudes - Staff</title>
     <style>
-       
-        
-        /* Contenedor principal */
+        /* Estilos generales */
         .historial-container {
             max-width: 1400px;
             margin: 20px auto;
             padding: 0 20px;
             width: 100%;
         }
-        
-        /* Header específico de esta página */
         .historial-header {
             background: linear-gradient(135deg, #2196F3, #0D47A1);
             color: white;
@@ -130,7 +144,6 @@ if ($result->num_rows > 0) {
             margin-bottom: 30px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
-        
         .historial-header h1 {
             font-size: 28px;
             display: flex;
@@ -150,7 +163,6 @@ if ($result->num_rows > 0) {
             flex-wrap: wrap;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
-        
         .filtros-container select, 
         .filtros-container input {
             padding: 10px 15px;
@@ -160,7 +172,6 @@ if ($result->num_rows > 0) {
             min-width: 180px;
             background: white;
         }
-        
         .filtros-container button {
             padding: 10px 20px;
             background: #2196F3;
@@ -174,10 +185,7 @@ if ($result->num_rows > 0) {
             transition: background 0.3s;
             font-family: inherit;
         }
-        
-        .filtros-container button:hover {
-            background: #0b7dda;
-        }
+        .filtros-container button:hover { background: #0b7dda; }
         
         /* Tabla */
         .tabla-solicitudes {
@@ -189,7 +197,6 @@ if ($result->num_rows > 0) {
             box-shadow: 0 4px 15px rgba(0,0,0,0.08);
             margin-bottom: 20px;
         }
-        
         .tabla-solicitudes th {
             background: linear-gradient(135deg, #2196F3, #0D47A1);
             color: white;
@@ -199,16 +206,12 @@ if ($result->num_rows > 0) {
             position: sticky;
             top: 0;
         }
-        
         .tabla-solicitudes td {
             padding: 15px;
             border-bottom: 1px solid #eee;
             vertical-align: middle;
         }
-        
-        .tabla-solicitudes tr:hover {
-            background: #f9f9f9;
-        }
+        .tabla-solicitudes tr:hover { background: #f9f9f9; }
         
         /* Estados */
         .estado-solicitud {
@@ -220,36 +223,11 @@ if ($result->num_rows > 0) {
             min-width: 100px;
             text-align: center;
         }
-        
-        .estado-pendiente {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeaa7;
-        }
-        
-        .estado-aprobado {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .estado-rechazado {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
-        .estado-entregado {
-            background: #cce5ff;
-            color: #004085;
-            border: 1px solid #b8daff;
-        }
-
-            .estado-cancelado {
-                background: #e9ecef;
-                color: #495057;
-                border: 1px solid #ced4da;
-            }
+        .estado-pendiente { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .estado-aprobado { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .estado-rechazado { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .estado-entregado { background: #cce5ff; color: #004085; border: 1px solid #b8daff; }
+        .estado-cancelado { background: #e9ecef; color: #495057; border: 1px solid #ced4da; }
         
         /* Acciones */
         .acciones-container {
@@ -257,7 +235,6 @@ if ($result->num_rows > 0) {
             gap: 8px;
             flex-wrap: wrap;
         }
-        
         .btn-accion-historial {
             padding: 8px 14px;
             border: none;
@@ -270,42 +247,15 @@ if ($result->num_rows > 0) {
             transition: all 0.2s;
             font-family: inherit;
         }
+        .btn-ver-historial { background: #2196F3; color: white; }
+        .btn-ver-historial:hover { background: #0b7dda; }
         
-        .btn-ver-historial {
-            background: #2196F3;
-            color: white;
-        }
+        /* Botones eliminados visualmente en CSS por seguridad, aunque quitados del HTML */
+        /* .btn-aprobar-historial { background: #4CAF50; color: white; } */
+        /* .btn-rechazar-historial { background: #f44336; color: white; } */
         
-        .btn-ver-historial:hover {
-            background: #0b7dda;
-        }
-        
-        .btn-aprobar-historial {
-            background: #4CAF50;
-            color: white;
-        }
-        
-        .btn-aprobar-historial:hover {
-            background: #3d8b40;
-        }
-        
-        .btn-rechazar-historial {
-            background: #f44336;
-            color: white;
-        }
-        
-        .btn-rechazar-historial:hover {
-            background: #d32f2f;
-        }
-        
-        .btn-entregar-historial {
-            background: #FF9800;
-            color: white;
-        }
-        
-        .btn-entregar-historial:hover {
-            background: #F57C00;
-        }
+        .btn-entregar-historial { background: #FF9800; color: white; }
+        .btn-entregar-historial:hover { background: #F57C00; }
         
         /* Estadísticas */
         .stats-bar-historial {
@@ -317,25 +267,11 @@ if ($result->num_rows > 0) {
             margin-bottom: 20px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
+        .stat-item-historial { text-align: center; flex: 1; }
+        .stat-number-historial { font-size: 24px; font-weight: bold; color: #2196F3; display: block; }
+        .stat-label-historial { font-size: 14px; color: #666; }
         
-        .stat-item-historial {
-            text-align: center;
-            flex: 1;
-        }
-        
-        .stat-number-historial {
-            font-size: 24px;
-            font-weight: bold;
-            color: #2196F3;
-            display: block;
-        }
-        
-        .stat-label-historial {
-            font-size: 14px;
-            color: #666;
-        }
-        
-        /* Sin solicitudes */
+        /* Otros */
         .sin-solicitudes-container {
             text-align: center;
             padding: 60px 20px;
@@ -345,15 +281,12 @@ if ($result->num_rows > 0) {
             border-radius: 10px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
-        
-        /* Paginación */
         .paginacion-container {
             display: flex;
             justify-content: center;
             margin-top: 25px;
             gap: 8px;
         }
-        
         .pagina-historial {
             padding: 10px 16px;
             border: 1px solid #ddd;
@@ -363,16 +296,8 @@ if ($result->num_rows > 0) {
             transition: all 0.2s;
             font-family: inherit;
         }
-        
-        .pagina-historial:hover {
-            background: #f0f0f0;
-        }
-        
-        .pagina-historial.activa {
-            background: #2196F3;
-            color: white;
-            border-color: #2196F3;
-        }
+        .pagina-historial:hover { background: #f0f0f0; }
+        .pagina-historial.activa { background: #2196F3; color: white; border-color: #2196F3; }
         
         /* Modal */
         .modal-historial-overlay {
@@ -388,7 +313,6 @@ if ($result->num_rows > 0) {
             align-items: center;
             padding: 20px;
         }
-        
         .modal-historial-content {
             background: white;
             padding: 30px;
@@ -400,19 +324,11 @@ if ($result->num_rows > 0) {
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             animation: modalAppear 0.3s ease;
         }
-        
         @keyframes modalAppear {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        
-       .modal-historial-header {
+        .modal-historial-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -420,13 +336,7 @@ if ($result->num_rows > 0) {
             padding-bottom: 15px;
             border-bottom: 2px solid #eee;
         }
-        
-        .modal-historial-header h2 {
-            color: #0D47A1;
-            font-size: 24px;
-            margin: 0;
-        }
-        
+        .modal-historial-header h2 { color: #0D47A1; font-size: 24px; margin: 0; }
         .close-modal-historial {
             background: none;
             border: none;
@@ -442,11 +352,7 @@ if ($result->num_rows > 0) {
             border-radius: 50%;
             font-family: inherit;
         }
-        
-        .close-modal-historial:hover {
-            background: #f0f0f0;
-        }
-        
+        .close-modal-historial:hover { background: #f0f0f0; }
         .detalle-item-historial {
             margin-bottom: 18px;
             padding: 12px;
@@ -454,26 +360,14 @@ if ($result->num_rows > 0) {
             border-radius: 8px;
             border-left: 4px solid #2196F3;
         }
-        
-        .detalle-item-historial strong {
-            color: #0D47A1;
-            display: block;
-            margin-bottom: 5px;
-        }
-        
+        .detalle-item-historial strong { color: #0D47A1; display: block; margin-bottom: 5px; }
         .info-estudiante-historial {
             background: #E3F2FD;
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
         }
-        
-        .materiales-lista-historial {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        
+        .materiales-lista-historial { list-style: none; padding: 0; margin: 0; }
         .materiales-lista-historial li {
             padding: 8px 12px;
             background: white;
@@ -482,81 +376,39 @@ if ($result->num_rows > 0) {
             border: 1px solid #eee;
         }
         
-        /* Responsive */
         @media (max-width: 1200px) {
-            .historial-container {
-                padding: 0 15px;
-            }
-            
-            .filtros-container {
-                flex-direction: column;
-            }
-            
-            .filtros-container select, 
-            .filtros-container input {
-                width: 100%;
-            }
-            
-            .tabla-solicitudes {
-                display: block;
-                overflow-x: auto;
-            }
+            .historial-container { padding: 0 15px; }
+            .filtros-container { flex-direction: column; }
+            .filtros-container select, .filtros-container input { width: 100%; }
+            .tabla-solicitudes { display: block; overflow-x: auto; }
         }
-        
         @media (max-width: 768px) {
-            .historial-header {
-                padding: 20px;
-            }
-            
-            .historial-header h1 {
-                font-size: 24px;
-            }
-            
-            .acciones-container {
-                flex-direction: column;
-            }
-            
-            .btn-accion-historial {
-                width: 100%;
-                justify-content: center;
-            }
-            
-            .stats-bar-historial {
-                flex-wrap: wrap;
-                gap: 15px;
-            }
-            
-            .stat-item-historial {
-                flex: 0 0 calc(50% - 15px);
-            }
+            .historial-header { padding: 20px; }
+            .historial-header h1 { font-size: 24px; }
+            .acciones-container { flex-direction: column; }
+            .btn-accion-historial { width: 100%; justify-content: center; }
+            .stats-bar-historial { flex-wrap: wrap; gap: 15px; }
+            .stat-item-historial { flex: 0 0 calc(50% - 15px); }
         }
-        
-        
-        
-       
     </style>
 </head>
 <body>
     <?php include '../Includes/HeaderMenuStaff.php'; ?>
     
-    <!-- Contenedor específico para esta página -->
     <div id="historial-page">
         <div class="historial-main-content">
             <div class="historial-container">
                 <div class="historial-header">
                     <h1>📋 Historial de Solicitudes de Kits</h1>
-                    <p style="margin-top: 10px; opacity: 0.9; font-size: 14px;">
-                    </p>
                 </div>
                 
                 <?php 
-                // Calcular estadísticas
                 $total = count($solicitudes);
-                $pendientes = array_filter($solicitudes, function($s) { return $s['status'] == 'Pending'; });
-                $aprobadas = array_filter($solicitudes, function($s) { return $s['status'] == 'Approved'; });
-                $rechazadas = array_filter($solicitudes, function($s) { return $s['status'] == 'Rejected'; });
-                $entregadas = array_filter($solicitudes, function($s) { return $s['status'] == 'Delivered'; });
-                $canceladas = array_filter($solicitudes, function($s) { return $s['status'] == 'Canceled'; });
+                $pendientes = array_filter($solicitudes, function($s) { return normalizarEstadoPHP($s['status']) == 'Pendiente'; });
+                $aprobadas = array_filter($solicitudes, function($s) { return normalizarEstadoPHP($s['status']) == 'Aprobado'; });
+                $rechazadas = array_filter($solicitudes, function($s) { return normalizarEstadoPHP($s['status']) == 'Rechazado'; });
+                $entregadas = array_filter($solicitudes, function($s) { return normalizarEstadoPHP($s['status']) == 'Entregado'; });
+                $canceladas = array_filter($solicitudes, function($s) { return normalizarEstadoPHP($s['status']) == 'Cancelado'; });
                 ?>
                 
                 <div class="stats-bar-historial">
@@ -581,9 +433,9 @@ if ($result->num_rows > 0) {
                         <span class="stat-label-historial">Entregadas</span>
                     </div>
                     <div class="stat-item-historial">
-                            <span class="stat-number-historial"><?php echo count($canceladas); ?></span>
-                            <span class="stat-label-historial">Canceladas</span>
-                        </div>               
+                        <span class="stat-number-historial"><?php echo count($canceladas); ?></span>
+                        <span class="stat-label-historial">Canceladas</span>
+                    </div>               
                 </div>
                 
                 <div class="filtros-container">
@@ -601,7 +453,6 @@ if ($result->num_rows > 0) {
                     <select id="filtro-semestre">
                         <option value="">Todos los semestres</option>
                         <?php
-                        // Obtener semestres únicos
                         $semestres = [];
                         foreach ($solicitudes as $solicitud) {
                             $semestre = $solicitud['Period'] . ' ' . $solicitud['Year'];
@@ -615,12 +466,8 @@ if ($result->num_rows > 0) {
                         ?>
                     </select>
                     
-                    <button onclick="aplicarFiltros()">
-                        🔍 Aplicar Filtros
-                    </button>
-                    <button onclick="limpiarFiltros()" style="background: #6c757d;">
-                        🗑️ Limpiar Filtros
-                    </button>
+                    <button onclick="aplicarFiltros()">🔍 Aplicar Filtros</button>
+                    <button onclick="limpiarFiltros()" style="background: #6c757d;">🗑️ Limpiar Filtros</button>
                 </div>
                 
                 <?php if (empty($solicitudes)): ?>
@@ -645,28 +492,12 @@ if ($result->num_rows > 0) {
                         <tbody id="tabla-body">
                             <?php foreach ($solicitudes as $solicitud): ?>
                                 <?php 
-                                $clase_estado = '';
-                                switch($solicitud['status']) {
-                                    case 'Pending': $clase_estado = 'estado-pendiente'; break;
-                                    case 'Approved': $clase_estado = 'estado-aprobado'; break;
-                                    case 'Rejected': $clase_estado = 'estado-rechazado'; break;
-                                    case 'Delivered': $clase_estado = 'estado-entregado'; break;
-                                    case 'Canceled': $clase_estado = 'estado-cancelado'; break;
-                                }
-                                
-                                $estados_texto = [
-                                    'Pending' => 'Pendiente',
-                                    'Approved' => 'Aprobado',
-                                    'Rejected' => 'Rechazado',
-                                    'Delivered' => 'Entregado',
-                                    'Canceled' => 'Cancelado'
-                                ];
+                                    $textoMostrar = normalizarEstadoPHP($solicitud['status']);
+                                    $clase_estado = obtenerClaseCSS($solicitud['status']);
                                 ?>
                                 <tr>
                                     <td><strong>#<?php echo $solicitud['ID_status']; ?></strong></td>
-                                    <td>
-                                        <strong><?php echo htmlspecialchars($solicitud['estudiante_nombre'] . ' ' . $solicitud['estudiante_apellido']); ?></strong>
-                                    </td>
+                                    <td><strong><?php echo htmlspecialchars($solicitud['estudiante_nombre'] . ' ' . $solicitud['estudiante_apellido']); ?></strong></td>
                                     <td><?php echo htmlspecialchars($solicitud['estudiante_email']); ?></td>
                                     <td><?php echo htmlspecialchars($solicitud['Period'] . ' ' . $solicitud['Year']); ?></td>
                                     <td title="<?php echo htmlspecialchars($solicitud['materiales']); ?>">
@@ -687,7 +518,7 @@ if ($result->num_rows > 0) {
                                     </td>
                                     <td>
                                         <span class="estado-solicitud <?php echo $clase_estado; ?>">
-                                            <?php echo $estados_texto[$solicitud['status']] ?? $solicitud['status']; ?>
+                                            <?php echo $textoMostrar; ?>
                                         </span>
                                     </td>
                                     <td>
@@ -697,18 +528,9 @@ if ($result->num_rows > 0) {
                                                  Ver Detalles
                                             </button>
                                             
-                                            <?php if ($solicitud['status'] == 'Pending'): ?>
-                                                <button class="btn-accion-historial btn-aprobar-historial" 
-                                                        onclick="cambiarEstado(<?php echo $solicitud['ID_status']; ?>, 'Approved')">
-                                                    ✓ Aprobar
-                                                </button>
-                                                <button class="btn-accion-historial btn-rechazar-historial" 
-                                                        onclick="cambiarEstado(<?php echo $solicitud['ID_status']; ?>, 'Rejected')">
-                                                    ✗ Rechazar
-                                                </button>
-                                            <?php endif; ?>
-                                            
-                                            <?php if ($solicitud['status'] == 'Approved'): ?>
+                                            <?php 
+                                            $estadoNorm = normalizarEstadoPHP($solicitud['status']);
+                                            if ($estadoNorm == 'Aprobado'): ?>
                                                 <button class="btn-accion-historial btn-entregar-historial" 
                                                         onclick="marcarEntregado(<?php echo $solicitud['ID_status']; ?>)">
                                                     Marcar Entregado
@@ -721,24 +543,19 @@ if ($result->num_rows > 0) {
                         </tbody>
                     </table>
                     
-                    <div class="paginacion-container" id="paginacion">
-                        <!-- La paginación se genera con JavaScript -->
-                    </div>
+                    <div class="paginacion-container" id="paginacion"></div>
                 <?php endif; ?>
             </div>
         </div>
     </div>
     
-    <!-- Modal -->
     <div id="modalDetalle" class="modal-historial-overlay">
         <div class="modal-historial-content">
             <div class="modal-historial-header">
                 <h2 id="modalTitulo">Detalles de la Solicitud</h2>
                 <button class="close-modal-historial" onclick="cerrarModal()">×</button>
             </div>
-            <div id="modalContenido">
-                <!-- Contenido dinámico -->
-            </div>
+            <div id="modalContenido"></div>
             <div style="margin-top: 25px; text-align: center;">
                 <button onclick="cerrarModal()" style="padding: 12px 25px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: inherit;">
                     Cerrar Vista
@@ -748,70 +565,76 @@ if ($result->num_rows > 0) {
     </div>
     
     <script>
-        // JavaScript aquí
         let solicitudes = <?php echo json_encode($solicitudes); ?>;
         const itemsPorPagina = 10;
         let paginaActual = 1;
         let solicitudesFiltradas = [...solicitudes];
+
+        const estadoMap = {
+            'Pending': 'Pendiente', 'En revisión': 'Pendiente', 'Revisión': 'Pendiente',
+            'Approved': 'Aprobado',
+            'Rejected': 'Rechazado',
+            'Delivered': 'Entregado', 'Entrega': 'Entregado', 'Entregado': 'Entregado',
+            'Canceled': 'Cancelado'
+        };
         
-        // Inicializar paginación
         document.addEventListener('DOMContentLoaded', function() {
             configurarPaginacion();
         });
         
+        function getEstadoNormalizado(statusRaw) {
+            return estadoMap[statusRaw] || statusRaw;
+        }
+
+        function getClaseEstado(estado) {
+            const normalizado = getEstadoNormalizado(estado);
+            switch(normalizado) {
+                case 'Pendiente': return 'estado-pendiente';
+                case 'Aprobado': return 'estado-aprobado';
+                case 'Rechazado': return 'estado-rechazado';
+                case 'Entregado': return 'estado-entregado';
+                case 'Cancelado': return 'estado-cancelado';
+                default: return 'estado-pendiente';
+            }
+        }
+        
         function aplicarFiltros() {
-            const estado = document.getElementById('filtro-estado').value;
+            const estadoFiltro = document.getElementById('filtro-estado').value;
             const nombre = document.getElementById('filtro-nombre').value.toLowerCase();
             const email = document.getElementById('filtro-email').value.toLowerCase();
             const semestre = document.getElementById('filtro-semestre').value;
             
             solicitudesFiltradas = solicitudes.filter(solicitud => {
                 let pasaFiltro = true;
-                
-                // Filtrar por estado
-                if (estado && solicitud.status !== estado) {
-                    pasaFiltro = false;
+                if (estadoFiltro) {
+                    const estadoFiltroEsp = estadoMap[estadoFiltro];
+                    const solicitudEsp = getEstadoNormalizado(solicitud.status);
+                    if (solicitudEsp !== estadoFiltroEsp) pasaFiltro = false;
                 }
-                
-                // Filtrar por nombre
                 if (nombre) {
                     const nombreCompleto = (solicitud.estudiante_nombre + ' ' + solicitud.estudiante_apellido).toLowerCase();
-                    if (!nombreCompleto.includes(nombre)) {
-                        pasaFiltro = false;
-                    }
+                    if (!nombreCompleto.includes(nombre)) pasaFiltro = false;
                 }
-                
-                // Filtrar por email
-                if (email && !solicitud.estudiante_email.toLowerCase().includes(email)) {
-                    pasaFiltro = false;
-                }
-                
-                // Filtrar por semestre
+                if (email && !solicitud.estudiante_email.toLowerCase().includes(email)) pasaFiltro = false;
                 if (semestre) {
                     const semestreActual = solicitud.Period + ' ' + solicitud.Year;
-                    if (semestreActual !== semestre) {
-                        pasaFiltro = false;
-                    }
+                    if (semestreActual !== semestre) pasaFiltro = false;
                 }
-                
                 return pasaFiltro;
             });
             
-            // Actualizar estadísticas visibles
             actualizarEstadisticasFiltradas();
-            
-            // Actualizar tabla
             paginaActual = 1;
             configurarPaginacion();
         }
         
         function actualizarEstadisticasFiltradas() {
             const total = solicitudesFiltradas.length;
-            const pendientes = solicitudesFiltradas.filter(s => s.status == 'Pending').length;
-            const aprobadas = solicitudesFiltradas.filter(s => s.status == 'Approved').length;
-            const rechazadas = solicitudesFiltradas.filter(s => s.status == 'Rejected').length;
-            const entregadas = solicitudesFiltradas.filter(s => s.status == 'Delivered').length;
-            const canceladas = solicitudesFiltradas.filter(s => s.status == 'Canceled').length;
+            const pendientes = solicitudesFiltradas.filter(s => getEstadoNormalizado(s.status) == 'Pendiente').length;
+            const aprobadas = solicitudesFiltradas.filter(s => getEstadoNormalizado(s.status) == 'Aprobado').length;
+            const rechazadas = solicitudesFiltradas.filter(s => getEstadoNormalizado(s.status) == 'Rechazado').length;
+            const entregadas = solicitudesFiltradas.filter(s => getEstadoNormalizado(s.status) == 'Entregado').length;
+            const canceladas = solicitudesFiltradas.filter(s => getEstadoNormalizado(s.status) == 'Cancelado').length;
             
             const stats = document.querySelectorAll('.stat-number-historial');
             if (stats.length >= 6) {
@@ -829,39 +652,17 @@ if ($result->num_rows > 0) {
             document.getElementById('filtro-nombre').value = '';
             document.getElementById('filtro-email').value = '';
             document.getElementById('filtro-semestre').value = '';
-            
             solicitudesFiltradas = [...solicitudes];
-            
-            // Restaurar estadísticas originales
-            const stats = document.querySelectorAll('.stat-number-historial');
-            if (stats.length >= 6) {
-                stats[0].textContent = <?php echo $total; ?>;
-                stats[1].textContent = <?php echo count($pendientes); ?>;
-                stats[2].textContent = <?php echo count($aprobadas); ?>;
-                stats[3].textContent = <?php echo count($rechazadas); ?>;
-                stats[4].textContent = <?php echo count($entregadas); ?>;
-                stats[5].textContent = <?php echo count($canceladas); ?>;
-            }
-            
+            actualizarEstadisticasFiltradas(); 
             paginaActual = 1;
             configurarPaginacion();
         }
         
         function verDetalle(idSolicitud) {
-            // Buscar la solicitud
             const solicitud = solicitudes.find(s => s.ID_status == idSolicitud);
-            
             if (solicitud) {
                 document.getElementById('modalTitulo').textContent = `Solicitud #${solicitud.ID_status} (Más reciente)`;
-                
-                const estadoTexto = {
-                    'Pending': 'Pendiente',
-                    'Approved': 'Aprobado',
-                    'Rejected': 'Rechazado',
-                    'Delivered': 'Entregado',
-                    'Canceled': 'Cancelado'
-                };
-                
+                const textoMostrar = getEstadoNormalizado(solicitud.status);
                 const contenido = `
                     <div class="info-estudiante-historial">
                         <h3 style="margin-bottom: 10px; color: #0D47A1;">📋 Información del Estudiante</h3>
@@ -878,38 +679,32 @@ if ($result->num_rows > 0) {
                             Esta es la solicitud más reciente de este estudiante
                         </div>
                     </div>
-                    
                     <div class="detalle-item-historial">
                         <strong>Semestre:</strong>
                         ${solicitud.Period} ${solicitud.Year}
                     </div>
-                    
                     ${solicitud.Start_date != 'No disponible' ? `
                     <div class="detalle-item-historial">
                         <strong>Período del kit:</strong>
                         Del ${new Date(solicitud.Start_date).toLocaleDateString('es-MX')} al ${new Date(solicitud.End_date).toLocaleDateString('es-MX')}
                     </div>
                     ` : ''}
-                    
                     <div class="detalle-item-historial">
                         <strong>Materiales solicitados:</strong>
                         <ul class="materiales-lista-historial">
                             ${solicitud.materiales.split(', ').map(mat => `<li>${mat}</li>`).join('')}
                         </ul>
                     </div>
-                    
                     <div class="detalle-item-historial">
                         <strong>Estado actual:</strong>
                         <span class="estado-solicitud ${getClaseEstado(solicitud.status)}" style="margin-left: 10px;">
-                            ${estadoTexto[solicitud.status]}
+                            ${textoMostrar}
                         </span>
                     </div>
-                    
                     <div class="detalle-item-historial">
                         <strong>ID de Solicitud:</strong>
                         #${solicitud.ID_status}
                     </div>
-                    
                     ${solicitud.FK_ID_Kit ? `
                     <div class="detalle-item-historial">
                         <strong>ID del Kit:</strong>
@@ -917,20 +712,8 @@ if ($result->num_rows > 0) {
                     </div>
                     ` : ''}
                 `;
-                
                 document.getElementById('modalContenido').innerHTML = contenido;
                 document.getElementById('modalDetalle').style.display = 'flex';
-            }
-        }
-        
-        function getClaseEstado(estado) {
-            switch(estado) {
-                case 'Pending': return 'estado-pendiente';
-                case 'Approved': return 'estado-aprobado';
-                case 'Rejected': return 'estado-rechazado';
-                case 'Delivered': return 'estado-entregado';
-                case 'Canceled': return 'estado-cancelado';
-                default: return '';
             }
         }
         
@@ -939,25 +722,21 @@ if ($result->num_rows > 0) {
         }
         
         function cambiarEstado(idSolicitud, nuevoEstado) {
-            const estadoTexto = {
+            const textoAccion = {
                 'Approved': 'APROBAR',
                 'Rejected': 'RECHAZAR',
                 'Delivered': 'MARCAR COMO ENTREGADO'
             };
             
-            if (confirm(`¿Estás seguro de ${estadoTexto[nuevoEstado]} la solicitud #${idSolicitud}?`)) {
-                // Mostrar carga
+            if (confirm(`¿Estás seguro de ${textoAccion[nuevoEstado]} la solicitud #${idSolicitud}?`)) {
                 const btn = event.target;
                 const originalText = btn.innerHTML;
                 btn.innerHTML = '⌛ Procesando...';
                 btn.disabled = true;
                 
-                // Enviar solicitud AJAX
                 fetch('actualizar_estado.php', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: `id_solicitud=${idSolicitud}&nuevo_estado=${nuevoEstado}`
                 })
                 .then(response => response.text())
@@ -984,7 +763,6 @@ if ($result->num_rows > 0) {
             cambiarEstado(idSolicitud, 'Delivered');
         }
         
-        // Configurar paginación
         function configurarPaginacion() {
             const tbody = document.querySelector('#tabla-body');
             tbody.innerHTML = '';
@@ -994,17 +772,10 @@ if ($result->num_rows > 0) {
             const fin = inicio + itemsPorPagina;
             const solicitudesPagina = solicitudesFiltradas.slice(inicio, fin);
             
-            // Renderizar filas
             solicitudesPagina.forEach(solicitud => {
-                const estadoTexto = {
-                    'Pending': 'Pendiente',
-                    'Approved': 'Aprobado',
-                    'Rejected': 'Rechazado',
-                    'Delivered': 'Entregado',
-                    'Canceled': 'Cancelado'
-                };
-                
+                const textoMostrar = getEstadoNormalizado(solicitud.status);
                 const clase_estado = getClaseEstado(solicitud.status);
+                
                 const periodo = solicitud.Start_date != 'No disponible' ? 
                     new Date(solicitud.Start_date).toLocaleDateString('es-MX') + ' a ' + 
                     new Date(solicitud.End_date).toLocaleDateString('es-MX') : 'N/A';
@@ -1015,12 +786,10 @@ if ($result->num_rows > 0) {
                 let accionesHTML = '';
                 accionesHTML += `<button class="btn-accion-historial btn-ver-historial" onclick="verDetalle(${solicitud.ID_status})">Ver Detalles</button>`;
                 
-                if (solicitud.status == 'Pending') {
-                    accionesHTML += `<button class="btn-accion-historial btn-aprobar-historial" onclick="cambiarEstado(${solicitud.ID_status}, 'Approved')">✓ Aprobar</button>`;
-                    accionesHTML += `<button class="btn-accion-historial btn-rechazar-historial" onclick="cambiarEstado(${solicitud.ID_status}, 'Rejected')">✗ Rechazar</button>`;
-                }
+                // NOTA: Se eliminaron los botones de Aprobar/Rechazar en este bloque condicional
+                const estadoNorm = getEstadoNormalizado(solicitud.status);
                 
-                if (solicitud.status == 'Approved') {
+                if (estadoNorm === 'Aprobado') {
                     accionesHTML += `<button class="btn-accion-historial btn-entregar-historial" onclick="marcarEntregado(${solicitud.ID_status})">🚚 Marcar Entregado</button>`;
                 }
                 
@@ -1032,20 +801,18 @@ if ($result->num_rows > 0) {
                     <td>${solicitud.Period} ${solicitud.Year}</td>
                     <td title="${solicitud.materiales}">${materialTexto}</td>
                     <td>${periodo}</td>
-                    <td><span class="estado-solicitud ${clase_estado}">${estadoTexto[solicitud.status]}</span></td>
+                    <td><span class="estado-solicitud ${clase_estado}">${textoMostrar}</span></td>
                     <td><div class="acciones-container">${accionesHTML}</div></td>
                 `;
                 
                 tbody.appendChild(tr);
             });
             
-            // Actualizar paginación
             const paginacionDiv = document.getElementById('paginacion');
             paginacionDiv.innerHTML = '';
             
             if (solicitudesFiltradas.length <= itemsPorPagina) return;
             
-            // Botón anterior
             if (paginaActual > 1) {
                 const btnPrev = document.createElement('button');
                 btnPrev.className = 'pagina-historial';
@@ -1054,7 +821,6 @@ if ($result->num_rows > 0) {
                 paginacionDiv.appendChild(btnPrev);
             }
             
-            // Páginas
             for (let i = 1; i <= totalPaginas; i++) {
                 if (i === 1 || i === totalPaginas || (i >= paginaActual - 1 && i <= paginaActual + 1)) {
                     const btn = document.createElement('button');
@@ -1071,7 +837,6 @@ if ($result->num_rows > 0) {
                 }
             }
             
-            // Botón siguiente
             if (paginaActual < totalPaginas) {
                 const btnNext = document.createElement('button');
                 btnNext.className = 'pagina-historial';
@@ -1086,18 +851,8 @@ if ($result->num_rows > 0) {
             configurarPaginacion();
         }
         
-        // Cerrar modal con ESC o click fuera
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                cerrarModal();
-            }
-        });
-        
-        document.getElementById('modalDetalle').addEventListener('click', function(e) {
-            if (e.target === this) {
-                cerrarModal();
-            }
-        });
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') cerrarModal(); });
+        document.getElementById('modalDetalle').addEventListener('click', function(e) { if (e.target === this) cerrarModal(); });
     </script>
 </body>
 </html>

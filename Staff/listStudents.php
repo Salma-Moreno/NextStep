@@ -26,7 +26,6 @@ ORDER BY s.Last_Name, s.Name
 // Ejecutar la consulta y comprobar errores
 $result = mysqli_query($conn, $query);
 if ($result === false) {
-    // Muestra el error SQL para depuración (puedes quitar / comentar esto en producción)
     die("Error en la consulta SQL: " . mysqli_error($conn));
 }
 ?>
@@ -57,7 +56,6 @@ if ($result === false) {
 <div class="container">
     <h2>Estudiantes Inscritos</h2>
 
-    <!-- Buscador: su id debe ser "search" para coincidir con la función JS -->
     <div class="search-box">
         <input 
             type="text" 
@@ -67,7 +65,6 @@ if ($result === false) {
         >
     </div>
 
-    <!-- Tabla -->
     <table id="studentTable">
         <thead>
             <tr>
@@ -83,18 +80,53 @@ if ($result === false) {
         <tbody>
             <?php while ($row = mysqli_fetch_assoc($result)): ?>
                 <?php 
-                    // Preparar clase y texto para el status (manejar NULL)
                     $statusRaw = $row['status'] ?? null;
-                    $statusText = $statusRaw ?? "Sin Solicitud";
-                    // Normalizar para clases (remueve espacios y tildes si necesitas)
-                    $statusClass = $statusRaw ? "status-" . preg_replace('/\s+/', '', $statusRaw) : "status-null";
+
+                    // Mapeo exhaustivo para cubrir Inglés y Variantes de la BD
+                    $statusMap = [
+                        'Pending'   => 'Pendiente', 
+                        'En revisión' => 'Pendiente', 
+                        'Revisión'  => 'Pendiente',
+                        
+                        'Approved'  => 'Aprobado',
+                        
+                        'Rejected'  => 'Rechazado',
+                        
+                        'Delivered' => 'Entregado', 
+                        'Entrega'   => 'Entregado', 
+                        'Entregado' => 'Entregado',
+                        
+                        'Canceled'  => 'Cancelado'
+                    ];
+
+                    // Determinar el texto a mostrar
+                    if (!$statusRaw) {
+                        $statusText = "Sin Solicitud";
+                        $cssClass = "status-null";
+                    } else {
+                        // Si existe en el mapa, úsalo. Si no, usa el original
+                        $statusText = $statusMap[$statusRaw] ?? $statusRaw;
+                        
+                        // Determinar la clase CSS basada en el TEXTO FINAL ESTANDARIZADO
+                        // Esto asegura que "En revisión" (ahora "Pendiente") tenga color amarillo
+                        switch ($statusText) {
+                            case 'Pendiente': $cssClass = 'status-Pending'; break;
+                            case 'Aprobado':  $cssClass = 'status-Approved'; break;
+                            case 'Rechazado': $cssClass = 'status-Rejected'; break;
+                            case 'Entregado': $cssClass = 'status-Delivered'; break;
+                            case 'Cancelado': $cssClass = 'status-Canceled'; break;
+                            default:          $cssClass = 'status-Check';
+                        }
+                    }
                 ?>
                 <tr>
                     <td><?= htmlspecialchars($row['Name'] ?? '—') ?></td>
                     <td><?= htmlspecialchars($row['Last_Name'] ?? '—') ?></td>
                     <td><?= htmlspecialchars($row['License'] ?? 'No asignada') ?></td>
                     <td><?= htmlspecialchars($row['Average'] ?? '—') ?></td>
-                    <td class="<?= htmlspecialchars($statusClass) ?>"><?= htmlspecialchars($statusText) ?></td>
+                    
+                    <td class="<?= htmlspecialchars($cssClass) ?>"><?= htmlspecialchars($statusText) ?></td>
+                    
                     <td>
                         <button class="btn-action btn-perfil"
                             onclick="location.href='view_student.php?id=<?= $row['ID_Student'] ?>'">
