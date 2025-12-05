@@ -109,14 +109,14 @@ if (!isset($pageTitle)) {
 
 /* === BOTÓN DE CERRAR SESIÓN === */
 .menu .logout {
-    background-color: #ff4444;
+    background-color: #0c2652ff;
     padding: 8px 15px;
     border-radius: 5px;
     transition: background-color 0.3s;
 }
 
 .menu .logout:hover {
-    background-color: #cc0000;
+    background-color: #2d2b82ff;
     border-bottom: none;
 }
 </style>

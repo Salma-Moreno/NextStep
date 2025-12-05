@@ -101,7 +101,8 @@ $current_status = $solicitud ? $status_map[$solicitud['status']] : '';
                         <h3><?php echo htmlspecialchars($solicitud['Beca_Name']) . ' - Periodo ' . htmlspecialchars($solicitud['Year'] . '-' . $solicitud['Period']); ?></h3>
             <p><strong>Fecha de solicitud:</strong> <?php echo htmlspecialchars($solicitud['Fecha_Solicitud']); ?></p>
             <p><strong>Promedio registrado:</strong> <?php echo htmlspecialchars($solicitud['Average'] ?? 'N/A'); ?></p>
-            <p><strong>Dependencia:</strong> Secretaría de Educación</p>             <p><strong>Punto de entrega:</strong> <?php echo htmlspecialchars($solicitud['Punto_Entrega_Name'] ?? 'Pendiente de Asignar'); ?></p>
+            <p><strong>Dependencia:</strong> Secretaría de Educación</p>             
+            <p><strong>Punto de entrega:</strong> <?php echo htmlspecialchars($solicitud['Punto_Entrega_Name'] ?? 'Pendiente de Asignar'); ?></p>
             
             <div class="status-bar">
                 <?php 
