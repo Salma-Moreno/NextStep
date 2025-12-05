@@ -17,7 +17,7 @@ $tieneDatosPersonales = false;
 $student_id = null;
 
 $sql_student = "SELECT s.ID_Student, s.Name, s.Last_Name, s.Email_Address, s.Phone_Number,
-                       a.Street, a.City, a.Postal_Code
+                        a.Street, a.City, a.Postal_Code
                 FROM student s
                 LEFT JOIN address a ON s.ID_Student = a.FK_ID_Student
                 WHERE s.FK_ID_User = ?
@@ -40,40 +40,56 @@ if ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
-/* ========= Verificar solicitud activa ========= */
-$tieneSolicitudActiva = false;
-$solicitud_activa = null;
+/* ========= Obtener TODAS las solicitudes activas del estudiante ========= */
+// Usamos un array donde la clave es el ID del Kit para acceso rápido
+$mis_solicitudes = [];
 
 if ($student_id) {
-    $sql = "SELECT a.ID_status, a.FK_ID_Kit, a.status
-            FROM aplication a
-            INNER JOIN kit k ON a.FK_ID_Kit = k.ID_Kit
-            WHERE a.FK_ID_Student = ?
-              AND a.status <> 'Cancelada'
-              AND k.Start_date <= CURDATE()
-              AND k.End_date >= CURDATE()
-            LIMIT 1";
+    // Nota: Como ahora borramos las canceladas, no hace falta filtrar "status <> Cancelada"
+    // porque ya no existirán en la BD. Pero lo dejamos por seguridad.
+    $sql = "SELECT FK_ID_Kit, status 
+            FROM aplication 
+            WHERE FK_ID_Student = ?";
 
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $student_id);
     $stmt->execute();
     $res = $stmt->get_result();
 
-    if ($fila = $res->fetch_assoc()) {
-        $tieneSolicitudActiva = true;
-        $solicitud_activa = $fila;
+    while ($fila = $res->fetch_assoc()) {
+        $mis_solicitudes[$fila['FK_ID_Kit']] = $fila['status'];
     }
     $stmt->close();
 }
 
-/* ========= Cancelar solicitud ========= */
-if (isset($_POST['cancel_application']) && $student_id) {
-    $sql = "UPDATE aplication SET status = 'Cancelada' WHERE FK_ID_Student = ? AND status <> 'Cancelada'";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $student_id);
-    $stmt->execute();
-    $stmt->close();
+/* ========= Cancelar solicitud ESPECÍFICA (BORRADO FÍSICO) ========= */
+if (isset($_POST['cancel_application'], $_POST['kit_id']) && $student_id) {
+    $kit_to_cancel = (int)$_POST['kit_id'];
 
+    // PROTECCIÓN: Solo permite eliminar si NO está aprobada ni entregada
+    $estados_protegidos = [
+        'Approved', 'Aprobado', 'Aprobada', 
+        'Delivered', 'Entregado', 'Entregada', 'Entrega'
+    ];
+    
+    // Verificamos el estado actual de ESTE kit específico
+    $currentStatus = $mis_solicitudes[$kit_to_cancel] ?? '';
+    
+    // Si el estado NO está en la lista de protegidos, procedemos a BORRAR
+    if (!in_array($currentStatus, $estados_protegidos)) {
+        
+        // --- CAMBIO PRINCIPAL AQUÍ ---
+        // Antes: UPDATE aplication SET status = 'Cancelada' ...
+        // Ahora: DELETE FROM aplication ...
+        
+        $sql = "DELETE FROM aplication WHERE FK_ID_Student = ? AND FK_ID_Kit = ?";
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("ii", $student_id, $kit_to_cancel);
+        $stmt->execute();
+        $stmt->close();
+    }
+    
     header('Location: application.php');
     exit;
 }
@@ -81,14 +97,15 @@ if (isset($_POST['cancel_application']) && $student_id) {
 /* ========= Aplicar a beca ========= */
 if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
     $kit_id = (int)$_POST['kit_id'];
-    $initial_status = 'Enviada';
+    $initial_status = 'Pending'; 
 
     if (!$tieneDatosPersonales || !$student_id) {
         header('Location: perfil.php?completa=1');
         exit;
     }
 
-    if ($tieneSolicitudActiva) {
+    // VERIFICACIÓN: Solo bloqueamos si YA tiene solicitud PARA ESTE MISMO KIT
+    if (isset($mis_solicitudes[$kit_id])) {
         header('Location: application.php');
         exit;
     }
@@ -120,6 +137,41 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
     <meta charset="UTF-8">
     <title>Solicitar Beca</title>
     <link rel="stylesheet" href="../assets/Student/application.css">
+    <style>
+        .status-badge {
+            display: inline-block;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            text-align: center;
+            width: 100%;
+            margin-top: 10px;
+            box-sizing: border-box;
+        }
+        .status-approved { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-delivered { background-color: #cce5ff; color: #004085; border: 1px solid #b8daff; }
+        .status-rejected { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        
+        .btn-cancelar-neutro {
+            background-color: #6c757d; 
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .btn-cancelar-neutro:hover { background-color: #5a6268; }
+        
+        .status-text-pending {
+            display: block;
+            margin-top: 10px;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
 </head>
 <body>
 
@@ -136,7 +188,7 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
     <?php else: ?>
         <div class="scholarship-list">
             <?php
-            // Traer becas activas
+            // Traer TODAS las becas disponibles
             $sql = "SELECT k.ID_Kit,
                            CONCAT('Kit ', s.Period, ' ', s.Year) AS Name,
                            CONCAT('Material escolar para el periodo ', s.Period, ' ', s.Year) AS ShortDescription,
@@ -150,33 +202,55 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
             if ($result && $result->num_rows > 0):
                 while ($row = $result->fetch_assoc()):
                     $kitId = (int)$row['ID_Kit'];
-                    $esKitSolicitado = $tieneSolicitudActiva && $solicitud_activa && ((int)$solicitud_activa['FK_ID_Kit'] === $kitId);
+                    
+                    // ¿Tiene el estudiante una solicitud activa PARA ESTE KIT?
+                    $estadoSolicitudActual = isset($mis_solicitudes[$kitId]) ? $mis_solicitudes[$kitId] : false;
             ?>
                 <div class="scholarship-card">
                     <h3><?= htmlspecialchars($row['Name']) ?></h3>
                     <p><?= htmlspecialchars($row['ShortDescription']) ?></p>
                     <p><?= htmlspecialchars($row['LongDescription']) ?></p>
 
-                    <?php if (!$tieneSolicitudActiva): ?>
+                    <?php if (!$estadoSolicitudActual): ?>
+                        
                         <form method="POST" action="application.php">
                             <input type="hidden" name="kit_id" value="<?= $kitId ?>">
                             <button type="submit" name="apply_scholarship" class="apply-btn">Solicitar beca</button>
                         </form>
+                    
                     <?php else: ?>
-                        <?php if ($esKitSolicitado): ?>
-                            <span>Solicitud enviada</span>
-                            <form method="POST" action="application.php">
-                                <button type="submit" name="cancel_application">Cancelar solicitud</button>
-                            </form>
-                        <?php else: ?>
-                            <button disabled>No disponible</button>
-                        <?php endif; ?>
+                        
+                        <?php 
+                            $variantesAprobado = ['Approved', 'Aprobado', 'Aprobada'];
+                            $variantesEntregado = ['Delivered', 'Entregado', 'Entregada', 'Entrega'];
+                            $variantesRechazado = ['Rejected', 'Rechazado', 'Rechazada'];
+                            
+                            if (in_array($estadoSolicitudActual, $variantesAprobado)): ?>
+                                <div class="status-badge status-approved">✅ Solicitud Aprobada</div>
+
+                            <?php elseif (in_array($estadoSolicitudActual, $variantesEntregado)): ?>
+                                <div class="status-badge status-delivered">📦 Kit Entregado</div>
+
+                            <?php elseif (in_array($estadoSolicitudActual, $variantesRechazado)): ?>
+                                 <div class="status-badge status-rejected">❌ Solicitud Rechazada</div>
+
+                            <?php else: ?>
+                                <span class="status-text-pending">Solicitud enviada (Pendiente)</span>
+                                
+                                <form method="POST" action="application.php">
+                                    <input type="hidden" name="kit_id" value="<?= $kitId ?>">
+                                    <button type="submit" name="cancel_application" class="btn-cancelar-neutro">
+                                        Cancelar solicitud
+                                    </button>
+                                </form>
+                            <?php endif; ?>
+
                     <?php endif; ?>
                 </div>
             <?php
                 endwhile;
             else:
-                echo "<p>No hay becas disponibles.</p>";
+                echo "<p>No hay becas disponibles actualmente.</p>";
             endif;
             ?>
         </div>

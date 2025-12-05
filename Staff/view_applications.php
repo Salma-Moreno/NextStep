@@ -4,8 +4,8 @@
 session_start();
 require '../Conexiones/db.php'; // Asegúrate que este archivo define $conn (mysqli)
 
-// Opciones de estatus disponibles para validación
-$VALID_STATUSES = ['Enviada', 'En revisión', 'Aprobada', 'Entrega'];
+// --- MODIFICACIÓN 1: Agregamos 'Rechazada' al array ---
+$VALID_STATUSES = ['Enviada', 'En revisión', 'Aprobada', 'Entrega', 'Rechazada'];
 
 // 1. Guardián de sesión
 if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Staff') {
@@ -55,8 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message_text = "Datos de entrada inválidos o estatus no permitido.";
     }
     
-    // REDIRECCIÓN PRG (Post/Redirect/Get) - CRÍTICO para evitar reenvío de formulario
-    // Redirigimos a la misma página, pero pasando el mensaje por GET.
+    // REDIRECCIÓN PRG (Post/Redirect/Get)
     $redirect_url = 'view_applications.php?id=' . ($student_id_post ?: $_GET['id']);
     $redirect_url .= '&msg_type=' . $message_type . '&msg_text=' . urlencode($message_text);
     header('Location: ' . $redirect_url);
@@ -86,7 +85,7 @@ if (!$student_name) {
 }
 $full_name = htmlspecialchars($student_name['Name'] . ' ' . $student_name['Last_Name']);
 
-// 4. Consulta para obtener todas las aplicaciones de beca (kit) para ese estudiante.
+// 4. Consulta para obtener todas las aplicaciones
 $applications_query = "
     SELECT 
         k.ID_Kit,  
@@ -117,7 +116,6 @@ $has_applications = mysqli_num_rows($applications_result) > 0;
     <title>Solicitudes de Beca - <?= $full_name ?></title>
     <link rel="stylesheet" href="../assets/Staff/list.css"> 
     <style>
-        /* Estilos CSS para tarjetas y mensajes (puedes moverlos a list.css) */
         .application-card {
             border: 1px solid #ddd;
             padding: 15px;
@@ -130,6 +128,10 @@ $has_applications = mysqli_num_rows($applications_result) > 0;
         .status-en-revisión { background-color: #fffbe6; border-left: 5px solid #faad14; }
         .status-aprobada { background-color: #f6ffed; border-left: 5px solid #52c41a; }
         .status-entrega { background-color: #e8f9f7; border-left: 5px solid #009688; }
+        
+        /* --- MODIFICACIÓN 2: Estilo visual para 'Rechazada' (Rojo) --- */
+        .status-rechazada { background-color: #fff1f0; border-left: 5px solid #ff4d4f; }
+
         .alert-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 10px; margin-bottom: 20px; border-radius: 5px; }
         .alert-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 10px; margin-bottom: 20px; border-radius: 5px; }
     </style>
@@ -139,7 +141,6 @@ $has_applications = mysqli_num_rows($applications_result) > 0;
 
 <div class="container">
     <?php 
-    // 5. Mostrar mensajes de éxito o error (vienen de la redirección GET)
     if (isset($_GET['msg_type'])): 
         $msg_type = htmlspecialchars($_GET['msg_type']);
         $msg_text = htmlspecialchars(urldecode($_GET['msg_text']));
@@ -150,14 +151,13 @@ $has_applications = mysqli_num_rows($applications_result) > 0;
     <?php endif; ?>
     
     <h2>📝 Solicitudes de Beca de <?= $full_name ?></h2>
-
-
     <hr>
 
     <?php if ($has_applications): ?>
         <?php while ($app = mysqli_fetch_assoc($applications_result)): ?>
             <?php 
                 // Normaliza el estado para usarlo en la clase CSS
+                // "Rechazada" se convertirá en "status-rechazada"
                 $status_class = strtolower(str_replace(' ', '-', $app['ApplicationStatus']));
             ?>
             <div class="application-card status-<?= htmlspecialchars($status_class) ?>">
@@ -189,7 +189,8 @@ $has_applications = mysqli_num_rows($applications_result) > 0;
         <p>Este estudiante no tiene solicitudes de beca registradas.</p>
     <?php endif; ?>
 
-
+    <br>
+    <a href="listStudents.php" class="btn-back" style="text-decoration:none; color: #1890ff;">← Volver a la lista</a>
 </div>
 
 </body>
