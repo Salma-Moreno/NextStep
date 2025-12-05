@@ -17,10 +17,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $mensaje_staff = isset($_POST['mensaje_staff']) ? $conexion->real_escape_string($_POST['mensaje_staff']) : '';
         
         $estados = [
-            'aprobar' => 'Approved',
-            'rechazar' => 'Rejected',
-            'entregar' => 'Delivered',
-            'cancelar' => 'Canceled'
+            'aprobar' => 'Aprobada',      // Cambiado de 'Approved'
+            'rechazar' => 'Rechazada',    // Cambiado de 'Rejected'  
+            'entregar' => 'Entrega',      // Cambiado de 'Delivered'
+            'cancelar' => 'Cancelada'     // Cambiado de 'Canceled'
         ];
         
         if (isset($estados[$accion])) {
@@ -102,7 +102,7 @@ if ($vista == 'solicitudes') {
             DATE_FORMAT(a.Application_date, '%d/%m/%Y %H:%i') AS fecha_solicitud
             FROM aplication a
             JOIN student s ON a.FK_ID_Student = s.ID_Student
-            WHERE a.status != 'Canceled'"; // No mostrar NINGUNA cancelada
+            WHERE a.status != 'Cancelada' AND a.status != 'Canceled'"; // No mostrar NINGUNA cancelada
 
     $params = [];
     $types = '';
@@ -203,11 +203,20 @@ if ($vista == 'solicitudes') {
     $stmt->close();
 
     // Calcular estadísticas (sin contar canceladas)
+    // CONTAR CON LOS NUEVOS ESTADOS
     $total = count($solicitudes);
-    $pendientes = array_filter($solicitudes, function($s) { return $s['status'] == 'Pending'; });
-    $aprobadas = array_filter($solicitudes, function($s) { return $s['status'] == 'Approved'; });
-    $rechazadas = array_filter($solicitudes, function($s) { return $s['status'] == 'Rejected'; });
-    $entregadas = array_filter($solicitudes, function($s) { return $s['status'] == 'Delivered'; });
+    $pendientes = array_filter($solicitudes, function($s) { 
+        return $s['status'] == 'Enviada' || $s['status'] == 'En revisión'; 
+    });
+    $aprobadas = array_filter($solicitudes, function($s) { 
+        return $s['status'] == 'Aprobada'; 
+    });
+    $rechazadas = array_filter($solicitudes, function($s) { 
+        return $s['status'] == 'Rechazada'; 
+    });
+    $entregadas = array_filter($solicitudes, function($s) { 
+        return $s['status'] == 'Entrega'; 
+    });
 
 } else {
     // VISTA DE KITS DISPONIBLES - Solo contar activas
@@ -219,14 +228,14 @@ if ($vista == 'solicitudes') {
         k.End_date,
         s.Period,
         s.Year,
-        COUNT(CASE WHEN a.status != 'Canceled' THEN a.ID_status END) AS total_solicitudes,
-        SUM(CASE WHEN a.status = 'Pending' THEN 1 ELSE 0 END) AS pendientes,
-        SUM(CASE WHEN a.status = 'Approved' THEN 1 ELSE 0 END) AS aprobadas,
-        SUM(CASE WHEN a.status = 'Rejected' THEN 1 ELSE 0 END) AS rechazadas,
-        SUM(CASE WHEN a.status = 'Delivered' THEN 1 ELSE 0 END) AS entregadas
+        COUNT(CASE WHEN a.status NOT IN ('Cancelada', 'Canceled') THEN a.ID_status END) AS total_solicitudes,
+        SUM(CASE WHEN a.status IN ('Enviada', 'En revisión') THEN 1 ELSE 0 END) AS pendientes,
+        SUM(CASE WHEN a.status = 'Aprobada' THEN 1 ELSE 0 END) AS aprobadas,
+        SUM(CASE WHEN a.status = 'Rechazada' THEN 1 ELSE 0 END) AS rechazadas,
+        SUM(CASE WHEN a.status = 'Entrega' THEN 1 ELSE 0 END) AS entregadas
     FROM kit k
     INNER JOIN semester s ON k.FK_ID_Semester = s.ID_Semester
-    LEFT JOIN aplication a ON k.ID_Kit = a.FK_ID_Kit AND a.status != 'Canceled'
+    LEFT JOIN aplication a ON k.ID_Kit = a.FK_ID_Kit AND a.status NOT IN ('Cancelada', 'Canceled')
     GROUP BY k.ID_Kit
     ORDER BY k.Start_date DESC";
     
@@ -647,7 +656,7 @@ if ($vista == 'solicitudes') {
             max-width: 400px;
         }
         
-        /* ESTILOS PARA ESTADOS - TODOS EN EL MISMO COLOR */
+        /* ESTILOS PARA ESTADOS */
         .status-tag {
             padding: 6px 12px;
             border-radius: 20px;
@@ -658,20 +667,79 @@ if ($vista == 'solicitudes') {
             min-width: 90px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            border: 2px solid #3498db;
-            background: #3498db;
-            color: white;
+            border: 2px solid;
             transition: all 0.3s ease;
         }
         
-        .status-tag:hover {
-            background: #2980b9;
-            border-color: #2980b9;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+        /* Colores para estados */
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+            border-color: #ffeaa7;
         }
         
-        /* ESTILOS PARA ESTADÍSTICAS DE KITS - TODOS EN EL MISMO COLOR */
+        .status-approved {
+            background: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+        
+        .status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+        
+        .status-delivered {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-color: #bee5eb;
+        }
+        
+        .status-canceled {
+            background: #e2e3e5;
+            color: #383d41;
+            border-color: #d6d8db;
+        }
+        
+        /* NUEVOS COLORES PARA ESTADOS EN ESPAÑOL */
+        .status-enviada {
+            background: #e6f7ff;
+            color: #1890ff;
+            border-color: #91d5ff;
+        }
+        
+        .status-en-revision {
+            background: #fffbe6;
+            color: #faad14;
+            border-color: #ffe58f;
+        }
+        
+        .status-aprobada {
+            background: #f6ffed;
+            color: #52c41a;
+            border-color: #b7eb8f;
+        }
+        
+        .status-rechazada {
+            background: #fff2f0;
+            color: #ff4d4f;
+            border-color: #ffccc7;
+        }
+        
+        .status-entrega {
+            background: #e8f9f7;
+            color: #009688;
+            border-color: #80cbc4;
+        }
+        
+        .status-cancelada {
+            background: #f5f5f5;
+            color: #8c8c8c;
+            border-color: #d9d9d9;
+        }
+        
+        /* ESTILOS PARA ESTADÍSTICAS DE KITS */
         .stats-tags {
             display: flex;
             flex-wrap: wrap;
@@ -689,17 +757,30 @@ if ($vista == 'solicitudes') {
             gap: 4px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            background: #3498db;
-            color: white;
         }
         
-        /* TODOS LOS TAGS CON EL MISMO COLOR AZUL */
-        .tag-total,
-        .tag-pending,
-        .tag-approved,
-        .tag-rejected,
+        .tag-total { 
+            background: #2c3e50; 
+            color: white; 
+        }
+        
+        .tag-pending { 
+            background: #ffc107; 
+            color: #212529; 
+        }
+        
+        .tag-approved { 
+            background: #28a745; 
+            color: white; 
+        }
+        
+        .tag-rejected { 
+            background: #dc3545; 
+            color: white; 
+        }
+        
         .tag-delivered { 
-            background: #3498db; 
+            background: #17a2b8; 
             color: white; 
         }
         
@@ -1009,6 +1090,46 @@ if ($vista == 'solicitudes') {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* NUEVO: ESTILO PARA CONTADORES ACTUALIZADOS */
+        .stat-number.updated {
+            animation: pulse 1s ease-in-out;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        /* NUEVO: AUTO-REFRESH INDICATOR */
+        .refresh-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #3498db;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1031,7 +1152,7 @@ if ($vista == 'solicitudes') {
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-label">Total Solicitudes Activas</div>
-                    <div class="stat-number"><?php echo $total; ?></div>
+                    <div class="stat-number" id="stat-total"><?php echo $total; ?></div>
                     <div class="view-toggle">
                         <button class="toggle-btn active" onclick="window.location.href='?vista=solicitudes'">
                             Solicitudes
@@ -1043,19 +1164,19 @@ if ($vista == 'solicitudes') {
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Pendientes</div>
-                    <div class="stat-number"><?php echo count($pendientes); ?></div>
+                    <div class="stat-number" id="stat-pendientes"><?php echo count($pendientes); ?></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Aprobadas</div>
-                    <div class="stat-number"><?php echo count($aprobadas); ?></div>
+                    <div class="stat-number" id="stat-aprobadas"><?php echo count($aprobadas); ?></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Rechazadas</div>
-                    <div class="stat-number"><?php echo count($rechazadas); ?></div>
+                    <div class="stat-number" id="stat-rechazadas"><?php echo count($rechazadas); ?></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Entregadas</div>
-                    <div class="stat-number"><?php echo count($entregadas); ?></div>
+                    <div class="stat-number" id="stat-entregadas"><?php echo count($entregadas); ?></div>
                 </div>
             </div>
             
@@ -1079,10 +1200,11 @@ if ($vista == 'solicitudes') {
                     <label>Filtrar por Estado</label>
                     <select name="estado">
                         <option value="">Todos los estados</option>
-                        <option value="Pending" <?php echo ($filtro_estado == 'Pending') ? 'selected' : ''; ?>>Pendiente</option>
-                        <option value="Approved" <?php echo ($filtro_estado == 'Approved') ? 'selected' : ''; ?>>Aprobado</option>
-                        <option value="Rejected" <?php echo ($filtro_estado == 'Rejected') ? 'selected' : ''; ?>>Rechazado</option>
-                        <option value="Delivered" <?php echo ($filtro_estado == 'Delivered') ? 'selected' : ''; ?>>Entregado</option>
+                        <option value="Enviada" <?php echo ($filtro_estado == 'Enviada') ? 'selected' : ''; ?>>Enviada</option>
+                        <option value="En revisión" <?php echo ($filtro_estado == 'En revisión') ? 'selected' : ''; ?>>En revisión</option>
+                        <option value="Aprobada" <?php echo ($filtro_estado == 'Aprobada') ? 'selected' : ''; ?>>Aprobada</option>
+                        <option value="Rechazada" <?php echo ($filtro_estado == 'Rechazada') ? 'selected' : ''; ?>>Rechazada</option>
+                        <option value="Entrega" <?php echo ($filtro_estado == 'Entrega') ? 'selected' : ''; ?>>Entrega</option>
                     </select>
                 </div>
                 
@@ -1134,28 +1256,32 @@ if ($vista == 'solicitudes') {
                             <tbody>
                                 <?php foreach ($solicitudes as $solicitud): ?>
                                     <?php 
-                                    // Determinar texto según estado
-                                    $texto_estado = '';
+                                    // Determinar texto y clase según estado en español
+                                    $texto_estado = $solicitud['status'];
+                                    $clase_estado = '';
                                     $estado = trim($solicitud['status']);
                                     
                                     switch($estado) {
-                                        case 'Pending': 
-                                            $texto_estado = 'Pendiente';
+                                        case 'Enviada': 
+                                            $clase_estado = 'status-enviada';
                                             break;
-                                        case 'Approved': 
-                                            $texto_estado = 'Aprobado';
+                                        case 'En revisión': 
+                                            $clase_estado = 'status-en-revision';
                                             break;
-                                        case 'Rejected': 
-                                            $texto_estado = 'Rechazado';
+                                        case 'Aprobada': 
+                                            $clase_estado = 'status-aprobada';
                                             break;
-                                        case 'Delivered': 
-                                            $texto_estado = 'Entregado';
+                                        case 'Rechazada': 
+                                            $clase_estado = 'status-rechazada';
                                             break;
-                                        case 'Canceled': 
-                                            $texto_estado = 'Cancelado';
+                                        case 'Entrega': 
+                                            $clase_estado = 'status-entrega';
+                                            break;
+                                        case 'Cancelada': 
+                                            $clase_estado = 'status-cancelada';
                                             break;
                                         default: 
-                                            $texto_estado = $solicitud['status'];
+                                            $clase_estado = 'status-enviada';
                                             break;
                                     }
                                     ?>
@@ -1201,7 +1327,7 @@ if ($vista == 'solicitudes') {
                                             <?php endif; ?>
                                         </td>
                                         <td class="col-estado">
-                                            <span class="status-tag">
+                                            <span class="status-tag <?php echo $clase_estado; ?>">
                                                 <?php echo $texto_estado; ?>
                                             </span>
                                         </td>
@@ -1218,7 +1344,7 @@ if ($vista == 'solicitudes') {
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-label">Total Kits</div>
-                    <div class="stat-number"><?php echo $total_kits; ?></div>
+                    <div class="stat-number" id="stat-total-kits"><?php echo $total_kits; ?></div>
                     <div class="view-toggle">
                         <button class="toggle-btn" onclick="window.location.href='?vista=solicitudes'">
                             Solicitudes
@@ -1230,15 +1356,15 @@ if ($vista == 'solicitudes') {
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Con Solicitudes Activas</div>
-                    <div class="stat-number"><?php echo count($kits_con_solicitudes); ?></div>
+                    <div class="stat-number" id="stat-con-solicitudes"><?php echo count($kits_con_solicitudes); ?></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Sin Solicitudes</div>
-                    <div class="stat-number"><?php echo count($kits_sin_solicitudes); ?></div>
+                    <div class="stat-number" id="stat-sin-solicitudes"><?php echo count($kits_sin_solicitudes); ?></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Solicitudes Activas</div>
-                    <div class="stat-number"><?php echo $total_solicitudes_todas; ?></div>
+                    <div class="stat-number" id="stat-total-solicitudes"><?php echo $total_solicitudes_todas; ?></div>
                 </div>
             </div>
             
@@ -1371,6 +1497,11 @@ if ($vista == 'solicitudes') {
     </div>
     
     <script>
+        // VARIABLES PARA AUTO-REFRESH
+        let lastUpdateTime = Date.now();
+        let refreshIndicator = null;
+        let refreshTimeout = null;
+        
         // Función para abrir modal de cancelación
         function abrirModalCancelar(idSolicitud) {
             const modal = document.getElementById('modalCancelar');
@@ -1432,8 +1563,131 @@ if ($vista == 'solicitudes') {
             window.history.replaceState(null, null, window.location.href);
         }
         
+        // AUTO-REFRESH PARA ACTUALIZAR CONTADORES
+        function setupAutoRefresh() {
+            // Verificar si hay filtros activos
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasFilters = urlParams.has('kit') || urlParams.has('estado') || 
+                              urlParams.has('nombre') || urlParams.has('email');
+            
+            // Solo auto-refresh si no hay filtros aplicados
+            if (!hasFilters) {
+                // Configurar refresh cada 30 segundos
+                refreshTimeout = setTimeout(() => {
+                    checkForUpdates();
+                }, 30000); // 30 segundos
+            }
+        }
+        
+        // Verificar actualizaciones
+        async function checkForUpdates() {
+            try {
+                // Hacer una petición ligera para verificar cambios
+                const response = await fetch(window.location.href, {
+                    method: 'HEAD',
+                    cache: 'no-cache'
+                });
+                
+                const currentTime = Date.now();
+                const serverTime = new Date(response.headers.get('Last-Modified')).getTime() || currentTime;
+                
+                // Si han pasado más de 10 segundos desde la última actualización del servidor
+                if (serverTime > lastUpdateTime + 10000) {
+                    showRefreshIndicator();
+                } else {
+                    // Programar próxima verificación
+                    refreshTimeout = setTimeout(checkForUpdates, 30000);
+                }
+                
+            } catch (error) {
+                console.log('Error verificando actualizaciones:', error);
+                // Reintentar en 30 segundos
+                refreshTimeout = setTimeout(checkForUpdates, 30000);
+            }
+        }
+        
+        // Mostrar indicador de actualización disponible
+        function showRefreshIndicator() {
+            // Crear indicador si no existe
+            if (!refreshIndicator) {
+                refreshIndicator = document.createElement('div');
+                refreshIndicator.className = 'refresh-indicator';
+                refreshIndicator.innerHTML = `
+                    <i class="fas fa-sync-alt fa-spin"></i>
+                    <span>Datos actualizados disponibles</span>
+                    <button onclick="refreshPage()" style="background: white; color: #3498db; border: none; 
+                            padding: 4px 10px; border-radius: 10px; font-size: 11px; cursor: pointer; margin-left: 8px;">
+                        Actualizar
+                    </button>
+                `;
+                document.body.appendChild(refreshIndicator);
+                
+                // Auto-ocultar después de 10 segundos
+                setTimeout(() => {
+                    if (refreshIndicator && refreshIndicator.parentNode) {
+                        refreshIndicator.style.opacity = '0';
+                        setTimeout(() => {
+                            if (refreshIndicator && refreshIndicator.parentNode) {
+                                refreshIndicator.parentNode.removeChild(refreshIndicator);
+                                refreshIndicator = null;
+                            }
+                        }, 300);
+                    }
+                }, 10000);
+            }
+        }
+        
+        // Refrescar la página
+        function refreshPage() {
+            // Cancelar timeout pendiente
+            if (refreshTimeout) {
+                clearTimeout(refreshTimeout);
+            }
+            
+            // Remover indicador
+            if (refreshIndicator && refreshIndicator.parentNode) {
+                refreshIndicator.parentNode.removeChild(refreshIndicator);
+                refreshIndicator = null;
+            }
+            
+            // Actualizar tiempo de última actualización
+            lastUpdateTime = Date.now();
+            
+            // Recargar la página
+            window.location.reload();
+        }
+        
+        // Efecto visual cuando los contadores cambian
+        function highlightUpdatedCounters() {
+            const statNumbers = document.querySelectorAll('.stat-number');
+            statNumbers.forEach(number => {
+                number.classList.add('updated');
+                setTimeout(() => {
+                    number.classList.remove('updated');
+                }, 1000);
+            });
+        }
+        
         // Mejorar la experiencia de usuario en filtros
         document.addEventListener('DOMContentLoaded', function() {
+            // Iniciar auto-refresh
+            setupAutoRefresh();
+            
+            // Guardar estado actual de los contadores
+            const initialCounters = {};
+            document.querySelectorAll('.stat-number').forEach((counter, index) => {
+                initialCounters[index] = counter.textContent;
+            });
+            
+            // Detectar cambios en los contadores (cuando regresas de otra página)
+            setTimeout(() => {
+                document.querySelectorAll('.stat-number').forEach((counter, index) => {
+                    if (initialCounters[index] !== counter.textContent) {
+                        highlightUpdatedCounters();
+                    }
+                });
+            }, 500);
+            
             // Auto-enfocar en el primer campo de búsqueda si hay filtros aplicados
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('nombre') || urlParams.has('email') || urlParams.has('kit') || urlParams.has('estado')) {
@@ -1441,49 +1695,22 @@ if ($vista == 'solicitudes') {
                     document.querySelector('input[name="nombre"], input[name="email"]').focus();
                 }, 500);
             }
-            
-            // Agregar tooltips a los estados
-            const statusTags = document.querySelectorAll('.status-tag');
-            statusTags.forEach(tag => {
-                const estado = tag.textContent.trim();
-                switch(estado) {
-                    case 'Pendiente':
-                        tag.title = 'Esperando revisión';
-                        break;
-                    case 'Aprobado':
-                        tag.title = 'Aprobado para entrega';
-                        break;
-                    case 'Rechazado':
-                        tag.title = 'Solicitud rechazada';
-                        break;
-                    case 'Entregado':
-                        tag.title = 'Kit entregado';
-                        break;
-                    case 'Cancelado':
-                        tag.title = 'Solicitud cancelada';
-                        break;
-                }
-            });
         });
         
-        // Animación suave para los enlaces
-        document.querySelectorAll('a').forEach(link => {
-            link.addEventListener('click', function(e) {
-                if (this.getAttribute('href').startsWith('#')) return;
-                
-                const targetUrl = this.getAttribute('href');
-                if (targetUrl && !targetUrl.startsWith('javascript:')) {
-                    e.preventDefault();
-                    
-                    // Agregar efecto de carga
-                    document.body.style.opacity = '0.8';
-                    document.body.style.transition = 'opacity 0.3s';
-                    
-                    setTimeout(() => {
-                        window.location.href = targetUrl;
-                    }, 300);
-                }
-            });
+        // Actualizar lastUpdateTime cuando se interactúa con la página
+        document.addEventListener('click', () => {
+            lastUpdateTime = Date.now();
+        });
+        
+        document.addEventListener('keypress', () => {
+            lastUpdateTime = Date.now();
+        });
+        
+        // Limpiar timeout al salir de la página
+        window.addEventListener('beforeunload', () => {
+            if (refreshTimeout) {
+                clearTimeout(refreshTimeout);
+            }
         });
     </script>
 </body>
