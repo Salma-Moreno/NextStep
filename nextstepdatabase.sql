@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 30-11-2025 a las 04:52:01
+-- Tiempo de generación: 05-12-2025 a las 07:39:00
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -35,6 +35,13 @@ CREATE TABLE `address` (
   `Postal_Code` varchar(10) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `address`
+--
+
+INSERT INTO `address` (`ID_Address`, `FK_ID_Student`, `Street`, `City`, `Postal_Code`) VALUES
+(1, 1, 'Ecija 16903', 'Baja California', '22465');
+
 -- --------------------------------------------------------
 
 --
@@ -45,7 +52,9 @@ CREATE TABLE `aplication` (
   `ID_status` int(11) NOT NULL,
   `FK_ID_Student` int(11) NOT NULL,
   `FK_ID_Kit` int(11) NOT NULL,
-  `status` varchar(12) DEFAULT NULL
+  `status` varchar(12) DEFAULT NULL,
+  `Aplication_date` datetime NOT NULL DEFAULT current_timestamp(),
+  `Application_date` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -56,13 +65,25 @@ CREATE TABLE `aplication` (
 
 CREATE TABLE `collection_point` (
   `ID_Point` int(11) NOT NULL,
-  `Name` varchar(15) NOT NULL,
+  `Name` varchar(50) NOT NULL,
   `address` varchar(255) NOT NULL,
-  `Phone_number` varchar(15) DEFAULT NULL,
+  `Phone_number` varchar(10) DEFAULT NULL,
   `FK_ID_Company` int(11) DEFAULT NULL,
   `latitude` decimal(10,7) DEFAULT NULL,
   `longitude` decimal(10,7) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `collection_point`
+--
+
+INSERT INTO `collection_point` (`ID_Point`, `Name`, `address`, `Phone_number`, `FK_ID_Company`, `latitude`, `longitude`) VALUES
+(9, 'Monerick Papelerias', 'Monerick Papelerias, Boulevard Salvador Rosas Magallón, Camichín, Delegación La Mesa, Tijuana, Municipio de Tijuana, Baja California, 22120, México', '6646883945', 2, 32.4987382, -116.9669144),
+(10, 'Office Depot Plaza Alameda', 'Office Depot, Boulevard Lázaro Cárdenas, Otay Constituyentes, Tijuana, Municipio de Tijuana, Baja California, 22425, México', '664 210 47', 1, 32.5306683, -116.9491784),
+(11, 'Monerick Papelerias Zona Centro', 'Papelería Mónerick, Avenida Niños Héroes, Zona Centro, Tijuana, Municipio de Tijuana, Baja California, 22055, México', '6646883945', 2, 32.5330827, -117.0400573),
+(12, 'Office Depot Heroes Tijuana', 'Office Depot, Avenida José María Velasco, Zona Río, Tijuana, Municipio de Tijuana, Baja California, 22010, México', '664 634 74', 1, 32.5214648, -117.0131142),
+(13, 'Office Depot Macroplaza', 'Office Depot, Boulevard de los Insurgentes, División del Norte, Delegación La Mesa, Tijuana, Municipio de Tijuana, Baja California, 22476, México', '664 627 09', 1, 32.4958087, -116.9328172),
+(14, 'Office Depot Delegacion La Mesa', 'Office Depot, Calle San Felipe, Delegación La Mesa, Tijuana, Municipio de Tijuana, Baja California, 22104, México', '800 004 66', 1, 32.5095956, -116.9651203);
 
 -- --------------------------------------------------------
 
@@ -73,7 +94,7 @@ CREATE TABLE `collection_point` (
 CREATE TABLE `company` (
   `ID_Company` int(11) NOT NULL,
   `FK_ID_Company_Address` int(11) NOT NULL,
-  `Name` varchar(15) NOT NULL,
+  `Name` varchar(30) NOT NULL,
   `RFC` varchar(15) NOT NULL,
   `Email` varchar(30) NOT NULL,
   `Phone_Number` varchar(15) DEFAULT NULL
@@ -142,7 +163,8 @@ INSERT INTO `dependency` (`ID_Dependency`, `Type`) VALUES
 (1, 'Padre/Madre'),
 (2, 'Hermano/Hermana'),
 (3, 'Tio/Tia'),
-(4, 'Abuelo/Abuela');
+(4, 'Abuelo/Abuela'),
+(5, 'Otro');
 
 -- --------------------------------------------------------
 
@@ -184,7 +206,9 @@ CREATE TABLE `kit` (
   `ID_Kit` int(11) NOT NULL,
   `FK_ID_Semester` int(11) NOT NULL,
   `Start_date` date NOT NULL,
-  `End_date` date NOT NULL
+  `End_date` date NOT NULL,
+  `Name` varchar(50) NOT NULL,
+  `Description` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -244,6 +268,16 @@ CREATE TABLE `semester` (
   `Year` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `semester`
+--
+
+INSERT INTO `semester` (`ID_Semester`, `Period`, `Year`) VALUES
+(1, 'Enero - Julio', 2024),
+(2, 'Agosto - Diciembre', 2024),
+(3, 'Enero - Julio', 2025),
+(4, 'Agosto - Diciembre', 2025);
+
 -- --------------------------------------------------------
 
 --
@@ -256,16 +290,18 @@ CREATE TABLE `staff` (
   `Firstname` varchar(15) NOT NULL,
   `Lastname` varchar(15) NOT NULL,
   `Phone` varchar(15) DEFAULT NULL,
-  `Email` varchar(30) NOT NULL
+  `Email` varchar(30) NOT NULL,
+  `Profile_Image` longblob DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `staff`
 --
 
-INSERT INTO `staff` (`ID_Staff`, `FK_ID_User`, `Firstname`, `Lastname`, `Phone`, `Email`) VALUES
-(1, 4, 'salma', 'moreno', '1234567890', 'unemail@gmail.com'),
-(2, 5, 'salma', 'moreno', '45454545454', 'unemail2@gmail.com');
+INSERT INTO `staff` (`ID_Staff`, `FK_ID_User`, `Firstname`, `Lastname`, `Phone`, `Email`, `Profile_Image`) VALUES
+(1, 4, 'salma', 'moreno', '1234567890', 'unemail@gmail.com', NULL),
+(2, 5, 'salma', 'moreno', '45454545454', 'unemail2@gmail.com', NULL),
+(3, 11, 'Salma', 'Bernabe', '6641740936', 'unemail3@gmail.com', NULL);
 
 -- --------------------------------------------------------
 
@@ -288,7 +324,7 @@ CREATE TABLE `student` (
 --
 
 INSERT INTO `student` (`ID_Student`, `FK_ID_User`, `Name`, `Last_Name`, `Phone_Number`, `Email_Address`, `Profile_Image`) VALUES
-(1, 7, 'Alexa', 'Bernabe', '6641740936', 'unemail3@gmail.', NULL),
+(1, 7, 'Alexa', 'Bernabe', '6641740936', 'unemail3@gmail.com', '../assets/uploads/profile_692e11cf80d00.jpg'),
 (2, 8, 'Salma', 'Moreno', '6641740936', 'l22211911@tecti', NULL),
 (4, 10, 'Salma', 'Bernabe', '6641740936', 'unemail@gmail.c', NULL);
 
@@ -307,6 +343,13 @@ CREATE TABLE `student_details` (
   `License` varchar(20) DEFAULT NULL,
   `Average` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `student_details`
+--
+
+INSERT INTO `student_details` (`ID_Details`, `FK_ID_Student`, `Birthdate`, `High_school`, `Grade`, `License`, `Average`) VALUES
+(1, 1, '2008-05-14', 'Cetis 156', '6', '22211911', 88);
 
 -- --------------------------------------------------------
 
@@ -336,6 +379,13 @@ CREATE TABLE `tutor_data` (
   `Address` varchar(15) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `tutor_data`
+--
+
+INSERT INTO `tutor_data` (`ID_Data`, `FK_ID_Student`, `FK_ID_Dependency`, `Tutor_name`, `Tutor_lastname`, `Phone_Number`, `Address`) VALUES
+(1, 1, 1, 'Salma', 'Moreno', '6641235678', 'Ecija 16903');
+
 -- --------------------------------------------------------
 
 --
@@ -360,7 +410,8 @@ INSERT INTO `user` (`ID_User`, `FK_ID_Role`, `Username`, `Password`, `registrati
 (5, 2, 'Usuario 2', '$2y$10$euA4.iXZ5OXa1RMvVRDti.isPk0AW7kL9avhDrs6BwJAUAPq.9Dlq', '2025-11-01 21:23:55', 'Active'),
 (7, 1, 'Ale', '$2y$10$TgE.MFa3fpoBREhFPvtJzudBggUx8pz3oUzwyBC9.lRinfGAD2kBa', '2025-11-02 01:18:07', 'Active'),
 (8, 1, 'Salma', '$2y$10$36VTtfFCYMleMI1Ymn3.qOx5yE8UgdYuXapR97DsXkPj78Wyfww/m', '2025-11-23 23:05:23', 'Active'),
-(10, 1, 'admin', '$2y$10$2gbxooOFb0TgU1uTRbKLtuT1aYqhBPndqrMbX6l8HshoIfQm4ZMr6', '2025-11-24 00:04:05', 'Active');
+(10, 1, 'admin', '$2y$10$2gbxooOFb0TgU1uTRbKLtuT1aYqhBPndqrMbX6l8HshoIfQm4ZMr6', '2025-11-24 00:04:05', 'Active'),
+(11, 2, 'admin3', '$2y$10$Ii9Zj9UTsEpuP7rPMUenZ.DZgE1tiPBfs.HrsdDrl1Fu4grCJwHO6', '2025-11-29 20:04:51', 'Active');
 
 --
 -- Índices para tablas volcadas
@@ -523,25 +574,25 @@ ALTER TABLE `user`
 -- AUTO_INCREMENT de la tabla `address`
 --
 ALTER TABLE `address`
-  MODIFY `ID_Address` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Address` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `collection_point`
 --
 ALTER TABLE `collection_point`
-  MODIFY `ID_Point` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `ID_Point` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
 -- AUTO_INCREMENT de la tabla `company`
 --
 ALTER TABLE `company`
-  MODIFY `ID_Company` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `ID_Company` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
 
 --
 -- AUTO_INCREMENT de la tabla `company_address`
 --
 ALTER TABLE `company_address`
-  MODIFY `ID_Company_Address` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `ID_Company_Address` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
 
 --
 -- AUTO_INCREMENT de la tabla `delivery`
@@ -595,13 +646,13 @@ ALTER TABLE `role`
 -- AUTO_INCREMENT de la tabla `semester`
 --
 ALTER TABLE `semester`
-  MODIFY `ID_Semester` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Semester` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `staff`
 --
 ALTER TABLE `staff`
-  MODIFY `ID_Staff` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `ID_Staff` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `student`
@@ -613,7 +664,7 @@ ALTER TABLE `student`
 -- AUTO_INCREMENT de la tabla `student_details`
 --
 ALTER TABLE `student_details`
-  MODIFY `ID_Details` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Details` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `supplies`
@@ -625,13 +676,13 @@ ALTER TABLE `supplies`
 -- AUTO_INCREMENT de la tabla `tutor_data`
 --
 ALTER TABLE `tutor_data`
-  MODIFY `ID_Data` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Data` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `user`
 --
 ALTER TABLE `user`
-  MODIFY `ID_User` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `ID_User` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- Restricciones para tablas volcadas
