@@ -266,9 +266,20 @@ if ($vista == 'solicitudes') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Kits</title>
     <style>
+        * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+        body {
+    margin: 0;
+    padding: 0;
+    font-family: "Arial", sans-serif;
+    background: #f2f2f2;
+}
         /* ESTILOS EXCLUSIVOS PARA ESTA PÁGINA */
         .content-wrapper {
-            max-width: 1400px;
+            max-width: 90%;
             margin: 0 auto;
             padding: 20px;
         }
