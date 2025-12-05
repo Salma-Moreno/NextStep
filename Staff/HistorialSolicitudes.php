@@ -456,60 +456,18 @@ if ($vista == 'solicitudes') {
         .kit-table th:nth-child(5), .kit-table td:nth-child(5) { width: 300px; }
         .kit-table th:nth-child(6), .kit-table td:nth-child(6) { width: 200px; }
         
+        /* REMOVIDAS LAS CLASES DE COLORES DE ESTADO */
         .status-tag {
             padding: 4px 8px;
-            border-radius: 12px;
+            border-radius: 4px;
             font-size: 11px;
-            font-weight: bold;
+            font-weight: 500;
             display: inline-block;
             text-align: center;
             min-width: 80px;
-        }
-        
-        .status-pending { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
-        .status-approved { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .status-rejected { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .status-delivered { background: #cce5ff; color: #004085; border: 1px solid #b8daff; }
-        
-        /* MINI BOTONES DE ACCIÓN - DEBAJO DEL NOMBRE */
-        .mini-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px;
-            margin-top: 5px;
-        }
-        
-        .mini-btn {
-            padding: 3px 6px;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 10px;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-        
-        .mini-approve { background: #4CAF50; color: white; }
-        .mini-approve:hover { background: #3d8b40; }
-        
-        .mini-reject { background: #f44336; color: white; }
-        .mini-reject:hover { background: #d32f2f; }
-        
-        .mini-deliver { background: #FF9800; color: white; }
-        .mini-deliver:hover { background: #F57C00; }
-        
-        .mini-cancel { background: #6c757d; color: white; }
-        .mini-cancel:hover { background: #545b62; }
-        
-        .mini-view { 
-            background: #2196F3; 
-            color: white;
-            padding: 3px 6px;
-            border-radius: 3px;
-            text-decoration: none;
-            font-size: 10px;
-            display: inline-block;
-            margin-top: 5px;
+            background: #f8f9fa;
+            color: #495057;
+            border: 1px solid #dee2e6;
         }
         
         .stats-tags {
@@ -526,11 +484,11 @@ if ($vista == 'solicitudes') {
         }
         
         .tag-total { background: #2196F3; color: white; }
-        .tag-pending { background: #ffc107; color: #000; }
-        .tag-approved { background: #28a745; color: white; }
-        .tag-rejected { background: #dc3545; color: white; }
-        .tag-delivered { background: #17a2b8; color: white; }
-        .tag-empty { background: #e9ecef; color: #6c757d; }
+        .tag-pending { background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; }
+        .tag-approved { background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; }
+        .tag-rejected { background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; }
+        .tag-delivered { background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; }
+        .tag-empty { background: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; }
         
         .no-data {
             text-align: center;
@@ -827,57 +785,35 @@ if ($vista == 'solicitudes') {
                         <tbody>
                             <?php foreach ($solicitudes as $solicitud): ?>
                                 <?php 
-                                $clase_estado = '';
-                                switch($solicitud['status']) {
-                                    case 'Pending': $clase_estado = 'status-pending'; break;
-                                    case 'Approved': $clase_estado = 'status-approved'; break;
-                                    case 'Rejected': $clase_estado = 'status-rejected'; break;
-                                    case 'Delivered': $clase_estado = 'status-delivered'; break;
-                                }
+                                // Determinar texto según estado
+                                $texto_estado = '';
+                                $estado = trim($solicitud['status']);
                                 
-                                $estados_texto = [
-                                    'Pending' => 'Pendiente',
-                                    'Approved' => 'Aprobado',
-                                    'Rejected' => 'Rechazado',
-                                    'Delivered' => 'Entregado'
-                                ];
+                                switch($estado) {
+                                    case 'Pending': 
+                                        $texto_estado = 'Pendiente';
+                                        break;
+                                    case 'Approved': 
+                                        $texto_estado = 'Aprobado';
+                                        break;
+                                    case 'Rejected': 
+                                        $texto_estado = 'Rechazado';
+                                        break;
+                                    case 'Delivered': 
+                                        $texto_estado = 'Entregado';
+                                        break;
+                                    case 'Canceled': 
+                                        $texto_estado = 'Cancelado';
+                                        break;
+                                    default: 
+                                        $texto_estado = $solicitud['status'];
+                                        break;
+                                }
                                 ?>
                                 <tr>
                                     <td><strong>#<?php echo $solicitud['ID_status']; ?></strong></td>
                                     <td>
                                         <strong><?php echo htmlspecialchars($solicitud['estudiante_nombre'] . ' ' . $solicitud['estudiante_apellido']); ?></strong>
-                                        <div class="mini-actions">
-                                            <?php if ($solicitud['status'] == 'Pending'): ?>
-                                                <form method="POST" style="display: inline;">
-                                                    <input type="hidden" name="id_solicitud" value="<?php echo $solicitud['ID_status']; ?>">
-                                                    <input type="hidden" name="accion" value="aprobar">
-                                                    <button type="submit" class="mini-btn mini-approve" onclick="return confirm('¿Aprobar solicitud #<?php echo $solicitud['ID_status']; ?>?')">
-                                                        Aprobar
-                                                    </button>
-                                                </form>
-                                                <form method="POST" style="display: inline;">
-                                                    <input type="hidden" name="id_solicitud" value="<?php echo $solicitud['ID_status']; ?>">
-                                                    <input type="hidden" name="accion" value="rechazar">
-                                                    <button type="submit" class="mini-btn mini-reject" onclick="return confirm('¿Rechazar solicitud #<?php echo $solicitud['ID_status']; ?>?')">
-                                                        Rechazar
-                                                    </button>
-                                                </form>
-                                                <button type="button" class="mini-btn mini-cancel" onclick="abrirModalCancelar(<?php echo $solicitud['ID_status']; ?>)">
-                                                    Cancelar
-                                                </button>
-                                            <?php elseif ($solicitud['status'] == 'Approved'): ?>
-                                                <form method="POST" style="display: inline;">
-                                                    <input type="hidden" name="id_solicitud" value="<?php echo $solicitud['ID_status']; ?>">
-                                                    <input type="hidden" name="accion" value="entregar">
-                                                    <button type="submit" class="mini-btn mini-deliver" onclick="return confirm('¿Marcar como entregado #<?php echo $solicitud['ID_status']; ?>?')">
-                                                        Entregar
-                                                    </button>
-                                                </form>
-                                                <button type="button" class="mini-btn mini-cancel" onclick="abrirModalCancelar(<?php echo $solicitud['ID_status']; ?>)">
-                                                    Cancelar
-                                                </button>
-                                            <?php endif; ?>
-                                        </div>
                                     </td>
                                     <td><?php echo htmlspecialchars($solicitud['estudiante_email']); ?></td>
                                     <td><?php echo htmlspecialchars($solicitud['Nombre_Kit']); ?></td>
@@ -897,8 +833,8 @@ if ($vista == 'solicitudes') {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <span class="status-tag <?php echo $clase_estado; ?>">
-                                            <?php echo $estados_texto[$solicitud['status']] ?? $solicitud['status']; ?>
+                                        <span class="status-tag">
+                                            <?php echo $texto_estado; ?>
                                         </span>
                                     </td>
                                 </tr>
