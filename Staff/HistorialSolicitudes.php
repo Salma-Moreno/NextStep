@@ -9,338 +9,580 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Staff') {
 include '../Conexiones/db.php';
 $conexion = $conn;
 
-// Obtener solo la solicitud más reciente por estudiante
-$sql = "SELECT 
-        a.ID_status,
-        s.Name AS estudiante_nombre,
-        s.Last_Name AS estudiante_apellido,
-        s.Email_Address AS estudiante_email,
-        a.status,
-        a.FK_ID_Kit,
-        s.ID_Student
-        FROM aplication a
-        JOIN student s ON a.FK_ID_Student = s.ID_Student
-        WHERE a.ID_status IN (
-            SELECT MAX(ID_status) 
-            FROM aplication 
-            GROUP BY FK_ID_Student
-        )
-        ORDER BY a.ID_status DESC";
-
-$result = $conexion->query($sql);
-
-if (!$result) {
-    die("Error en la consulta: " . $conexion->error);
+// Manejar cambios de estado CON MENSAJE
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (isset($_POST['accion'], $_POST['id_solicitud'])) {
+        $id_solicitud = (int)$_POST['id_solicitud'];
+        $accion = $_POST['accion'];
+        $mensaje_staff = isset($_POST['mensaje_staff']) ? $conexion->real_escape_string($_POST['mensaje_staff']) : '';
+        
+        $estados = [
+            'aprobar' => 'Approved',
+            'rechazar' => 'Rejected',
+            'entregar' => 'Delivered',
+            'cancelar' => 'Canceled'
+        ];
+        
+        if (isset($estados[$accion])) {
+            $nuevo_estado = $estados[$accion];
+            
+            // Si es cancelación del staff, guardar mensaje
+            if ($accion == 'cancelar' && !empty($mensaje_staff)) {
+                $sql_crear_tabla = "CREATE TABLE IF NOT EXISTS historial_mensajes (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id_solicitud INT NOT NULL,
+                    accion VARCHAR(20) NOT NULL,
+                    mensaje TEXT,
+                    fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    staff_id INT
+                )";
+                $conexion->query($sql_crear_tabla);
+                
+                $staff_id = $_SESSION['usuario_id'];
+                $sql_mensaje = "INSERT INTO historial_mensajes (id_solicitud, accion, mensaje, staff_id) 
+                                VALUES (?, ?, ?, ?)";
+                $stmt_msg = $conexion->prepare($sql_mensaje);
+                $stmt_msg->bind_param("issi", $id_solicitud, $accion, $mensaje_staff, $staff_id);
+                $stmt_msg->execute();
+                $stmt_msg->close();
+            }
+            
+            // Actualizar estado de la solicitud
+            $sql_update = "UPDATE aplication SET status = ? WHERE ID_status = ?";
+            $stmt = $conexion->prepare($sql_update);
+            $stmt->bind_param("si", $nuevo_estado, $id_solicitud);
+            
+            if ($stmt->execute()) {
+                $_SESSION['mensaje'] = "Solicitud #$id_solicitud actualizada a: " . ucfirst($accion) . "do";
+                $_SESSION['tipo_mensaje'] = 'success';
+            } else {
+                $_SESSION['mensaje'] = "Error al actualizar la solicitud";
+                $_SESSION['tipo_mensaje'] = 'error';
+            }
+            $stmt->close();
+            
+            header('Location: ' . $_SERVER['PHP_SELF']);
+            exit;
+        }
+    }
 }
 
-$solicitudes = [];
-$estudiantes_procesados = [];
+// Determinar qué vista mostrar
+$vista = isset($_GET['vista']) ? $_GET['vista'] : 'solicitudes';
 
-if ($result->num_rows > 0) {
-    while($row = $result->fetch_assoc()) {
-        $estudiante_id = $row['ID_Student'];
-        
-        if (in_array($estudiante_id, $estudiantes_procesados)) {
-            continue;
-        }
-        
-        $estudiantes_procesados[] = $estudiante_id;
-        $kit_id = $row['FK_ID_Kit'];
-        
-        if ($kit_id) {
-            $sql_kit = "SELECT k.Start_date, k.End_date, se.Period, se.Year 
-                       FROM kit k 
-                       LEFT JOIN semester se ON k.FK_ID_Semester = se.ID_Semester 
-                       WHERE k.ID_Kit = ?";
-            $stmt_kit = $conexion->prepare($sql_kit);
-            $stmt_kit->bind_param("i", $kit_id);
-            $stmt_kit->execute();
-            $result_kit = $stmt_kit->get_result();
+// Obtener filtros
+$filtro_kit = isset($_GET['kit']) ? (int)$_GET['kit'] : 0;
+$filtro_estado = isset($_GET['estado']) ? $_GET['estado'] : '';
+$filtro_nombre = isset($_GET['nombre']) ? $conexion->real_escape_string($_GET['nombre']) : '';
+$filtro_email = isset($_GET['email']) ? $conexion->real_escape_string($_GET['email']) : '';
+
+if ($vista == 'solicitudes') {
+    // VISTA DE SOLICITUDES - SOLO ACTIVAS (NO CANCELADAS POR NADIE)
+    
+    // Obtener kits para filtro
+    $sql_kits = "SELECT k.ID_Kit, CONCAT('Kit ', s.Period, ' ', s.Year) AS nombre_kit
+                 FROM kit k
+                 INNER JOIN semester s ON k.FK_ID_Semester = s.ID_Semester
+                 ORDER BY k.Start_date DESC";
+    $result_kits = $conexion->query($sql_kits);
+    $kits_disponibles = [];
+    while ($kit = $result_kits->fetch_assoc()) {
+        $kits_disponibles[] = $kit;
+    }
+
+    // Construir consulta - EXCLUIR TODAS LAS CANCELADAS (estudiante o staff)
+    $sql = "SELECT 
+            a.ID_status,
+            s.Name AS estudiante_nombre,
+            s.Last_Name AS estudiante_apellido,
+            s.Email_Address AS estudiante_email,
+            a.status,
+            a.FK_ID_Kit,
+            s.ID_Student,
+            DATE_FORMAT(a.Application_date, '%d/%m/%Y %H:%i') AS fecha_solicitud
+            FROM aplication a
+            JOIN student s ON a.FK_ID_Student = s.ID_Student
+            WHERE a.status != 'Canceled'"; // No mostrar NINGUNA cancelada
+
+    $params = [];
+    $types = '';
+
+    if ($filtro_kit > 0) {
+        $sql .= " AND a.FK_ID_Kit = ?";
+        $params[] = $filtro_kit;
+        $types .= 'i';
+    }
+
+    if (!empty($filtro_estado)) {
+        $sql .= " AND a.status = ?";
+        $params[] = $filtro_estado;
+        $types .= 's';
+    }
+
+    if (!empty($filtro_nombre)) {
+        $sql .= " AND (s.Name LIKE ? OR s.Last_Name LIKE ?)";
+        $params[] = "%$filtro_nombre%";
+        $params[] = "%$filtro_nombre%";
+        $types .= 'ss';
+    }
+
+    if (!empty($filtro_email)) {
+        $sql .= " AND s.Email_Address LIKE ?";
+        $params[] = "%$filtro_email%";
+        $types .= 's';
+    }
+
+    $sql .= " ORDER BY a.ID_status DESC";
+
+    // Preparar y ejecutar consulta
+    $stmt = $conexion->prepare($sql);
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $solicitudes = [];
+
+    if ($result->num_rows > 0) {
+        while($row = $result->fetch_assoc()) {
+            $kit_id = $row['FK_ID_Kit'];
             
-            if ($kit_data = $result_kit->fetch_assoc()) {
-                $row['Start_date'] = $kit_data['Start_date'];
-                $row['End_date'] = $kit_data['End_date'];
-                $row['Period'] = $kit_data['Period'];
-                $row['Year'] = $kit_data['Year'];
+            if ($kit_id) {
+                $sql_kit = "SELECT k.Start_date, k.End_date, se.Period, se.Year 
+                           FROM kit k 
+                           LEFT JOIN semester se ON k.FK_ID_Semester = se.ID_Semester 
+                           WHERE k.ID_Kit = ?";
+                $stmt_kit = $conexion->prepare($sql_kit);
+                $stmt_kit->bind_param("i", $kit_id);
+                $stmt_kit->execute();
+                $result_kit = $stmt_kit->get_result();
+                
+                if ($kit_data = $result_kit->fetch_assoc()) {
+                    $row['Start_date'] = $kit_data['Start_date'];
+                    $row['End_date'] = $kit_data['End_date'];
+                    $row['Period'] = $kit_data['Period'];
+                    $row['Year'] = $kit_data['Year'];
+                    $row['Nombre_Kit'] = 'Kit ' . $kit_data['Period'] . ' ' . $kit_data['Year'];
+                } else {
+                    $row['Start_date'] = 'No disponible';
+                    $row['End_date'] = 'No disponible';
+                    $row['Period'] = 'N/A';
+                    $row['Year'] = 'N/A';
+                    $row['Nombre_Kit'] = 'Kit no encontrado';
+                }
+                $stmt_kit->close();
+                
+                $sql_materiales = "SELECT sup.Name, km.Unit 
+                                  FROM kit_material km 
+                                  LEFT JOIN supplies sup ON km.FK_ID_Supply = sup.ID_Supply 
+                                  WHERE km.FK_ID_Kit = ?";
+                $stmt_mat = $conexion->prepare($sql_materiales);
+                $stmt_mat->bind_param("i", $kit_id);
+                $stmt_mat->execute();
+                $result_mat = $stmt_mat->get_result();
+                
+                $materiales = [];
+                while ($mat = $result_mat->fetch_assoc()) {
+                    $materiales[] = $mat['Name'] . ' (' . $mat['Unit'] . ')';
+                }
+                $row['materiales'] = !empty($materiales) ? implode(', ', $materiales) : 'Sin materiales';
+                $stmt_mat->close();
             } else {
                 $row['Start_date'] = 'No disponible';
                 $row['End_date'] = 'No disponible';
                 $row['Period'] = 'N/A';
                 $row['Year'] = 'N/A';
+                $row['Nombre_Kit'] = 'Sin kit asignado';
+                $row['materiales'] = 'Sin materiales';
             }
-            $stmt_kit->close();
             
-            $sql_materiales = "SELECT sup.Name, km.Unit 
+            $solicitudes[] = $row;
+        }
+    }
+    $stmt->close();
+
+    // Calcular estadísticas (sin contar canceladas)
+    $total = count($solicitudes);
+    $pendientes = array_filter($solicitudes, function($s) { return $s['status'] == 'Pending'; });
+    $aprobadas = array_filter($solicitudes, function($s) { return $s['status'] == 'Approved'; });
+    $rechazadas = array_filter($solicitudes, function($s) { return $s['status'] == 'Rejected'; });
+    $entregadas = array_filter($solicitudes, function($s) { return $s['status'] == 'Delivered'; });
+
+} else {
+    // VISTA DE KITS DISPONIBLES - Solo contar activas
+    
+    $sql_kits_completos = "SELECT 
+        k.ID_Kit,
+        CONCAT('Kit ', s.Period, ' ', s.Year) AS nombre_kit,
+        k.Start_date,
+        k.End_date,
+        s.Period,
+        s.Year,
+        COUNT(CASE WHEN a.status != 'Canceled' THEN a.ID_status END) AS total_solicitudes,
+        SUM(CASE WHEN a.status = 'Pending' THEN 1 ELSE 0 END) AS pendientes,
+        SUM(CASE WHEN a.status = 'Approved' THEN 1 ELSE 0 END) AS aprobadas,
+        SUM(CASE WHEN a.status = 'Rejected' THEN 1 ELSE 0 END) AS rechazadas,
+        SUM(CASE WHEN a.status = 'Delivered' THEN 1 ELSE 0 END) AS entregadas
+    FROM kit k
+    INNER JOIN semester s ON k.FK_ID_Semester = s.ID_Semester
+    LEFT JOIN aplication a ON k.ID_Kit = a.FK_ID_Kit AND a.status != 'Canceled'
+    GROUP BY k.ID_Kit
+    ORDER BY k.Start_date DESC";
+    
+    $result_kits_completos = $conexion->query($sql_kits_completos);
+    $kits_completos = [];
+    
+    while ($kit = $result_kits_completos->fetch_assoc()) {
+        $sql_materiales_kit = "SELECT sup.Name, km.Unit 
                               FROM kit_material km 
                               LEFT JOIN supplies sup ON km.FK_ID_Supply = sup.ID_Supply 
                               WHERE km.FK_ID_Kit = ?";
-            $stmt_mat = $conexion->prepare($sql_materiales);
-            $stmt_mat->bind_param("i", $kit_id);
-            $stmt_mat->execute();
-            $result_mat = $stmt_mat->get_result();
-            
-            $materiales = [];
-            while ($mat = $result_mat->fetch_assoc()) {
-                $materiales[] = $mat['Name'] . ' (' . $mat['Unit'] . ')';
-            }
-            $row['materiales'] = !empty($materiales) ? implode(', ', $materiales) : 'Sin materiales';
-            $stmt_mat->close();
-        } else {
-            $row['Start_date'] = 'No disponible';
-            $row['End_date'] = 'No disponible';
-            $row['Period'] = 'N/A';
-            $row['Year'] = 'N/A';
-            $row['materiales'] = 'Sin kit asignado';
-        }
+        $stmt_mat_kit = $conexion->prepare($sql_materiales_kit);
+        $stmt_mat_kit->bind_param("i", $kit['ID_Kit']);
+        $stmt_mat_kit->execute();
+        $result_mat_kit = $stmt_mat_kit->get_result();
         
-        $solicitudes[] = $row;
+        $materiales_kit = [];
+        while ($mat = $result_mat_kit->fetch_assoc()) {
+            $materiales_kit[] = $mat['Name'] . ' (' . $mat['Unit'] . ')';
+        }
+        $kit['materiales'] = !empty($materiales_kit) ? implode(', ', $materiales_kit) : 'Sin materiales';
+        $stmt_mat_kit->close();
+        
+        $kits_completos[] = $kit;
     }
-}
-
-// Función auxiliar PHP para normalizar estados
-function normalizarEstadoPHP($status) {
-    $map = [
-        'Pending' => 'Pendiente', 'En revisión' => 'Pendiente', 'Revisión' => 'Pendiente',
-        'Approved' => 'Aprobado',
-        'Rejected' => 'Rechazado',
-        'Delivered' => 'Entregado', 'Entrega' => 'Entregado', 'Entregado' => 'Entregado',
-        'Canceled' => 'Cancelado'
-    ];
-    return $map[$status] ?? $status;
-}
-
-function obtenerClaseCSS($status) {
-    $estadoNormalizado = normalizarEstadoPHP($status);
-    switch ($estadoNormalizado) {
-        case 'Pendiente': return 'estado-pendiente';
-        case 'Aprobado': return 'estado-aprobado';
-        case 'Rechazado': return 'estado-rechazado';
-        case 'Entregado': return 'estado-entregado';
-        case 'Cancelado': return 'estado-cancelado';
-        default: return 'estado-pendiente';
-    }
+    
+    $total_kits = count($kits_completos);
+    $kits_con_solicitudes = array_filter($kits_completos, function($k) { return $k['total_solicitudes'] > 0; });
+    $kits_sin_solicitudes = array_filter($kits_completos, function($k) { return $k['total_solicitudes'] == 0; });
+    $total_solicitudes_todas = array_sum(array_column($kits_completos, 'total_solicitudes'));
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Historial de Solicitudes - Staff</title>
+    <title>Gestión de Kits</title>
     <style>
-        /* Estilos generales */
-        .historial-container {
+        /* ESTILOS EXCLUSIVOS PARA ESTA PÁGINA */
+        .content-wrapper {
             max-width: 1400px;
-            margin: 20px auto;
-            padding: 0 20px;
-            width: 100%;
-        }
-        .historial-header {
-            background: linear-gradient(135deg, #2196F3, #0D47A1);
-            color: white;
-            padding: 25px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .historial-header h1 {
-            font-size: 28px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin: 0;
-        }
-        
-        /* Filtros */
-        .filtros-container {
-            background: white;
+            margin: 0 auto;
             padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
-        .filtros-container select, 
-        .filtros-container input {
-            padding: 10px 15px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            min-width: 180px;
-            background: white;
-        }
-        .filtros-container button {
-            padding: 10px 20px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: background 0.3s;
-            font-family: inherit;
-        }
-        .filtros-container button:hover { background: #0b7dda; }
         
-        /* Tabla */
-        .tabla-solicitudes {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        .page-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #2196F3;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 15px;
             margin-bottom: 20px;
         }
-        .tabla-solicitudes th {
-            background: linear-gradient(135deg, #2196F3, #0D47A1);
-            color: white;
-            padding: 18px 15px;
-            text-align: left;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-        }
-        .tabla-solicitudes td {
+        
+        .stat-card {
+            background: white;
             padding: 15px;
-            border-bottom: 1px solid #eee;
-            vertical-align: middle;
-        }
-        .tabla-solicitudes tr:hover { background: #f9f9f9; }
-        
-        /* Estados */
-        .estado-solicitud {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: bold;
-            display: inline-block;
-            min-width: 100px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             text-align: center;
+            border: 1px solid #e9ecef;
         }
-        .estado-pendiente { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
-        .estado-aprobado { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .estado-rechazado { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .estado-entregado { background: #cce5ff; color: #004085; border: 1px solid #b8daff; }
-        .estado-cancelado { background: #e9ecef; color: #495057; border: 1px solid #ced4da; }
         
-        /* Acciones */
-        .acciones-container {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
+        .stat-number {
+            font-size: 22px;
+            font-weight: bold;
+            color: #2196F3;
+            display: block;
+            margin-bottom: 5px;
         }
-        .btn-accion-historial {
-            padding: 8px 14px;
+        
+        .stat-label {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .view-toggle {
+            display: inline-flex;
+            background: #e9ecef;
+            border-radius: 4px;
+            padding: 2px;
+            margin-top: 5px;
+        }
+        
+        .toggle-btn {
+            padding: 4px 12px;
             border: none;
-            border-radius: 6px;
+            border-radius: 3px;
             cursor: pointer;
-            font-size: 0.9em;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            font-size: 12px;
+            font-weight: 500;
             transition: all 0.2s;
-            font-family: inherit;
+            background: transparent;
+            color: #666;
         }
-        .btn-ver-historial { background: #2196F3; color: white; }
-        .btn-ver-historial:hover { background: #0b7dda; }
         
-        /* Botones eliminados visualmente en CSS por seguridad, aunque quitados del HTML */
-        /* .btn-aprobar-historial { background: #4CAF50; color: white; } */
-        /* .btn-rechazar-historial { background: #f44336; color: white; } */
+        .toggle-btn.active {
+            background: #2196F3;
+            color: white;
+            box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
+        }
         
-        .btn-entregar-historial { background: #FF9800; color: white; }
-        .btn-entregar-historial:hover { background: #F57C00; }
+        .toggle-btn:hover:not(.active) {
+            background: #dee2e6;
+        }
         
-        /* Estadísticas */
-        .stats-bar-historial {
-            display: flex;
-            justify-content: space-between;
+        .filters-panel {
             background: white;
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
-        .stat-item-historial { text-align: center; flex: 1; }
-        .stat-number-historial { font-size: 24px; font-weight: bold; color: #2196F3; display: block; }
-        .stat-label-historial { font-size: 14px; color: #666; }
         
-        /* Otros */
-        .sin-solicitudes-container {
-            text-align: center;
-            padding: 60px 20px;
-            color: #666;
-            font-style: italic;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        .paginacion-container {
+        .filter-item {
             display: flex;
-            justify-content: center;
-            margin-top: 25px;
-            gap: 8px;
+            flex-direction: column;
+            gap: 5px;
         }
-        .pagina-historial {
-            padding: 10px 16px;
-            border: 1px solid #ddd;
-            background: white;
-            cursor: pointer;
-            border-radius: 6px;
-            transition: all 0.2s;
-            font-family: inherit;
-        }
-        .pagina-historial:hover { background: #f0f0f0; }
-        .pagina-historial.activa { background: #2196F3; color: white; border-color: #2196F3; }
         
-        /* Modal */
-        .modal-historial-overlay {
+        .filter-item label {
+            font-size: 12px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .filter-item select,
+        .filter-item input {
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            background: white;
+            width: 100%;
+        }
+        
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        
+        .btn-filter {
+            padding: 8px 15px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .btn-clear {
+            padding: 8px 15px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .data-table {
+            width: 100%;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        .fixed-width-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        
+        .fixed-width-table th {
+            background: linear-gradient(135deg, #2196F3, #0D47A1);
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        
+        .fixed-width-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #eee;
+            vertical-align: top;
+            font-size: 13px;
+        }
+        
+        .fixed-width-table tr:hover {
+            background: #f9f9f9;
+        }
+        
+        /* ANCHOS DE COLUMNAS */
+        .fixed-width-table th:nth-child(1), .fixed-width-table td:nth-child(1) { width: 50px; }
+        .fixed-width-table th:nth-child(2), .fixed-width-table td:nth-child(2) { width: 200px; }
+        .fixed-width-table th:nth-child(3), .fixed-width-table td:nth-child(3) { width: 180px; }
+        .fixed-width-table th:nth-child(4), .fixed-width-table td:nth-child(4) { width: 120px; }
+        .fixed-width-table th:nth-child(5), .fixed-width-table td:nth-child(5) { width: 120px; }
+        .fixed-width-table th:nth-child(6), .fixed-width-table td:nth-child(6) { width: 250px; }
+        .fixed-width-table th:nth-child(7), .fixed-width-table td:nth-child(7) { width: 140px; }
+        .fixed-width-table th:nth-child(8), .fixed-width-table td:nth-child(8) { width: 100px; }
+        
+        /* PARA TABLA DE KITS */
+        .kit-table th:nth-child(1), .kit-table td:nth-child(1) { width: 50px; }
+        .kit-table th:nth-child(2), .kit-table td:nth-child(2) { width: 150px; }
+        .kit-table th:nth-child(3), .kit-table td:nth-child(3) { width: 120px; }
+        .kit-table th:nth-child(4), .kit-table td:nth-child(4) { width: 150px; }
+        .kit-table th:nth-child(5), .kit-table td:nth-child(5) { width: 300px; }
+        .kit-table th:nth-child(6), .kit-table td:nth-child(6) { width: 200px; }
+        
+        .status-tag {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+            text-align: center;
+            min-width: 80px;
+        }
+        
+        .status-pending { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .status-approved { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-rejected { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status-delivered { background: #cce5ff; color: #004085; border: 1px solid #b8daff; }
+        
+        /* MINI BOTONES DE ACCIÓN - DEBAJO DEL NOMBRE */
+        .mini-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 5px;
+        }
+        
+        .mini-btn {
+            padding: 3px 6px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .mini-approve { background: #4CAF50; color: white; }
+        .mini-approve:hover { background: #3d8b40; }
+        
+        .mini-reject { background: #f44336; color: white; }
+        .mini-reject:hover { background: #d32f2f; }
+        
+        .mini-deliver { background: #FF9800; color: white; }
+        .mini-deliver:hover { background: #F57C00; }
+        
+        .mini-cancel { background: #6c757d; color: white; }
+        .mini-cancel:hover { background: #545b62; }
+        
+        .mini-view { 
+            background: #2196F3; 
+            color: white;
+            padding: 3px 6px;
+            border-radius: 3px;
+            text-decoration: none;
+            font-size: 10px;
+            display: inline-block;
+            margin-top: 5px;
+        }
+        
+        .stats-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+        }
+        
+        .stat-tag {
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .tag-total { background: #2196F3; color: white; }
+        .tag-pending { background: #ffc107; color: #000; }
+        .tag-approved { background: #28a745; color: white; }
+        .tag-rejected { background: #dc3545; color: white; }
+        .tag-delivered { background: #17a2b8; color: white; }
+        .tag-empty { background: #e9ecef; color: #6c757d; }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        /* MODAL PARA CANCELAR */
+        .modal-cancel {
             display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 9999;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
             justify-content: center;
             align-items: center;
-            padding: 20px;
         }
-        .modal-historial-content {
+        
+        .modal-box {
             background: white;
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 700px;
-            width: 100%;
-            max-height: 85vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            animation: modalAppear 0.3s ease;
+            padding: 25px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
-        @keyframes modalAppear {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .modal-historial-header {
+        
+        .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #eee;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
         }
-        .modal-historial-header h2 { color: #0D47A1; font-size: 24px; margin: 0; }
-        .close-modal-historial {
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .close-modal {
             background: none;
             border: none;
-            font-size: 28px;
+            font-size: 24px;
             cursor: pointer;
             color: #666;
             padding: 0;
@@ -350,191 +592,422 @@ function obtenerClaseCSS($status) {
             align-items: center;
             justify-content: center;
             border-radius: 50%;
-            font-family: inherit;
-        }
-        .close-modal-historial:hover { background: #f0f0f0; }
-        .detalle-item-historial {
-            margin-bottom: 18px;
-            padding: 12px;
-            background: #f9f9f9;
-            border-radius: 8px;
-            border-left: 4px solid #2196F3;
-        }
-        .detalle-item-historial strong { color: #0D47A1; display: block; margin-bottom: 5px; }
-        .info-estudiante-historial {
-            background: #E3F2FD;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        .materiales-lista-historial { list-style: none; padding: 0; margin: 0; }
-        .materiales-lista-historial li {
-            padding: 8px 12px;
-            background: white;
-            margin-bottom: 8px;
-            border-radius: 6px;
-            border: 1px solid #eee;
         }
         
-        @media (max-width: 1200px) {
-            .historial-container { padding: 0 15px; }
-            .filtros-container { flex-direction: column; }
-            .filtros-container select, .filtros-container input { width: 100%; }
-            .tabla-solicitudes { display: block; overflow-x: auto; }
+        .modal-body {
+            margin-bottom: 20px;
         }
+        
+        .modal-message {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .form-field {
+            margin-bottom: 15px;
+        }
+        
+        .form-field label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        .form-field textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            resize: vertical;
+            min-height: 80px;
+            font-family: inherit;
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .modal-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-modal-cancel {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-modal-confirm {
+            background: #2196F3;
+            color: white;
+        }
+        
+        /* RESPONSIVE */
+        @media (max-width: 1200px) {
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .filters-panel {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .data-table {
+                overflow-x: auto;
+            }
+            
+            .fixed-width-table {
+                min-width: 1000px;
+            }
+        }
+        
         @media (max-width: 768px) {
-            .historial-header { padding: 20px; }
-            .historial-header h1 { font-size: 24px; }
-            .acciones-container { flex-direction: column; }
-            .btn-accion-historial { width: 100%; justify-content: center; }
-            .stats-bar-historial { flex-wrap: wrap; gap: 15px; }
-            .stat-item-historial { flex: 0 0 calc(50% - 15px); }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .filters-panel {
+                grid-template-columns: 1fr;
+            }
+            
+            .filter-buttons {
+                flex-direction: column;
+            }
+            
+            .btn-filter, .btn-clear {
+                width: 100%;
+            }
+            
+            .content-wrapper {
+                padding: 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .page-title {
+                font-size: 20px;
+            }
         }
     </style>
 </head>
 <body>
     <?php include '../Includes/HeaderMenuStaff.php'; ?>
     
-    <div id="historial-page">
-        <div class="historial-main-content">
-            <div class="historial-container">
-                <div class="historial-header">
-                    <h1>📋 Historial de Solicitudes de Kits</h1>
+    <div class="content-wrapper">
+        <!-- TÍTULO DE LA PÁGINA -->
+        <h1 class="page-title">Gestión de Solicitudes y Kits</h1>
+        
+        <?php if (isset($_SESSION['mensaje'])): ?>
+            <div style="background-color: <?php echo $_SESSION['tipo_mensaje'] == 'success' ? '#d4edda' : '#f8d7da'; ?>; 
+                        color: <?php echo $_SESSION['tipo_mensaje'] == 'success' ? '#155724' : '#721c24'; ?>;
+                        padding: 12px 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid <?php echo $_SESSION['tipo_mensaje'] == 'success' ? '#c3e6cb' : '#f5c6cb'; ?>;">
+                <?php echo $_SESSION['mensaje']; ?>
+            </div>
+            <?php unset($_SESSION['mensaje'], $_SESSION['tipo_mensaje']); ?>
+        <?php endif; ?>
+        
+        <?php if ($vista == 'solicitudes'): ?>
+            <!-- VISTA DE SOLICITUDES ACTIVAS -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Solicitudes Activas</div>
+                    <div class="stat-number"><?php echo $total; ?></div>
+                    <div class="view-toggle">
+                        <button class="toggle-btn active" onclick="window.location.href='?vista=solicitudes'">
+                            Solicitudes
+                        </button>
+                        <button class="toggle-btn" onclick="window.location.href='?vista=kits'">
+                            Kits
+                        </button>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Pendientes</div>
+                    <div class="stat-number"><?php echo count($pendientes); ?></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Aprobadas</div>
+                    <div class="stat-number"><?php echo count($aprobadas); ?></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Rechazadas</div>
+                    <div class="stat-number"><?php echo count($rechazadas); ?></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Entregadas</div>
+                    <div class="stat-number"><?php echo count($entregadas); ?></div>
+                </div>
+            </div>
+            
+            <form method="GET" action="" class="filters-panel">
+                <input type="hidden" name="vista" value="solicitudes">
+                
+                <div class="filter-item">
+                    <label>Filtrar por Kit</label>
+                    <select name="kit">
+                        <option value="">Todos los kits</option>
+                        <?php foreach ($kits_disponibles as $kit): ?>
+                            <option value="<?php echo $kit['ID_Kit']; ?>" 
+                                <?php echo ($filtro_kit == $kit['ID_Kit']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($kit['nombre_kit']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 
-                <?php 
-                $total = count($solicitudes);
-                $pendientes = array_filter($solicitudes, function($s) { return normalizarEstadoPHP($s['status']) == 'Pendiente'; });
-                $aprobadas = array_filter($solicitudes, function($s) { return normalizarEstadoPHP($s['status']) == 'Aprobado'; });
-                $rechazadas = array_filter($solicitudes, function($s) { return normalizarEstadoPHP($s['status']) == 'Rechazado'; });
-                $entregadas = array_filter($solicitudes, function($s) { return normalizarEstadoPHP($s['status']) == 'Entregado'; });
-                $canceladas = array_filter($solicitudes, function($s) { return normalizarEstadoPHP($s['status']) == 'Cancelado'; });
-                ?>
-                
-                <div class="stats-bar-historial">
-                    <div class="stat-item-historial">
-                        <span class="stat-number-historial"><?php echo $total; ?></span>
-                        <span class="stat-label-historial">Estudiantes Únicos</span>
-                    </div>
-                    <div class="stat-item-historial">
-                        <span class="stat-number-historial"><?php echo count($pendientes); ?></span>
-                        <span class="stat-label-historial">Pendientes</span>
-                    </div>
-                    <div class="stat-item-historial">
-                        <span class="stat-number-historial"><?php echo count($aprobadas); ?></span>
-                        <span class="stat-label-historial">Aprobadas</span>
-                    </div>
-                    <div class="stat-item-historial">
-                        <span class="stat-number-historial"><?php echo count($rechazadas); ?></span>
-                        <span class="stat-label-historial">Rechazadas</span>
-                    </div>
-                    <div class="stat-item-historial">
-                        <span class="stat-number-historial"><?php echo count($entregadas); ?></span>
-                        <span class="stat-label-historial">Entregadas</span>
-                    </div>
-                    <div class="stat-item-historial">
-                        <span class="stat-number-historial"><?php echo count($canceladas); ?></span>
-                        <span class="stat-label-historial">Canceladas</span>
-                    </div>               
-                </div>
-                
-                <div class="filtros-container">
-                    <select id="filtro-estado">
+                <div class="filter-item">
+                    <label>Filtrar por Estado</label>
+                    <select name="estado">
                         <option value="">Todos los estados</option>
-                        <option value="Pending">Pendiente</option>
-                        <option value="Approved">Aprobado</option>
-                        <option value="Rejected">Rechazado</option>
-                        <option value="Delivered">Entregado</option>
-                         <option value="Canceled">Cancelado</option>
+                        <option value="Pending" <?php echo ($filtro_estado == 'Pending') ? 'selected' : ''; ?>>Pendiente</option>
+                        <option value="Approved" <?php echo ($filtro_estado == 'Approved') ? 'selected' : ''; ?>>Aprobado</option>
+                        <option value="Rejected" <?php echo ($filtro_estado == 'Rejected') ? 'selected' : ''; ?>>Rechazado</option>
+                        <option value="Delivered" <?php echo ($filtro_estado == 'Delivered') ? 'selected' : ''; ?>>Entregado</option>
                     </select>
-                    
-                    <input type="text" id="filtro-nombre" placeholder="🔍 Buscar por nombre..." onkeyup="aplicarFiltros()">
-                    <input type="text" id="filtro-email" placeholder="✉️ Buscar por email..." onkeyup="aplicarFiltros()">
-                    <select id="filtro-semestre">
-                        <option value="">Todos los semestres</option>
-                        <?php
-                        $semestres = [];
-                        foreach ($solicitudes as $solicitud) {
-                            $semestre = $solicitud['Period'] . ' ' . $solicitud['Year'];
-                            if (!in_array($semestre, $semestres) && $semestre != 'N/A N/A') {
-                                $semestres[] = $semestre;
-                            }
-                        }
-                        foreach ($semestres as $semestre) {
-                            echo "<option value=\"$semestre\">$semestre</option>";
-                        }
-                        ?>
-                    </select>
-                    
-                    <button onclick="aplicarFiltros()">🔍 Aplicar Filtros</button>
-                    <button onclick="limpiarFiltros()" style="background: #6c757d;">🗑️ Limpiar Filtros</button>
                 </div>
                 
-                <?php if (empty($solicitudes)): ?>
-                    <div class="sin-solicitudes-container">
-                        <h3>📭 No hay solicitudes registradas</h3>
-                        <p>Los estudiantes aún no han aplicado a kits de útiles escolares.</p>
-                    </div>
-                <?php else: ?>
-                    <table class="tabla-solicitudes">
+                <div class="filter-item">
+                    <label>Buscar por Nombre</label>
+                    <input type="text" name="nombre" placeholder="Nombre del estudiante" 
+                           value="<?php echo htmlspecialchars($filtro_nombre); ?>">
+                </div>
+                
+                <div class="filter-item">
+                    <label>Buscar por Email</label>
+                    <input type="text" name="email" placeholder="Email del estudiante" 
+                           value="<?php echo htmlspecialchars($filtro_email); ?>">
+                </div>
+                
+                <div class="filter-buttons">
+                    <button type="submit" class="btn-filter">
+                        Aplicar Filtros
+                    </button>
+                    
+                    <button type="button" class="btn-clear" onclick="window.location.href='?vista=solicitudes'">
+                        Limpiar Filtros
+                    </button>
+                </div>
+            </form>
+            
+            <?php if (empty($solicitudes)): ?>
+                <div class="no-data">
+                    <h3>No hay solicitudes activas</h3>
+                    <p>Las solicitudes canceladas no se muestran en esta lista.</p>
+                </div>
+            <?php else: ?>
+                <div class="data-table">
+                    <table class="fixed-width-table">
                         <thead>
                             <tr>
-                                <th width="80">ID</th>
+                                <th>ID</th>
                                 <th>Estudiante</th>
                                 <th>Email</th>
-                                <th>Semestre</th>
+                                <th>Kit</th>
+                                <th>Fecha</th>
                                 <th>Materiales</th>
                                 <th>Período</th>
                                 <th>Estado</th>
-                                <th width="280">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody id="tabla-body">
+                        <tbody>
                             <?php foreach ($solicitudes as $solicitud): ?>
                                 <?php 
-                                    $textoMostrar = normalizarEstadoPHP($solicitud['status']);
-                                    $clase_estado = obtenerClaseCSS($solicitud['status']);
+                                $clase_estado = '';
+                                switch($solicitud['status']) {
+                                    case 'Pending': $clase_estado = 'status-pending'; break;
+                                    case 'Approved': $clase_estado = 'status-approved'; break;
+                                    case 'Rejected': $clase_estado = 'status-rejected'; break;
+                                    case 'Delivered': $clase_estado = 'status-delivered'; break;
+                                }
+                                
+                                $estados_texto = [
+                                    'Pending' => 'Pendiente',
+                                    'Approved' => 'Aprobado',
+                                    'Rejected' => 'Rechazado',
+                                    'Delivered' => 'Entregado'
+                                ];
                                 ?>
                                 <tr>
                                     <td><strong>#<?php echo $solicitud['ID_status']; ?></strong></td>
-                                    <td><strong><?php echo htmlspecialchars($solicitud['estudiante_nombre'] . ' ' . $solicitud['estudiante_apellido']); ?></strong></td>
+                                    <td>
+                                        <strong><?php echo htmlspecialchars($solicitud['estudiante_nombre'] . ' ' . $solicitud['estudiante_apellido']); ?></strong>
+                                        <div class="mini-actions">
+                                            <?php if ($solicitud['status'] == 'Pending'): ?>
+                                                <form method="POST" style="display: inline;">
+                                                    <input type="hidden" name="id_solicitud" value="<?php echo $solicitud['ID_status']; ?>">
+                                                    <input type="hidden" name="accion" value="aprobar">
+                                                    <button type="submit" class="mini-btn mini-approve" onclick="return confirm('¿Aprobar solicitud #<?php echo $solicitud['ID_status']; ?>?')">
+                                                        Aprobar
+                                                    </button>
+                                                </form>
+                                                <form method="POST" style="display: inline;">
+                                                    <input type="hidden" name="id_solicitud" value="<?php echo $solicitud['ID_status']; ?>">
+                                                    <input type="hidden" name="accion" value="rechazar">
+                                                    <button type="submit" class="mini-btn mini-reject" onclick="return confirm('¿Rechazar solicitud #<?php echo $solicitud['ID_status']; ?>?')">
+                                                        Rechazar
+                                                    </button>
+                                                </form>
+                                                <button type="button" class="mini-btn mini-cancel" onclick="abrirModalCancelar(<?php echo $solicitud['ID_status']; ?>)">
+                                                    Cancelar
+                                                </button>
+                                            <?php elseif ($solicitud['status'] == 'Approved'): ?>
+                                                <form method="POST" style="display: inline;">
+                                                    <input type="hidden" name="id_solicitud" value="<?php echo $solicitud['ID_status']; ?>">
+                                                    <input type="hidden" name="accion" value="entregar">
+                                                    <button type="submit" class="mini-btn mini-deliver" onclick="return confirm('¿Marcar como entregado #<?php echo $solicitud['ID_status']; ?>?')">
+                                                        Entregar
+                                                    </button>
+                                                </form>
+                                                <button type="button" class="mini-btn mini-cancel" onclick="abrirModalCancelar(<?php echo $solicitud['ID_status']; ?>)">
+                                                    Cancelar
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
                                     <td><?php echo htmlspecialchars($solicitud['estudiante_email']); ?></td>
-                                    <td><?php echo htmlspecialchars($solicitud['Period'] . ' ' . $solicitud['Year']); ?></td>
+                                    <td><?php echo htmlspecialchars($solicitud['Nombre_Kit']); ?></td>
+                                    <td><?php echo htmlspecialchars($solicitud['fecha_solicitud'] ?? 'N/A'); ?></td>
                                     <td title="<?php echo htmlspecialchars($solicitud['materiales']); ?>">
                                         <?php 
                                         $materiales = $solicitud['materiales'];
-                                        echo strlen($materiales) > 50 ? substr($materiales, 0, 50) . '...' : $materiales;
+                                        echo htmlspecialchars(strlen($materiales) > 30 ? substr($materiales, 0, 30) . '...' : $materiales);
                                         ?>
                                     </td>
                                     <td>
-                                        <?php 
-                                        if ($solicitud['Start_date'] != 'No disponible') {
-                                            echo date('d/m/Y', strtotime($solicitud['Start_date'])) . ' a ' . 
-                                                 date('d/m/Y', strtotime($solicitud['End_date']));
-                                        } else {
-                                            echo 'N/A';
-                                        }
-                                        ?>
+                                        <?php if ($solicitud['Start_date'] != 'No disponible'): ?>
+                                            <?php echo date('d/m/Y', strtotime($solicitud['Start_date'])) . ' - ' . 
+                                                   date('d/m/Y', strtotime($solicitud['End_date'])); ?>
+                                        <?php else: ?>
+                                            N/A
+                                        <?php endif; ?>
                                     </td>
                                     <td>
-                                        <span class="estado-solicitud <?php echo $clase_estado; ?>">
-                                            <?php echo $textoMostrar; ?>
+                                        <span class="status-tag <?php echo $clase_estado; ?>">
+                                            <?php echo $estados_texto[$solicitud['status']] ?? $solicitud['status']; ?>
                                         </span>
                                     </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+            
+        <?php else: ?>
+            <!-- VISTA DE KITS DISPONIBLES -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Kits</div>
+                    <div class="stat-number"><?php echo $total_kits; ?></div>
+                    <div class="view-toggle">
+                        <button class="toggle-btn" onclick="window.location.href='?vista=solicitudes'">
+                            Solicitudes
+                        </button>
+                        <button class="toggle-btn active" onclick="window.location.href='?vista=kits'">
+                            Kits
+                        </button>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Con Solicitudes Activas</div>
+                    <div class="stat-number"><?php echo count($kits_con_solicitudes); ?></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Sin Solicitudes</div>
+                    <div class="stat-number"><?php echo count($kits_sin_solicitudes); ?></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Solicitudes Activas</div>
+                    <div class="stat-number"><?php echo $total_solicitudes_todas; ?></div>
+                </div>
+            </div>
+            
+            <?php if (empty($kits_completos)): ?>
+                <div class="no-data">
+                    <h3>No hay kits registrados</h3>
+                    <p>No se encontraron kits en el sistema.</p>
+                </div>
+            <?php else: ?>
+                <div class="data-table">
+                    <table class="fixed-width-table kit-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre del Kit</th>
+                                <th>Período</th>
+                                <th>Vigencia</th>
+                                <th>Materiales</th>
+                                <th>Estadísticas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($kits_completos as $kit): ?>
+                                <tr>
+                                    <td><strong>#<?php echo $kit['ID_Kit']; ?></strong></td>
                                     <td>
-                                        <div class="acciones-container">
-                                            <button class="btn-accion-historial btn-ver-historial" 
-                                                    onclick="verDetalle(<?php echo $solicitud['ID_status']; ?>)">
-                                                 Ver Detalles
-                                            </button>
-                                            
-                                            <?php 
-                                            $estadoNorm = normalizarEstadoPHP($solicitud['status']);
-                                            if ($estadoNorm == 'Aprobado'): ?>
-                                                <button class="btn-accion-historial btn-entregar-historial" 
-                                                        onclick="marcarEntregado(<?php echo $solicitud['ID_status']; ?>)">
-                                                    Marcar Entregado
-                                                </button>
+                                        <strong><?php echo htmlspecialchars($kit['nombre_kit']); ?></strong>
+                                        <div>
+                                            <a href="?vista=solicitudes&kit=<?php echo $kit['ID_Kit']; ?>" class="mini-view">
+                                                Ver Solicitudes
+                                            </a>
+                                        </div>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($kit['Period'] . ' ' . $kit['Year']); ?></td>
+                                    <td>
+                                        <?php echo date('d/m/Y', strtotime($kit['Start_date'])) . ' - ' . 
+                                               date('d/m/Y', strtotime($kit['End_date'])); ?>
+                                    </td>
+                                    <td title="<?php echo htmlspecialchars($kit['materiales']); ?>">
+                                        <?php 
+                                        $materiales = $kit['materiales'];
+                                        echo htmlspecialchars(strlen($materiales) > 40 ? substr($materiales, 0, 40) . '...' : $materiales);
+                                        ?>
+                                    </td>
+                                    <td>
+                                        <div class="stats-tags">
+                                            <?php if ($kit['total_solicitudes'] > 0): ?>
+                                                <span class="stat-tag tag-total" title="Total solicitudes activas">
+                                                    <?php echo $kit['total_solicitudes']; ?>
+                                                </span>
+                                                <?php if ($kit['pendientes'] > 0): ?>
+                                                    <span class="stat-tag tag-pending" title="Pendientes">
+                                                        <?php echo $kit['pendientes']; ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                                <?php if ($kit['aprobadas'] > 0): ?>
+                                                    <span class="stat-tag tag-approved" title="Aprobadas">
+                                                        <?php echo $kit['aprobadas']; ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                                <?php if ($kit['rechazadas'] > 0): ?>
+                                                    <span class="stat-tag tag-rejected" title="Rechazadas">
+                                                        <?php echo $kit['rechazadas']; ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                                <?php if ($kit['entregadas'] > 0): ?>
+                                                    <span class="stat-tag tag-delivered" title="Entregadas">
+                                                        <?php echo $kit['entregadas']; ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <span class="stat-tag tag-empty">
+                                                    Sin solicitudes
+                                                </span>
                                             <?php endif; ?>
                                         </div>
                                     </td>
@@ -542,317 +1015,89 @@ function obtenerClaseCSS($status) {
                             <?php endforeach; ?>
                         </tbody>
                     </table>
-                    
-                    <div class="paginacion-container" id="paginacion"></div>
-                <?php endif; ?>
-            </div>
-        </div>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
     </div>
     
-    <div id="modalDetalle" class="modal-historial-overlay">
-        <div class="modal-historial-content">
-            <div class="modal-historial-header">
-                <h2 id="modalTitulo">Detalles de la Solicitud</h2>
-                <button class="close-modal-historial" onclick="cerrarModal()">×</button>
+    <!-- MODAL PARA CANCELAR CON MENSAJE -->
+    <div id="modalCancelar" class="modal-cancel">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 class="modal-title">Cancelar Solicitud</h3>
+                <button class="close-modal" onclick="cerrarModal()">×</button>
             </div>
-            <div id="modalContenido"></div>
-            <div style="margin-top: 25px; text-align: center;">
-                <button onclick="cerrarModal()" style="padding: 12px 25px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: inherit;">
-                    Cerrar Vista
-                </button>
+            <div class="modal-body">
+                <p class="modal-message" id="modalTexto">
+                    ¿Cancelar esta solicitud? Ingresa un motivo (opcional):
+                </p>
+                <form id="formCancelar" method="POST">
+                    <input type="hidden" name="id_solicitud" id="modalIdSolicitud">
+                    <input type="hidden" name="accion" value="cancelar">
+                    
+                    <div class="form-field">
+                        <label for="mensajeCancelacion">Motivo de cancelación:</label>
+                        <textarea id="mensajeCancelacion" name="mensaje_staff" 
+                                  placeholder="Ej: Documentación incompleta, fecha límite excedida, etc."></textarea>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="modal-btn btn-modal-cancel" onclick="cerrarModal()">
+                            No Cancelar
+                        </button>
+                        <button type="submit" class="modal-btn btn-modal-confirm">
+                            Confirmar Cancelación
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
     
     <script>
-        let solicitudes = <?php echo json_encode($solicitudes); ?>;
-        const itemsPorPagina = 10;
-        let paginaActual = 1;
-        let solicitudesFiltradas = [...solicitudes];
-
-        const estadoMap = {
-            'Pending': 'Pendiente', 'En revisión': 'Pendiente', 'Revisión': 'Pendiente',
-            'Approved': 'Aprobado',
-            'Rejected': 'Rechazado',
-            'Delivered': 'Entregado', 'Entrega': 'Entregado', 'Entregado': 'Entregado',
-            'Canceled': 'Cancelado'
-        };
+        // Función para abrir modal de cancelación
+        function abrirModalCancelar(idSolicitud) {
+            document.getElementById('modalIdSolicitud').value = idSolicitud;
+            document.getElementById('modalTexto').textContent = 
+                `¿Cancelar la solicitud #${idSolicitud}? Ingresa un motivo (opcional):`;
+            document.getElementById('modalCancelar').style.display = 'flex';
+        }
         
-        document.addEventListener('DOMContentLoaded', function() {
-            configurarPaginacion();
+        // Función para cerrar modal
+        function cerrarModal() {
+            document.getElementById('modalCancelar').style.display = 'none';
+            document.getElementById('mensajeCancelacion').value = '';
+        }
+        
+        // Cerrar modal al hacer clic fuera
+        document.getElementById('modalCancelar').addEventListener('click', function(e) {
+            if (e.target === this) {
+                cerrarModal();
+            }
         });
         
-        function getEstadoNormalizado(statusRaw) {
-            return estadoMap[statusRaw] || statusRaw;
-        }
-
-        function getClaseEstado(estado) {
-            const normalizado = getEstadoNormalizado(estado);
-            switch(normalizado) {
-                case 'Pendiente': return 'estado-pendiente';
-                case 'Aprobado': return 'estado-aprobado';
-                case 'Rechazado': return 'estado-rechazado';
-                case 'Entregado': return 'estado-entregado';
-                case 'Cancelado': return 'estado-cancelado';
-                default: return 'estado-pendiente';
+        // Cerrar modal con ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                cerrarModal();
             }
-        }
+        });
         
-        function aplicarFiltros() {
-            const estadoFiltro = document.getElementById('filtro-estado').value;
-            const nombre = document.getElementById('filtro-nombre').value.toLowerCase();
-            const email = document.getElementById('filtro-email').value.toLowerCase();
-            const semestre = document.getElementById('filtro-semestre').value;
+        // Confirmación en formulario de cancelación
+        document.getElementById('formCancelar').addEventListener('submit', function(e) {
+            e.preventDefault();
             
-            solicitudesFiltradas = solicitudes.filter(solicitud => {
-                let pasaFiltro = true;
-                if (estadoFiltro) {
-                    const estadoFiltroEsp = estadoMap[estadoFiltro];
-                    const solicitudEsp = getEstadoNormalizado(solicitud.status);
-                    if (solicitudEsp !== estadoFiltroEsp) pasaFiltro = false;
-                }
-                if (nombre) {
-                    const nombreCompleto = (solicitud.estudiante_nombre + ' ' + solicitud.estudiante_apellido).toLowerCase();
-                    if (!nombreCompleto.includes(nombre)) pasaFiltro = false;
-                }
-                if (email && !solicitud.estudiante_email.toLowerCase().includes(email)) pasaFiltro = false;
-                if (semestre) {
-                    const semestreActual = solicitud.Period + ' ' + solicitud.Year;
-                    if (semestreActual !== semestre) pasaFiltro = false;
-                }
-                return pasaFiltro;
-            });
+            const idSolicitud = document.getElementById('modalIdSolicitud').value;
             
-            actualizarEstadisticasFiltradas();
-            paginaActual = 1;
-            configurarPaginacion();
-        }
-        
-        function actualizarEstadisticasFiltradas() {
-            const total = solicitudesFiltradas.length;
-            const pendientes = solicitudesFiltradas.filter(s => getEstadoNormalizado(s.status) == 'Pendiente').length;
-            const aprobadas = solicitudesFiltradas.filter(s => getEstadoNormalizado(s.status) == 'Aprobado').length;
-            const rechazadas = solicitudesFiltradas.filter(s => getEstadoNormalizado(s.status) == 'Rechazado').length;
-            const entregadas = solicitudesFiltradas.filter(s => getEstadoNormalizado(s.status) == 'Entregado').length;
-            const canceladas = solicitudesFiltradas.filter(s => getEstadoNormalizado(s.status) == 'Cancelado').length;
-            
-            const stats = document.querySelectorAll('.stat-number-historial');
-            if (stats.length >= 6) {
-                stats[0].textContent = total;
-                stats[1].textContent = pendientes;
-                stats[2].textContent = aprobadas;
-                stats[3].textContent = rechazadas;
-                stats[4].textContent = entregadas;
-                stats[5].textContent = canceladas;
+            if (confirm(`¿Estás seguro de cancelar la solicitud #${idSolicitud}?`)) {
+                this.submit();
             }
-        }
+        });
         
-        function limpiarFiltros() {
-            document.getElementById('filtro-estado').value = '';
-            document.getElementById('filtro-nombre').value = '';
-            document.getElementById('filtro-email').value = '';
-            document.getElementById('filtro-semestre').value = '';
-            solicitudesFiltradas = [...solicitudes];
-            actualizarEstadisticasFiltradas(); 
-            paginaActual = 1;
-            configurarPaginacion();
+        // Prevenir reenvío de formulario
+        if (window.history.replaceState) {
+            window.history.replaceState(null, null, window.location.href);
         }
-        
-        function verDetalle(idSolicitud) {
-            const solicitud = solicitudes.find(s => s.ID_status == idSolicitud);
-            if (solicitud) {
-                document.getElementById('modalTitulo').textContent = `Solicitud #${solicitud.ID_status} (Más reciente)`;
-                const textoMostrar = getEstadoNormalizado(solicitud.status);
-                const contenido = `
-                    <div class="info-estudiante-historial">
-                        <h3 style="margin-bottom: 10px; color: #0D47A1;">📋 Información del Estudiante</h3>
-                        <div class="detalle-item-historial">
-                            <strong>Nombre completo:</strong>
-                            ${solicitud.estudiante_nombre} ${solicitud.estudiante_apellido}
-                        </div>
-                        <div class="detalle-item-historial">
-                            <strong>Correo electrónico:</strong>
-                            ${solicitud.estudiante_email}
-                        </div>
-                        <div class="detalle-item-historial">
-                            <strong>Nota:</strong>
-                            Esta es la solicitud más reciente de este estudiante
-                        </div>
-                    </div>
-                    <div class="detalle-item-historial">
-                        <strong>Semestre:</strong>
-                        ${solicitud.Period} ${solicitud.Year}
-                    </div>
-                    ${solicitud.Start_date != 'No disponible' ? `
-                    <div class="detalle-item-historial">
-                        <strong>Período del kit:</strong>
-                        Del ${new Date(solicitud.Start_date).toLocaleDateString('es-MX')} al ${new Date(solicitud.End_date).toLocaleDateString('es-MX')}
-                    </div>
-                    ` : ''}
-                    <div class="detalle-item-historial">
-                        <strong>Materiales solicitados:</strong>
-                        <ul class="materiales-lista-historial">
-                            ${solicitud.materiales.split(', ').map(mat => `<li>${mat}</li>`).join('')}
-                        </ul>
-                    </div>
-                    <div class="detalle-item-historial">
-                        <strong>Estado actual:</strong>
-                        <span class="estado-solicitud ${getClaseEstado(solicitud.status)}" style="margin-left: 10px;">
-                            ${textoMostrar}
-                        </span>
-                    </div>
-                    <div class="detalle-item-historial">
-                        <strong>ID de Solicitud:</strong>
-                        #${solicitud.ID_status}
-                    </div>
-                    ${solicitud.FK_ID_Kit ? `
-                    <div class="detalle-item-historial">
-                        <strong>ID del Kit:</strong>
-                        #${solicitud.FK_ID_Kit}
-                    </div>
-                    ` : ''}
-                `;
-                document.getElementById('modalContenido').innerHTML = contenido;
-                document.getElementById('modalDetalle').style.display = 'flex';
-            }
-        }
-        
-        function cerrarModal() {
-            document.getElementById('modalDetalle').style.display = 'none';
-        }
-        
-        function cambiarEstado(idSolicitud, nuevoEstado) {
-            const textoAccion = {
-                'Approved': 'APROBAR',
-                'Rejected': 'RECHAZAR',
-                'Delivered': 'MARCAR COMO ENTREGADO'
-            };
-            
-            if (confirm(`¿Estás seguro de ${textoAccion[nuevoEstado]} la solicitud #${idSolicitud}?`)) {
-                const btn = event.target;
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '⌛ Procesando...';
-                btn.disabled = true;
-                
-                fetch('actualizar_estado.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `id_solicitud=${idSolicitud}&nuevo_estado=${nuevoEstado}`
-                })
-                .then(response => response.text())
-                .then(data => {
-                    if (data.includes('success')) {
-                        alert('✅ Estado actualizado correctamente');
-                        location.reload();
-                    } else {
-                        alert('❌ Error al actualizar el estado');
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                    }
-                })
-                .catch(error => {
-                    alert('❌ Error de conexión');
-                    console.error('Error:', error);
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                });
-            }
-        }
-        
-        function marcarEntregado(idSolicitud) {
-            cambiarEstado(idSolicitud, 'Delivered');
-        }
-        
-        function configurarPaginacion() {
-            const tbody = document.querySelector('#tabla-body');
-            tbody.innerHTML = '';
-            
-            const totalPaginas = Math.ceil(solicitudesFiltradas.length / itemsPorPagina);
-            const inicio = (paginaActual - 1) * itemsPorPagina;
-            const fin = inicio + itemsPorPagina;
-            const solicitudesPagina = solicitudesFiltradas.slice(inicio, fin);
-            
-            solicitudesPagina.forEach(solicitud => {
-                const textoMostrar = getEstadoNormalizado(solicitud.status);
-                const clase_estado = getClaseEstado(solicitud.status);
-                
-                const periodo = solicitud.Start_date != 'No disponible' ? 
-                    new Date(solicitud.Start_date).toLocaleDateString('es-MX') + ' a ' + 
-                    new Date(solicitud.End_date).toLocaleDateString('es-MX') : 'N/A';
-                
-                const materialTexto = solicitud.materiales.length > 50 ? 
-                    solicitud.materiales.substring(0, 50) + '...' : solicitud.materiales;
-                
-                let accionesHTML = '';
-                accionesHTML += `<button class="btn-accion-historial btn-ver-historial" onclick="verDetalle(${solicitud.ID_status})">Ver Detalles</button>`;
-                
-                // NOTA: Se eliminaron los botones de Aprobar/Rechazar en este bloque condicional
-                const estadoNorm = getEstadoNormalizado(solicitud.status);
-                
-                if (estadoNorm === 'Aprobado') {
-                    accionesHTML += `<button class="btn-accion-historial btn-entregar-historial" onclick="marcarEntregado(${solicitud.ID_status})">🚚 Marcar Entregado</button>`;
-                }
-                
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>#${solicitud.ID_status}</strong></td>
-                    <td><strong>${solicitud.estudiante_nombre} ${solicitud.estudiante_apellido}</strong></td>
-                    <td>${solicitud.estudiante_email}</td>
-                    <td>${solicitud.Period} ${solicitud.Year}</td>
-                    <td title="${solicitud.materiales}">${materialTexto}</td>
-                    <td>${periodo}</td>
-                    <td><span class="estado-solicitud ${clase_estado}">${textoMostrar}</span></td>
-                    <td><div class="acciones-container">${accionesHTML}</div></td>
-                `;
-                
-                tbody.appendChild(tr);
-            });
-            
-            const paginacionDiv = document.getElementById('paginacion');
-            paginacionDiv.innerHTML = '';
-            
-            if (solicitudesFiltradas.length <= itemsPorPagina) return;
-            
-            if (paginaActual > 1) {
-                const btnPrev = document.createElement('button');
-                btnPrev.className = 'pagina-historial';
-                btnPrev.innerHTML = '←';
-                btnPrev.onclick = () => cambiarPagina(paginaActual - 1);
-                paginacionDiv.appendChild(btnPrev);
-            }
-            
-            for (let i = 1; i <= totalPaginas; i++) {
-                if (i === 1 || i === totalPaginas || (i >= paginaActual - 1 && i <= paginaActual + 1)) {
-                    const btn = document.createElement('button');
-                    btn.className = `pagina-historial ${i === paginaActual ? 'activa' : ''}`;
-                    btn.textContent = i;
-                    btn.onclick = () => cambiarPagina(i);
-                    paginacionDiv.appendChild(btn);
-                } else if (i === paginaActual - 2 || i === paginaActual + 2) {
-                    const dots = document.createElement('span');
-                    dots.className = 'pagina-historial';
-                    dots.textContent = '...';
-                    dots.style.cursor = 'default';
-                    paginacionDiv.appendChild(dots);
-                }
-            }
-            
-            if (paginaActual < totalPaginas) {
-                const btnNext = document.createElement('button');
-                btnNext.className = 'pagina-historial';
-                btnNext.innerHTML = '→';
-                btnNext.onclick = () => cambiarPagina(paginaActual + 1);
-                paginacionDiv.appendChild(btnNext);
-            }
-        }
-        
-        function cambiarPagina(pagina) {
-            paginaActual = pagina;
-            configurarPaginacion();
-        }
-        
-        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') cerrarModal(); });
-        document.getElementById('modalDetalle').addEventListener('click', function(e) { if (e.target === this) cerrarModal(); });
     </script>
 </body>
 </html>
