@@ -62,7 +62,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // 2. Validar que no contengan espacios
-    $fields_no_spaces = ['firstname', 'lastname', 'email', 'phone', 'username', 'password', 'confirm_password'];
+    $fields_no_spaces = ['email', 'phone', 'username', 'password', 'confirm_password'];
     foreach ($fields_no_spaces as $field) {
         if (!empty($$field) && preg_match('/\s/', $$field)) {
             $errors[] = ucfirst(str_replace('_', ' ', $field)) . " no puede contener espacios.";
@@ -72,20 +72,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 
-    // 3. Validar que nombre y apellido solo contengan letras (solo si no están vacíos y no tienen espacios)
-    if (!empty($firstname) && !in_array('firstname', $error_fields)) {
-        if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $firstname)) {
-            $errors[] = "El nombre solo puede contener letras.";
-            $error_fields[] = 'firstname';
-        }
+// 3. Validar que nombre y apellido solo contengan letras y espacios
+if (!empty($firstname)) {
+    // Como ya aplicamos trim(), si $firstname está vacío significa que solo tenía espacios
+    if ($firstname === '') {
+        $errors[] = "El nombre no puede contener solo espacios.";
+        $error_fields[] = 'firstname';
     }
-   
-    if (!empty($lastname) && !in_array('lastname', $error_fields)) {
-        if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $lastname)) {
-            $errors[] = "El apellido solo puede contener letras.";
-            $error_fields[] = 'lastname';
-        }
+    // Validar que solo contenga letras y espacios
+    else if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $firstname)) {
+        $errors[] = "El nombre solo puede contener letras y espacios.";
+        $error_fields[] = 'firstname';
     }
+}
+
+if (!empty($lastname)) {
+    // Como ya aplicamos trim(), si $lastname está vacío significa que solo tenía espacios
+    if ($lastname === '') {
+        $errors[] = "El apellido no puede contener solo espacios.";
+        $error_fields[] = 'lastname';
+    }
+    // Validar que solo contenga letras y espacios
+    else if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $lastname)) {
+        $errors[] = "El apellido solo puede contener letras y espacios.";
+        $error_fields[] = 'lastname';
+    }
+}
 
     // 4. Validación de correo electrónico (solo si no está vacío y no tiene espacios)
     if (!empty($email) && !in_array('email', $error_fields)) {
@@ -287,22 +299,32 @@ $stmt->close();
         <form action="" method="POST">
             <div class="form-group">
                 <label for="firstname">Nombre:</label>
-                <input type="text" id="firstname" name="firstname" value="<?php echo (isset($_SESSION['validation_in_progress_staff']) && isset($_SESSION['form_data_staff']['firstname'])) ? htmlspecialchars($_SESSION['form_data_staff']['firstname']) : ''; ?>" required pattern="^\S+$" title="No se permiten espacios"
-                       onfocus="showHint('firstname-hint')" onblur="hideHint('firstname-hint')"
-                       <?php if (isset($_SESSION['error_fields_staff']) && in_array('firstname', $_SESSION['error_fields_staff'])) echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
-                <small id="firstname-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
-                    Solo letras  (no se permiten números ni símbolos)
-                </small>
+                <input type="text" id="firstname" name="firstname" 
+       value="<?php echo (isset($_SESSION['validation_in_progress_staff']) && isset($_SESSION['form_data_staff']['firstname'])) ? htmlspecialchars($_SESSION['form_data_staff']['firstname']) : ''; ?>" 
+       required 
+       pattern="^(?!\s+$)[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$" 
+       title="Solo letras y espacios, pero no solo espacios"
+       onfocus="showHint('firstname-hint')" 
+       onblur="hideHint('firstname-hint')"
+       <?php if (isset($_SESSION['error_fields_staff']) && in_array('firstname', $_SESSION['error_fields_staff'])) echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
+<small id="firstname-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
+    Solo letras y espacios (no se permiten números ni símbolos, y no puede ser solo espacios)
+</small>
             </div>
 
             <div class="form-group">
                 <label for="lastname">Apellido:</label>
-                <input type="text" id="lastname" name="lastname" value="<?php echo (isset($_SESSION['validation_in_progress_staff']) && isset($_SESSION['form_data_staff']['lastname'])) ? htmlspecialchars($_SESSION['form_data_staff']['lastname']) : ''; ?>" required pattern="^\S+$" title="No se permiten espacios"
-                       onfocus="showHint('lastname-hint')" onblur="hideHint('lastname-hint')"
-                       <?php if (isset($_SESSION['error_fields_staff']) && in_array('lastname', $_SESSION['error_fields_staff'])) echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
-                <small id="lastname-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
-                    Solo letras  (no se permiten números ni símbolos)
-                </small>
+                <input type="text" id="lastname" name="lastname" 
+       value="<?php echo (isset($_SESSION['validation_in_progress_staff']) && isset($_SESSION['form_data_staff']['lastname'])) ? htmlspecialchars($_SESSION['form_data_staff']['lastname']) : ''; ?>" 
+       required 
+       pattern="^(?!\s+$)[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$" 
+       title="Solo letras y espacios, pero no solo espacios"
+       onfocus="showHint('lastname-hint')" 
+       onblur="hideHint('lastname-hint')"
+       <?php if (isset($_SESSION['error_fields_staff']) && in_array('lastname', $_SESSION['error_fields_staff'])) echo 'style="border: 2px solid red; background-color: #fff5f5;"'; ?>>
+<small id="lastname-hint" style="color: #666; font-size: 12px; display: none; margin-top: 5px;">
+    Solo letras y espacios (no se permiten números ni símbolos, y no puede ser solo espacios)
+</small>
             </div>
            
             <div class="form-group">
