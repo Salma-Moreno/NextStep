@@ -28,13 +28,120 @@ body {
             margin-bottom: 20px;
         }
 
-        .branch-card {
-            background: #ffffff;
-            border-radius: 10px;
-            padding: 12px;
-            box-shadow: 0 3px 7px rgba(0,0,0,0.1);
-            margin-bottom: 10px;
-        }
+        /* Contenedor de cada sucursal */
+.branch-card {
+    text-align: left;            /* Asegura que todo el texto vaya a la izquierda */
+    background: #ffffff;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* Título */
+.branch-card h4 {
+    margin: 0 0 8px 0;
+    font-size: 1.2rem;
+    color: #2c3e50;
+    text-align: left;            /* Extra asegurado */
+}
+
+/* Texto dentro de la tarjeta */
+/* Layout general: sucursales a la izquierda, mapa a la derecha */
+.map-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    margin-top: 20px;
+}
+
+/* Panel de sucursales (izquierda) */
+.branches-panel {
+    flex: 1;
+    max-height: 450px;          /* Que coincida con la altura del mapa */
+    overflow-y: auto;           /* Scroll si hay muchas sucursales */
+    padding-right: 10px;
+}
+
+/* Panel del mapa (derecha) */
+.map-panel {
+    flex: 2;
+}
+
+/* Mapa ocupa todo el panel derecho */
+#map {
+    width: 100%;
+    height: 450px;
+    border-radius: 12px;
+    margin-bottom: 0;           /* Ya no hace falta margen abajo */
+}
+
+/* Buscador de sucursales */
+.branch-search {
+    width: 100%;
+    padding: 8px 10px;
+    margin: 8px 0 15px 0;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+
+/* Tarjetas de sucursales (mantén lo que ya tenías y puedes sumar esto) */
+.branch-card {
+    text-align: left;
+    background: #ffffff;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.branch-card p {
+    margin: 4px 0;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.branch-card .distance {
+    margin-top: 5px;
+    font-weight: bold;
+    color: #007bff;
+}
+
+/* Botón seleccionar */
+.branch-card .btn-select {
+    margin-top: 8px;
+    padding: 7px 12px;
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.branch-card .btn-select:hover {
+    background-color: #0b5ed7;
+}
+/* Sucursal seleccionada */
+.branch-card.selected {
+    border: 2px solid #0d6efd;
+    box-shadow: 0 0 0 2px rgba(13,110,253,0.25);
+}
+
+
+/* Responsive: en pantallas pequeñas, poner mapa arriba y sucursales abajo */
+@media (max-width: 768px) {
+    .map-layout {
+        flex-direction: column;
+    }
+
+    .branches-panel {
+        max-height: none;
+        padding-right: 0;
+    }
+}
+
+
 
         .btn-select {
             background: #0a7cff;
