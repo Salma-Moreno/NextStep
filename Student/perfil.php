@@ -204,15 +204,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
     
     // Validación individual de cada campo
-    // Nombre
-    if (!preg_match('/^[\p{L}]+$/u', $nombre)) {
-        $errores_campos['nombre'] = "Sólo letras, sin espacios ni números.";
+    // Nombre - Acepta letras y espacios, pero no solo espacios
+    $nombre_sin_espacios = str_replace(' ', '', $nombre);
+    if (empty($nombre_sin_espacios) || !preg_match('/^[\p{L}]+(?:[\s][\p{L}]+)*$/u', $nombre)) {
+        $errores_campos['nombre'] = "Sólo letras y espacios permitidos entre palabras. No puede ser solo espacios.";
         $campos_validos['nombre'] = false;
     }
     
-    // Apellido
-    if (!preg_match('/^[\p{L}]+$/u', $apellido)) {
-        $errores_campos['apellido'] = "Sólo letras, sin espacios ni números.";
+    // Apellido - Acepta letras y espacios, pero no solo espacios
+    $apellido_sin_espacios = str_replace(' ', '', $apellido);
+    if (empty($apellido_sin_espacios) || !preg_match('/^[\p{L}]+(?:[\s][\p{L}]+)*$/u', $apellido)) {
+        $errores_campos['apellido'] = "Sólo letras y espacios permitidos entre palabras. No puede ser solo espacios.";
         $campos_validos['apellido'] = false;
     }
     
@@ -261,15 +263,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $campos_validos['licencia'] = false;
     }
     
-    // Nombre tutor
-    if ($tutor_nombre && !preg_match('/^[\p{L}]+$/u', $tutor_nombre)) {
-        $errores_campos['tutor_nombre'] = "Sólo letras, sin espacios.";
+    // Nombre tutor - Acepta letras y espacios, pero no solo espacios
+    $tutor_nombre_sin_espacios = str_replace(' ', '', $tutor_nombre);
+    if ($tutor_nombre && (empty($tutor_nombre_sin_espacios) || !preg_match('/^[\p{L}]+(?:[\s][\p{L}]+)*$/u', $tutor_nombre))) {
+        $errores_campos['tutor_nombre'] = "Sólo letras y espacios permitidos entre palabras. No puede ser solo espacios.";
         $campos_validos['tutor_nombre'] = false;
     }
     
-    // Apellidos tutor
-    if ($tutor_apellidos && !preg_match('/^[\p{L}\s]+$/u', $tutor_apellidos)) {
-        $errores_campos['tutor_apellidos'] = "Sólo letras y espacios.";
+    // Apellidos tutor - Acepta letras y espacios, pero no solo espacios
+    $tutor_apellidos_sin_espacios = str_replace(' ', '', $tutor_apellidos);
+    if ($tutor_apellidos && (empty($tutor_apellidos_sin_espacios) || !preg_match('/^[\p{L}]+(?:[\s][\p{L}]+)*$/u', $tutor_apellidos))) {
+        $errores_campos['tutor_apellidos'] = "Sólo letras y espacios permitidos entre palabras. No puede ser solo espacios.";
         $campos_validos['tutor_apellidos'] = false;
     }
     
@@ -869,7 +873,7 @@ $foto_perfil = !empty($alumno['Profile_Image']) ? e($alumno, 'Profile_Image') : 
                                 <div class="form-group">
                                     <label>Nombre:</label>
                                     <input type="text" name="nombre" value="<?php echo !empty($post_values) ? getValue('nombre', e($alumno, 'Name')) : e($alumno, 'Name'); ?>" 
-                                           placeholder="<?php echo $errores_campos['nombre'] ?? 'Nombre'; ?>" 
+                                           placeholder="<?php echo $errores_campos['nombre'] ?? 'Nombre (puede contener espacios)'; ?>" 
                                            class="<?php echo isset($errores_campos['nombre']) ? 'input-error' : ''; ?>" 
                                            title="<?php echo $errores_campos['nombre'] ?? ''; ?>" 
                                            required 
@@ -881,7 +885,7 @@ $foto_perfil = !empty($alumno['Profile_Image']) ? e($alumno, 'Profile_Image') : 
                                 <div class="form-group">
                                     <label>Apellido:</label>
                                     <input type="text" name="apellido" value="<?php echo !empty($post_values) ? getValue('apellido', e($alumno, 'Last_Name')) : e($alumno, 'Last_Name'); ?>" 
-                                           placeholder="<?php echo $errores_campos['apellido'] ?? 'Apellido'; ?>" 
+                                           placeholder="<?php echo $errores_campos['apellido'] ?? 'Apellido (puede contener espacios)'; ?>" 
                                            class="<?php echo isset($errores_campos['apellido']) ? 'input-error' : ''; ?>" 
                                            title="<?php echo $errores_campos['apellido'] ?? ''; ?>" 
                                            required 
@@ -992,7 +996,7 @@ $foto_perfil = !empty($alumno['Profile_Image']) ? e($alumno, 'Profile_Image') : 
                                 <div class="form-group">
                                     <label>Nombre:</label>
                                     <input type="text" name="tutor_nombre" value="<?php echo !empty($post_values) ? getValue('tutor_nombre', e($tutor, 'Tutor_name')) : e($tutor, 'Tutor_name'); ?>" 
-                                           placeholder="<?php echo $errores_campos['tutor_nombre'] ?? 'Nombre del tutor'; ?>" 
+                                           placeholder="<?php echo $errores_campos['tutor_nombre'] ?? 'Nombre del tutor (puede contener espacios)'; ?>" 
                                            class="<?php echo isset($errores_campos['tutor_nombre']) ? 'input-error' : ''; ?>" 
                                            title="<?php echo $errores_campos['tutor_nombre'] ?? ''; ?>" 
                                            required 
@@ -1004,7 +1008,7 @@ $foto_perfil = !empty($alumno['Profile_Image']) ? e($alumno, 'Profile_Image') : 
                                 <div class="form-group">
                                     <label>Apellidos:</label>
                                     <input type="text" name="tutor_apellidos" value="<?php echo !empty($post_values) ? getValue('tutor_apellidos', e($tutor, 'Tutor_lastname')) : e($tutor, 'Tutor_lastname'); ?>" 
-                                           placeholder="<?php echo $errores_campos['tutor_apellidos'] ?? 'Apellido del tutor'; ?>" 
+                                           placeholder="<?php echo $errores_campos['tutor_apellidos'] ?? 'Apellido del tutor (puede contener espacios)'; ?>" 
                                            class="<?php echo isset($errores_campos['tutor_apellidos']) ? 'input-error' : ''; ?>" 
                                            title="<?php echo $errores_campos['tutor_apellidos'] ?? ''; ?>" 
                                            required 
