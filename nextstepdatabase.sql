@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 30-11-2025 a las 04:52:01
+-- Tiempo de generación: 07-12-2025 a las 11:58:29
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -45,7 +45,8 @@ CREATE TABLE `aplication` (
   `ID_status` int(11) NOT NULL,
   `FK_ID_Student` int(11) NOT NULL,
   `FK_ID_Kit` int(11) NOT NULL,
-  `status` varchar(12) DEFAULT NULL
+  `status` varchar(12) DEFAULT NULL,
+  `Application_date` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -56,13 +57,27 @@ CREATE TABLE `aplication` (
 
 CREATE TABLE `collection_point` (
   `ID_Point` int(11) NOT NULL,
-  `Name` varchar(15) NOT NULL,
+  `Name` varchar(30) NOT NULL,
   `address` varchar(255) NOT NULL,
   `Phone_number` varchar(15) DEFAULT NULL,
   `FK_ID_Company` int(11) DEFAULT NULL,
   `latitude` decimal(10,7) DEFAULT NULL,
   `longitude` decimal(10,7) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `collection_point`
+--
+
+INSERT INTO `collection_point` (`ID_Point`, `Name`, `address`, `Phone_number`, `FK_ID_Company`, `latitude`, `longitude`) VALUES
+(5, 'Monerick Papele', 'Monerick Papelerias, Boulevard Salvador Rosas Magallón, Camichín, Delegación La Mesa, Tijuana, Municipio de Tijuana, Baja California, 22120, México', '6646236323', 2, 32.4987382, -116.9669144),
+(6, 'Office Depot', 'Office Depot, Calle San Felipe, Delegación La Mesa, Tijuana, Municipio de Tijuana, Baja California, 22104, México', '', 1, 32.5095956, -116.9651203),
+(7, 'Monerick Papele', 'Papelería Mónerick, Avenida Niños Héroes, Zona Centro, Tijuana, Municipio de Tijuana, Baja California, 22055, México', '6646883945', 2, 32.5330827, -117.0400573),
+(8, 'Office Depot', 'Office Depot, Avenida José María Velasco, Zona Río, Tijuana, Municipio de Tijuana, Baja California, 22010, México', '0155-25-82-09-0', 1, 32.5214648, -117.0131142),
+(9, 'Office Depot', 'Office Depot, Boulevard de los Insurgentes, División del Norte, Delegación La Mesa, Tijuana, Municipio de Tijuana, Baja California, 22476, México', '0155-25-82-09-0', 1, 32.4958087, -116.9328172),
+(10, 'Office Depot Plaza Alameda', 'Office Depot, Boulevard Lázaro Cárdenas, Otay Constituyentes, Tijuana, Municipio de Tijuana, Baja California, 22425, México', '6646883945', 1, 32.5306683, -116.9491784),
+(11, 'Office Depot', 'Aduana y Immigracion, A Mexico/To Mexico, Zona Río, Tijuana, Municipio de Tijuana, Baja California, 22010, México', '6646236323', 1, 32.5406182, -117.0342472),
+(12, 'Office Depot', 'Office Depot, Calle San Felipe, Delegación La Mesa, Tijuana, Municipio de Tijuana, Baja California, 22104, México', '6641740936', 1, 32.5095956, -116.9651203);
 
 -- --------------------------------------------------------
 
@@ -187,6 +202,13 @@ CREATE TABLE `kit` (
   `End_date` date NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `kit`
+--
+
+INSERT INTO `kit` (`ID_Kit`, `FK_ID_Semester`, `Start_date`, `End_date`) VALUES
+(1, 4, '2025-08-22', '2025-12-12');
+
 -- --------------------------------------------------------
 
 --
@@ -199,6 +221,13 @@ CREATE TABLE `kit_material` (
   `FK_ID_Supply` int(11) NOT NULL,
   `Unit` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `kit_material`
+--
+
+INSERT INTO `kit_material` (`ID_KitMaterial`, `FK_ID_Kit`, `FK_ID_Supply`, `Unit`) VALUES
+(1, 1, 1, 2);
 
 -- --------------------------------------------------------
 
@@ -240,9 +269,19 @@ INSERT INTO `role` (`ID_Role`, `Type`) VALUES
 
 CREATE TABLE `semester` (
   `ID_Semester` int(11) NOT NULL,
-  `Period` varchar(15) NOT NULL,
+  `Period` varchar(30) NOT NULL,
   `Year` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `semester`
+--
+
+INSERT INTO `semester` (`ID_Semester`, `Period`, `Year`) VALUES
+(1, 'Enero - Julio', 2024),
+(2, 'Agosto - Diciembre', 2024),
+(3, 'Enero - Julio', 2025),
+(4, 'Agosto - Diciembre', 2025);
 
 -- --------------------------------------------------------
 
@@ -266,6 +305,24 @@ CREATE TABLE `staff` (
 INSERT INTO `staff` (`ID_Staff`, `FK_ID_User`, `Firstname`, `Lastname`, `Phone`, `Email`) VALUES
 (1, 4, 'salma', 'moreno', '1234567890', 'unemail@gmail.com'),
 (2, 5, 'salma', 'moreno', '45454545454', 'unemail2@gmail.com');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `status`
+--
+
+CREATE TABLE `status` (
+  `Status_ID` int(11) NOT NULL,
+  `status` varchar(20) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `status`
+--
+
+INSERT INTO `status` (`Status_ID`, `status`) VALUES
+(1, 'Sin Solicitud');
 
 -- --------------------------------------------------------
 
@@ -316,9 +373,17 @@ CREATE TABLE `student_details` (
 
 CREATE TABLE `supplies` (
   `ID_Supply` int(11) NOT NULL,
-  `Name` varchar(15) NOT NULL,
+  `Name` varchar(30) NOT NULL,
   `Unit` varchar(15) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `supplies`
+--
+
+INSERT INTO `supplies` (`ID_Supply`, `Name`, `Unit`) VALUES
+(1, 'Boligrafo (Negro)', '100'),
+(2, 'Lapiz de grafito', '100');
 
 -- --------------------------------------------------------
 
@@ -479,6 +544,13 @@ ALTER TABLE `staff`
   ADD KEY `FK_ID_User` (`FK_ID_User`);
 
 --
+-- Indices de la tabla `status`
+--
+ALTER TABLE `status`
+  ADD PRIMARY KEY (`Status_ID`),
+  ADD UNIQUE KEY `tipo` (`status`);
+
+--
 -- Indices de la tabla `student`
 --
 ALTER TABLE `student`
@@ -529,7 +601,7 @@ ALTER TABLE `address`
 -- AUTO_INCREMENT de la tabla `collection_point`
 --
 ALTER TABLE `collection_point`
-  MODIFY `ID_Point` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `ID_Point` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT de la tabla `company`
@@ -571,13 +643,13 @@ ALTER TABLE `extra_delivery`
 -- AUTO_INCREMENT de la tabla `kit`
 --
 ALTER TABLE `kit`
-  MODIFY `ID_Kit` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Kit` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `kit_material`
 --
 ALTER TABLE `kit_material`
-  MODIFY `ID_KitMaterial` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_KitMaterial` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `limit`
@@ -595,7 +667,7 @@ ALTER TABLE `role`
 -- AUTO_INCREMENT de la tabla `semester`
 --
 ALTER TABLE `semester`
-  MODIFY `ID_Semester` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Semester` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `staff`
@@ -619,7 +691,7 @@ ALTER TABLE `student_details`
 -- AUTO_INCREMENT de la tabla `supplies`
 --
 ALTER TABLE `supplies`
-  MODIFY `ID_Supply` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Supply` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `tutor_data`

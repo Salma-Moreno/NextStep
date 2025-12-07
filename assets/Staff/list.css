@@ -102,20 +102,11 @@ body {
 
 /* Botón azul — Ver Perfil */
 .btn-perfil {
-    background-color: #007bff;
+    background-color: #15396a;
 }
 
 .btn-perfil:hover {
-    background-color: #0056b3;
-}
-
-/* Botón verde — Ver Solicitudes */
-.btn-solicitudes {
-    background-color: #28a745;
-}
-
-.btn-solicitudes:hover {
-    background-color: #1e7e34;
+    background-color: #06101e;
 }
 
 /* Iconos dentro del botón (opcional) */
@@ -129,3 +120,209 @@ table td:last-child {
     text-align: center;
     width: 200px;
 }
+/* Paginacion */
+.pagination {
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+}
+
+.pagination button {
+    padding: 6px 12px;
+    background: #0d223f;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.pagination button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/*Perfil*/
+/* ===== MODAL PERFIL ESTUDIANTE ===== */
+.modal {
+    position: fixed;
+    inset: 0; /* top:0; right:0; bottom:0; left:0; */
+    background: rgba(0,0,0,0.45);
+    display: none;              /* Oculto por defecto */
+    justify-content: center;    /* Centrar contenido */
+    align-items: center;
+    z-index: 2000;
+}
+
+.modal.open {
+    display: flex;              /* Se muestra como overlay centrado */
+}
+
+.modal-content {
+    background: #ffffff;
+    padding: 20px 24px;
+    border-radius: 10px;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    font-size: 0.95rem;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #071630;
+}
+
+.modal-close {
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.modal-row {
+    margin-bottom: 8px;
+}
+
+.modal-row strong {
+    display: inline-block;
+    width: 130px;
+    color: #071630;
+}
+
+.modal-error {
+    color: #b00020;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+/* Para evitar scroll de fondo cuando el modal está abierto (opcional) */
+body.modal-open {
+    overflow: hidden;
+}
+/* =====================================================
+   ESTILOS PARA LAS SOLICITUDES DEL ESTUDIANTE (MODAL)
+   ===================================================== */
+
+/* Tarjeta individual */
+.modal-app-card {
+    background: #ffffff;
+    border: 1px solid #dcdfe6;
+    border-radius: 10px;
+    padding: 15px 18px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    font-size: 0.9rem;
+}
+
+/* Nombre del kit */
+.modal-app-card h4 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-weight: 700;
+    color: #0a213b;
+}
+
+/* Texto general */
+.modal-app-card p {
+    margin: 4px 0;
+    color: #333;
+}
+
+/* Etiqueta de estatus (pill) */
+.status-pill {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    display: inline-block;
+    text-transform: capitalize;
+}
+
+/* Colores por estatus */
+.status-Enviada {
+    background: #e6f7ff;
+    color: #1890ff;
+}
+
+.status-En-revisión {
+    background: #fff6e5;
+    color: #d48806;
+}
+
+.status-Aprobada {
+    background: #e8ffe6;
+    color: #28a745;
+}
+
+.status-Rechazada {
+    background: #ffe6e6;
+    color: #d63031;
+}
+
+.status-Entrega {
+    background: #e3f9f6;
+    color: #009688;
+}
+
+.status-Cancelada {
+    background: #f2f2f2;
+    color: #555;
+}
+
+/* Select */
+.modal-app-card select {
+    width: 100%;
+    padding: 8px;
+    margin-top: 6px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    border: 1px solid #c7c7c7;
+    background: #fafafa;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+/* Botón de actualizar estatus */
+.modal-app-card button {
+    background: #007bff;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    font-weight: 600;
+    transition: background 0.2s ease;
+}
+
+.modal-app-card button:hover {
+    background: #0056b3;
+}
+
+/* Mensaje debajo del botón */
+.status-update-msg {
+    margin-top: 8px;
+    font-size: 0.85rem;
+}
+
+/* Mensajes éxito/error */
+.status-update-msg.success {
+    color: #28a745;
+}
+
+.status-update-msg.error {
+    color: #d63031;
+}
+
+

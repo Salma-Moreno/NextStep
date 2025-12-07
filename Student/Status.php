@@ -23,12 +23,12 @@ if ($result_student->num_rows > 0) {
     $student_row = $result_student->fetch_assoc();
     $student_id = $student_row['ID_Student'];
 
-    // Consulta para la solicitud más reciente
+        // Consulta para la solicitud más reciente
     $sql_aplication = "
         SELECT 
             A.status,
             A.ID_status,
-            K.Name AS Beca_Name,
+            CONCAT('Kit ', K.ID_Kit) AS Beca_Name,
             S.Period,
             S.Year,
             SD.Average,
@@ -46,6 +46,7 @@ if ($result_student->num_rows > 0) {
         ORDER BY A.Application_date DESC, A.ID_status DESC
         LIMIT 1
     ";
+
 
     $stmt_aplication = $conn->prepare($sql_aplication);
     $stmt_aplication->bind_param("i", $student_id);
