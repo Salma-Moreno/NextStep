@@ -12,13 +12,20 @@ include '../Conexiones/db.php';
 
 $user_id = $_SESSION['usuario_id'];
 
-/* ======== 1. Verificar si el estudiante tiene datos personales ========= */
+/* ======== 1. Verificar si el estudiante tiene datos personales COMPLETOS ========= */
 $tieneDatosPersonales = false;
 $student_id = null;
+$perfil_completo = false; // Nueva variable para verificar perfil completo
 
-$sql = "SELECT ID_Student, Name, Last_Name, Email_Address 
-        FROM student 
-        WHERE FK_ID_User = ? 
+$sql = "SELECT s.ID_Student, s.Name, s.Last_Name, s.Email_Address, s.Phone_Number,
+               sd.Birthdate, sd.High_school, sd.Grade, sd.License, sd.Average,
+               td.Tutor_name, td.Tutor_lastname, td.Phone_Number as Tutor_Phone,
+               ad.Street, ad.City, ad.Postal_Code
+        FROM student s
+        LEFT JOIN student_details sd ON s.ID_Student = sd.FK_ID_Student
+        LEFT JOIN tutor_data td ON s.ID_Student = td.FK_ID_Student
+        LEFT JOIN address ad ON s.ID_Student = ad.FK_ID_Student
+        WHERE s.FK_ID_User = ? 
         LIMIT 1";
 
 $stmt = $conn->prepare($sql);
@@ -28,12 +35,26 @@ $result = $stmt->get_result();
 
 if ($row = $result->fetch_assoc()) {
     $student_id = (int)$row['ID_Student'];
-
-    if (!empty($row['Name']) &&
+    
+    // Verificar si TODOS los campos obligatorios están llenos
+    $tieneDatosPersonales = (
+        !empty($row['Name']) &&
         !empty($row['Last_Name']) &&
-        !empty($row['Email_Address'])) {
-        $tieneDatosPersonales = true;
-    }
+        !empty($row['Email_Address']) &&
+        !empty($row['Phone_Number']) &&
+        !empty($row['Birthdate']) &&
+        !empty($row['High_school']) &&
+        !empty($row['Grade']) &&
+        !empty($row['Tutor_name']) &&
+        !empty($row['Tutor_lastname']) &&
+        !empty($row['Tutor_Phone']) &&
+        !empty($row['Street']) &&
+        !empty($row['City']) &&
+        !empty($row['Postal_Code'])
+    );
+    
+    // Si tiene promedio y licencia, mejor, pero no son obligatorios para perfil "básico"
+    $perfil_completo = $tieneDatosPersonales;
 }
 
 $stmt->close();
@@ -41,9 +62,10 @@ $stmt->close();
 /* ======== 2. Verificar si el estudiante ya tiene una solicitud activa ========= */
 $tieneSolicitudActiva = false;
 $solicitud_activa = null;
+$kits_solicitados = [];
 
-// **CAMBIO CRÍTICO: Solo verificar solicitudes activas (no canceladas, no rechazadas)**
 if ($student_id) {
+    // Consulta para obtener solicitud activa
     $sql = "SELECT ID_status, FK_ID_Kit, status
             FROM aplication
             WHERE FK_ID_Student = ?
@@ -61,13 +83,8 @@ if ($student_id) {
     }
     
     $stmt->close();
-}
-
-/* ======== 3. Obtener TODOS los kits que el estudiante YA HA SOLICITADO ========= */
-$kits_solicitados = [];
-
-// **CAMBIO CRÍTICO: Incluir TODAS las solicitudes, sin importar el estado**
-if ($student_id) {
+    
+    // Consulta para obtener TODOS los kits que el estudiante ya ha solicitado
     $sql_kits = "SELECT DISTINCT FK_ID_Kit 
                 FROM aplication 
                 WHERE FK_ID_Student = ?";
@@ -84,9 +101,8 @@ if ($student_id) {
     $stmt_kits->close();
 }
 
-/* ========= 4. Cancelar solicitud ========= */
+/* ========= 3. Cancelar solicitud ========= */
 if (isset($_POST['cancel_application']) && $student_id) {
-    // **IMPORTANTE: Cambiar a 'Cancelada' en lugar de borrar**
     $sql = "UPDATE aplication
             SET status = 'Cancelada'
             WHERE FK_ID_Student = ?
@@ -103,24 +119,23 @@ if (isset($_POST['cancel_application']) && $student_id) {
     $stmt->close();
 }
 
-/* ========= 5. Aplicar a beca ========= */
+/* ========= 4. Aplicar a beca ========= */
 if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
     $kit_id = (int)$_POST['kit_id'];
     $initial_status = 'Enviada';
 
     // Validaciones
-    if (!$tieneDatosPersonales || !$student_id) {
+    if (!$perfil_completo) { // Cambiado a $perfil_completo
         header('Location: perfil.php?completa=1');
         exit;
     }
 
-    // **CAMBIO: Verificar si YA tiene solicitud activa**
     if ($tieneSolicitudActiva) {
         header('Location: application.php?error=solicitud_activa');
         exit;
     }
     
-    // **CAMBIO CRÍTICO: Verificar si YA solicitó ESTA beca (sin importar estado)**
+    // Verificar que el estudiante no haya solicitado esta beca antes
     if (in_array($kit_id, $kits_solicitados)) {
         header('Location: application.php?error=beca_ya_solicitada');
         exit;
@@ -163,7 +178,7 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Student</title>
+    <title>Solicitud de Becas - Estudiante</title>
     <link rel="stylesheet" href="../assets/Student/application.css">
     <style>
         .alert {
@@ -184,6 +199,12 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
             background-color: #d4edda;
             border: 1px solid #c3e6cb;
             color: #155724;
+        }
+        
+        .alert-info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
         }
         
         .status-label {
@@ -258,6 +279,94 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
             margin: 15px 0;
             text-align: center;
         }
+        
+        .profile-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .profile-warning h3 {
+            color: #856404;
+            margin-top: 0;
+        }
+        
+        .profile-warning .btn {
+            margin-top: 15px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+        
+        .scholarship-header-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+        
+        .scholarship-header-card h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .scholarship-header-card h2 {
+            color: #7f8c8d;
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+        }
+        
+        .scholarship-list {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .scholarship-card {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+        }
+        
+        .card-image {
+            width: 150px;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+        }
+        
+        .card-body {
+            flex: 1;
+            padding: 20px;
+        }
+        
+        .card-body h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .card-short-text {
+            color: #7f8c8d;
+            margin-bottom: 10px;
+        }
+        
+        .card-long-text {
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+        
+        .card-footer {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -270,13 +379,13 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
     <div class="scholarship-header-card">
         <h1>Solicitud de Beca</h1>
 
-        <?php if ($tieneDatosPersonales): ?>
+        <?php if ($perfil_completo): ?>
             <h2>Selecciona una de las becas disponibles para ti:</h2>
             
             <!-- Mostrar mensajes de error/success -->
             <?php if (isset($_GET['error']) && $_GET['error'] == 'beca_ya_solicitada'): ?>
                 <div class="alert alert-warning">
-                    ❌ Ya has solicitado esta beca anteriormente. <strong>NO puedes volver a solicitarla.</strong>
+                     Ya has solicitado esta beca anteriormente. <strong>NO puedes volver a solicitarla.</strong>
                 </div>
             <?php elseif (isset($_GET['error']) && $_GET['error'] == 'solicitud_activa'): ?>
                 <div class="alert alert-warning">
@@ -284,27 +393,29 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
                 </div>
             <?php elseif (isset($_GET['success'])): ?>
                 <div class="alert alert-success">
-                    ✅ ¡Solicitud enviada exitosamente!
+                     ¡Solicitud enviada exitosamente!
                 </div>
             <?php endif; ?>
 
         <?php else: ?>
-            <h2>Información del Estudiante</h2>
-            <p class="warning">
-                No hemos encontrado tu información personal.<br>
-                Debes completar tu perfil para aplicar a una beca.
-            </p>
-            <a href="perfil.php" class="btn">Ir a mi perfil</a>
+            <h2>Perfil Incompleto</h2>
+            <div class="profile-warning">
+                <h3>⚠️ Perfil incompleto</h3>
+                <p>Debes completar tu perfil antes de poder solicitar becas.</p>
+                <p>Necesitas llenar todos los campos obligatorios en tu perfil:</p>
+                
+                <a href="perfil.php" class="btn">Ir a completar mi perfil</a>
+            </div>
         <?php endif; ?>
     </div>
 
-    <?php if ($tieneDatosPersonales): ?>
+    <?php if ($perfil_completo): ?> <!-- Cambiado a $perfil_completo -->
 
     <!-- ========= LISTA DE BECAS ========= -->
     <div class="scholarship-list">
 
         <?php
-        // Construir la consulta EXCLUYENDO kits ya solicitados (sin importar estado)
+        // Construir la consulta EXCLUYENDO kits ya solicitados
         $sql = "
             SELECT 
                 k.ID_Kit,
@@ -325,7 +436,7 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
               AND k.End_date   >= CURDATE()
         ";
         
-        // **CAMBIO CRÍTICO: Excluir TODOS los kits que ya solicitó (sin importar estado)**
+        // Excluir todos los kits que ya solicitó
         if (!empty($kits_solicitados)) {
             $excluded_ids = implode(',', $kits_solicitados);
             $sql .= " AND k.ID_Kit NOT IN ($excluded_ids)";
@@ -367,7 +478,7 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
                         </form>
 
                     <?php elseif ($esBecaActiva): ?>
-                        <span class="status-label"> Solicitud enviada</span>
+                        <span class="status-label">📤 Solicitud enviada</span>
                         
                         <?php if ($solicitud_activa['status'] !== 'Entregada'): ?>
                             <form method="POST" action="application.php">
@@ -394,7 +505,7 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
         </div>
         <?php endwhile;
         else:
-            echo "<p>No hay becas disponibles por el momento.</p>";
+            echo "<p class='alert alert-info'>No hay becas disponibles por el momento.</p>";
         endif;
         ?>
     </div>
