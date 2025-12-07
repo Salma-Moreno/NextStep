@@ -8,6 +8,14 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Staff') {
     exit;
 }
 
+// ======== MOSTRAR MENSAJE DE ÉXITO ========
+if (isset($_GET['success']) && $_GET['success'] == 1) {
+    $showSuccessMessage = true;
+} else {
+    $showSuccessMessage = false;
+}
+// ======== FIN MENSAJE DE ÉXITO ========
+
 // Traer compañías con dirección
 $query = "
 SELECT 
@@ -258,6 +266,23 @@ body {
     font-size: 0.8rem;
     color: #4b5563;
 }
+
+/* ESTILOS PARA ERRORES DE VALIDACIÓN */
+.error-message {
+    color: #dc2626;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+    display: none;
+}
+
+.input-error {
+    border-color: #dc2626 !important;
+    background-color: #fef2f2;
+}
+
+.input-success {
+    border-color: #10b981 !important;
+}
 </style>
 </head>
 <body>
@@ -297,51 +322,50 @@ body {
 <div id="modalForm" class="modal-backdrop" onclick="closeModal(event)">
     <div class="modal" onclick="event.stopPropagation();">
         <h2 id="formTitle">Nueva compañía</h2>
-        <form id="companyForm" method="post" action="../Staff/Add_Com.php">
-            <input type="hidden" name="company_id" id="company_id">
+<form id="companyForm" method="post" action="Add_Com.php">            <input type="hidden" name="company_id" id="company_id">
             <input type="hidden" name="address_id" id="address_id">
 
             <div class="form-row">
                 <div class="form-col">
-                    <label>Nombre</label>
+                    <label>Nombre *</label>
                     <input type="text" name="name" id="f_name" required>
                 </div>
                 <div class="form-col">
-                    <label>RFC</label>
-                    <input type="text" name="rfc" id="f_rfc" required>
+                    <label>RFC *</label>
+                    <input type="text" name="rfc" id="f_rfc" required placeholder="XAXX010101000">
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-col">
-                    <label>Email</label>
-                    <input type="email" name="email" id="f_email" required>
+                    <label>Email *</label>
+                    <input type="email" name="email" id="f_email" required placeholder="contacto@empresa.com">
                 </div>
                 <div class="form-col">
-                    <label>Teléfono</label>
-                    <input type="text" name="phone" id="f_phone">
+                    <label>Teléfono (10 dígitos)</label>
+                    <input type="text" name="phone" id="f_phone" placeholder="6641234567">
                 </div>
             </div>
 
             <h3>Dirección</h3>
             <div class="form-row">
                 <div class="form-col">
-                    <label>Calle</label>
-                    <input type="text" name="street" id="f_street" required>
+                    <label>Calle *</label>
+                    <input type="text" name="street" id="f_street" required placeholder="Av. Principal 123">
                 </div>
                 <div class="form-col">
-                    <label>Ciudad</label>
-                    <input type="text" name="city" id="f_city" required>
+                    <label>Ciudad *</label>
+                    <input type="text" name="city" id="f_city" required placeholder="Tijuana">
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-col">
-                    <label>Estado</label>
-                    <input type="text" name="state" id="f_state" required>
+                    <label>Estado *</label>
+                    <input type="text" name="state" id="f_state" required placeholder="Baja California">
                 </div>
                 <div class="form-col">
-                    <label>Código Postal</label>
-                    <input type="text" name="postal_code" id="f_postal" required>
+                    <label>Código Postal *</label>
+                    <input type="text" name="postal_code" id="f_postal" required maxlength="5" placeholder="22000">
                 </div>
             </div>
 
@@ -445,6 +469,12 @@ function openAddModal(){
     ['company_id','address_id','f_name','f_rfc','f_email','f_phone','f_street','f_city','f_state','f_postal']
         .forEach(id=>document.getElementById(id).value='');
     document.getElementById('modalForm').style.display='flex';
+    
+    // Limpiar errores al abrir modal nuevo
+    document.querySelectorAll('.error-message').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.input-error, .input-success').forEach(el => {
+        el.classList.remove('input-error', 'input-success');
+    });
 }
 
 function openEditModal(id){
@@ -462,6 +492,12 @@ function openEditModal(id){
     document.getElementById('f_state').value=c.State||'';
     document.getElementById('f_postal').value=c.Postal_Code||'';
     document.getElementById('modalForm').style.display='flex';
+    
+    // Limpiar errores al abrir modal de edición
+    document.querySelectorAll('.error-message').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.input-error, .input-success').forEach(el => {
+        el.classList.remove('input-error', 'input-success');
+    });
 }
 
 function closeModal(e){
@@ -475,8 +511,311 @@ function escapeHtml(s){
     return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+// ---------- VALIDACIONES DE FORMULARIO ----------
+function validateCompanyForm() {
+    const name = document.getElementById('f_name').value.trim();
+    const phone = document.getElementById('f_phone').value.trim();
+    const email = document.getElementById('f_email').value.trim();
+    const rfc = document.getElementById('f_rfc').value.trim();
+    const street = document.getElementById('f_street').value.trim();
+    const city = document.getElementById('f_city').value.trim();
+    const state = document.getElementById('f_state').value.trim();
+    const postal = document.getElementById('f_postal').value.trim();
+    
+    let errors = [];
+    
+    // 1. VALIDACIÓN DE NOMBRE (no solo números o símbolos)
+    if (!name) {
+        errors.push("El nombre es obligatorio");
+    } else if (/^[0-9\s\W]+$/.test(name)) {
+        errors.push("El nombre debe contener letras");
+    } else if (name.length < 3) {
+        errors.push("Ingrese correctamente lo solicitado");
+    } else if (!/^[a-zA-ZÁÉÍÓÚáéíóúÑñ0-9\s&.,\-()]+$/.test(name)) {
+        errors.push("El nombre contiene caracteres no permitidos. Use solo letras, números, espacios y los símbolos: & . , - ( )");
+    }
+    
+    // 2. VALIDACIÓN DE TELÉFONO (10 dígitos, opcional)
+    if (phone) {
+        const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+        
+        if (!/^\d+$/.test(cleanPhone)) {
+            errors.push("El teléfono debe contener solo números");
+        } else if (cleanPhone.length !== 10) {
+            errors.push("El teléfono debe tener exactamente 10 dígitos");
+        }
+    }
+    
+    // 3. VALIDACIÓN DE EMAIL
+    if (!email) {
+        errors.push("El email es obligatorio");
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errors.push("Email no válido. Ejemplo: contacto@empresa.com");
+    }
+    
+    // 4. VALIDACIÓN DE RFC (EXPLICACIÓN ABAJO)
+    if (!rfc) {
+        errors.push("El RFC es obligatorio");
+    } else {
+        const rfcUpper = rfc.toUpperCase();
+        // RFC válido para personas morales (12 caracteres) o físicas (13 caracteres)
+        const rfcPattern = /^[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{2}[0-9A-Z]?$/;
+        
+        if (!rfcPattern.test(rfcUpper)) {
+            errors.push("RFC no válido. Ejemplos:\n- Persona moral: XAXX010101000\n- Persona física: MEPM960326PM1");
+        } else if (rfcUpper.length !== 12 && rfcUpper.length !== 13) {
+            errors.push("RFC debe tener 12 caracteres (persona moral) o 13 caracteres (persona física)");
+        }
+    }
+    
+    // 5. VALIDACIÓN DE CALLE (más de 5 caracteres, debe tener letras)
+    if (!street) {
+        errors.push("La calle es obligatoria");
+    } else if (street.length < 5) {
+        errors.push("Ingrese correctamente lo solicitado");
+    } else if (/^\d+$/.test(street.replace(/\s/g, ''))) {
+        errors.push("La calle debe contener letras");
+    } else if (!/^[a-zA-ZÁÉÍÓÚáéíóúÑñ0-9\s#.,\-/]+$/.test(street)) {
+        errors.push("La calle contiene caracteres no permitidos. Use letras, números, espacios y los símbolos: # . , - /");
+    }
+    
+    // 6. VALIDACIÓN DE CIUDAD (solo letras, mínimo 3 caracteres)
+    if (!city) {
+        errors.push("La ciudad es obligatoria");
+    } else if (city.length < 3) {
+        errors.push("Ingrese correctamente lo solicitado");
+    } else if (/[0-9]/.test(city)) {
+        errors.push("La ciudad no debe contener números");
+    } else if (!/^[a-zA-ZÁÉÍÓÚáéíóúÑñ\s\-]+$/.test(city)) {
+        errors.push("La ciudad solo debe contener letras, espacios y guiones");
+    }
+    
+    // 7. VALIDACIÓN DE ESTADO (solo letras, mínimo 4 caracteres)
+    if (!state) {
+        errors.push("El estado es obligatorio");
+    } else if (state.length < 4) {
+        errors.push("Ingrese correctamente lo solicitado.");
+    } else if (/[0-9]/.test(state)) {
+        errors.push("El estado no debe contener números");
+    } else if (!/^[a-zA-ZÁÉÍÓÚáéíóúÑñ\s\-]+$/.test(state)) {
+        errors.push("El estado solo debe contener letras, espacios y guiones");
+    }
+    
+    // 8. VALIDACIÓN DE CÓDIGO POSTAL (5 dígitos)
+    if (!postal) {
+        errors.push("El código postal es obligatorio");
+    } else if (!/^[0-9]{5}$/.test(postal)) {
+        errors.push("El código postal debe tener exactamente 5 dígitos");
+    }
+    
+    // Mostrar errores si los hay
+    if (errors.length > 0) {
+        alert("Por favor corrija los siguientes errores:\n\n" + errors.join("\n"));
+        return false;
+    }
+    
+    return true;
+}
+
+// Validación en tiempo real mientras el usuario escribe
+document.querySelectorAll('#companyForm input').forEach(input => {
+    input.addEventListener('blur', function() {
+        validateField(this);
+    });
+    
+    input.addEventListener('input', function() {
+        clearError(this);
+    });
+});
+
+function validateField(field) {
+    const value = field.value.trim();
+    const fieldId = field.id;
+    let isValid = true;
+    let errorMsg = '';
+    
+    // Crear o obtener elemento de error
+    let errorElement = field.nextElementSibling;
+    if (!errorElement || !errorElement.classList.contains('error-message')) {
+        errorElement = document.createElement('div');
+        errorElement.className = 'error-message';
+        field.parentNode.appendChild(errorElement);
+    }
+    
+    // Validar según el campo
+    switch(fieldId) {
+        case 'f_name':
+            if (!value) {
+                errorMsg = 'El nombre es obligatorio';
+                isValid = false;
+            } else if (/^[0-9\s\W]+$/.test(value)) {
+                errorMsg = 'Debe contener letras';
+                isValid = false;
+            } else if (value.length < 3) {
+                errorMsg = 'Mínimo 3 caracteres';
+                isValid = false;
+            }
+            break;
+            
+        case 'f_phone':
+            if (value) {
+                const cleanPhone = value.replace(/[\s\-\(\)]/g, '');
+                if (!/^\d+$/.test(cleanPhone)) {
+                    errorMsg = 'Solo números (0-9)';
+                    isValid = false;
+                } else if (cleanPhone.length !== 10) {
+                    errorMsg = 'Debe tener 10 dígitos';
+                    isValid = false;
+                }
+            }
+            break;
+            
+        case 'f_email':
+            if (!value) {
+                errorMsg = 'El email es obligatorio';
+                isValid = false;
+            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                errorMsg = 'Formato: usuario@dominio.com';
+                isValid = false;
+            }
+            break;
+            
+        case 'f_rfc':
+            if (!value) {
+                errorMsg = 'El RFC es obligatorio';
+                isValid = false;
+            } else {
+                const rfcUpper = value.toUpperCase();
+                const rfcPattern = /^[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{2}[0-9A-Z]?$/;
+                
+                if (!rfcPattern.test(rfcUpper)) {
+                    errorMsg = 'RFC no válido';
+                    isValid = false;
+                } else if (rfcUpper.length !== 12 && rfcUpper.length !== 13) {
+                    errorMsg = '12 o 13 caracteres';
+                    isValid = false;
+                }
+            }
+            break;
+            
+        case 'f_street':
+            if (!value) {
+                errorMsg = 'La calle es obligatoria';
+                isValid = false;
+            } else if (value.length < 5) {
+                errorMsg = 'Mínimo 5 caracteres';
+                isValid = false;
+            } else if (/^\d+$/.test(value.replace(/\s/g, ''))) {
+                errorMsg = 'Debe contener letras';
+                isValid = false;
+            }
+            break;
+            
+        case 'f_city':
+            if (!value) {
+                errorMsg = 'La ciudad es obligatoria';
+                isValid = false;
+            } else if (value.length < 3) {
+                errorMsg = 'Mínimo 3 caracteres';
+                isValid = false;
+            } else if (/[0-9]/.test(value)) {
+                errorMsg = 'No debe contener números';
+                isValid = false;
+            }
+            break;
+            
+        case 'f_state':
+            if (!value) {
+                errorMsg = 'El estado es obligatorio';
+                isValid = false;
+            } else if (value.length < 4) {
+                errorMsg = 'Mínimo 4 caracteres';
+                isValid = false;
+            } else if (/[0-9]/.test(value)) {
+                errorMsg = 'No debe contener números';
+                isValid = false;
+            }
+            break;
+            
+        case 'f_postal':
+            if (!value) {
+                errorMsg = 'El código postal es obligatorio';
+                isValid = false;
+            } else if (!/^[0-9]{5}$/.test(value)) {
+                errorMsg = '5 dígitos requeridos';
+                isValid = false;
+            }
+            break;
+    }
+    
+    // Aplicar estilos
+    if (!isValid) {
+        field.classList.add('input-error');
+        field.classList.remove('input-success');
+        errorElement.textContent = errorMsg;
+        errorElement.style.display = 'block';
+    } else if (value) {
+        field.classList.remove('input-error');
+        field.classList.add('input-success');
+        errorElement.style.display = 'none';
+    } else {
+        field.classList.remove('input-error', 'input-success');
+        errorElement.style.display = 'none';
+    }
+    
+    return isValid;
+}
+
+function clearError(field) {
+    field.classList.remove('input-error');
+    const errorElement = field.nextElementSibling;
+    if (errorElement && errorElement.classList.contains('error-message')) {
+        errorElement.style.display = 'none';
+    }
+}
+
+// Validar antes de enviar el formulario
+document.getElementById('companyForm').addEventListener('submit', function(e) {
+    // Validar todos los campos
+    let allValid = true;
+    document.querySelectorAll('#companyForm input').forEach(input => {
+        if (!validateField(input)) {
+            allValid = false;
+        }
+    });
+    
+    if (!allValid) {
+        e.preventDefault();
+        alert('Por favor corrija los errores en rojo antes de enviar.');
+        return false;
+    }
+    
+    // Validación final
+    if (!validateCompanyForm()) {
+        e.preventDefault();
+        return false;
+    }
+    
+    return true;
+});
+
 // ---------- Inicializar ----------
 renderCompaniesGrid();
+
+// ======== MOSTRAR MENSAJE DE ÉXITO ========
+<?php if ($showSuccessMessage): ?>
+setTimeout(function() {
+    alert(' Compañía guardada exitosamente');
+    
+    // Limpiar el parámetro de la URL sin recargar
+    if (window.history.replaceState) {
+        const url = new URL(window.location);
+        url.searchParams.delete('success');
+        window.history.replaceState({}, '', url);
+    }
+}, 300);
+<?php endif; ?>
+// ======== FIN MENSAJE DE ÉXITO ========
 
 document.addEventListener('keydown',e=>{
     if(document.getElementById('modalForm').style.display==='flex') return;
