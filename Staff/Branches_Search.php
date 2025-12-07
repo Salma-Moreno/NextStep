@@ -49,7 +49,7 @@ function nominatimSearch($query) {
 
 
 // ======================
-// 1️⃣ Intento: dirección original
+// 1️er Intento: dirección original
 // ======================
 $res = nominatimSearch($rawAddress);
 
@@ -65,7 +65,7 @@ if ($res) {
 
 
 // ======================
-// 2️⃣ Intento: dirección limpiada
+// 2️do Intento: dirección limpiada
 // ======================
 $res = nominatimSearch($cleanAddress);
 
@@ -81,7 +81,7 @@ if ($res) {
 
 
 // ======================
-// 3️⃣ Intento: solo calle + Tijuana
+// 3️er Intento: solo calle + Tijuana
 // ======================
 preg_match('/^[^,]+/', $cleanAddress, $streetOnly);
 $streetOnly = $streetOnly[0] ?? $cleanAddress;
@@ -99,7 +99,7 @@ if ($res) {
 
 
 // ======================
-// 4️⃣ Intento: solo CP + Tijuana
+// 4to Intento: solo CP + Tijuana
 // ======================
 if (preg_match('/\b\d{5}\b/', $cleanAddress, $cp)) {
     $res = nominatimSearch("Tijuana $cp[0] Mexico");
