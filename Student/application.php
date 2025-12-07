@@ -356,7 +356,7 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
         }
         
         .card-image {
-            width: 150px;
+            width: 100%;
             background: linear-gradient(135deg, #3498db, #2980b9);
         }
         
