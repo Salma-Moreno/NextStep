@@ -1,11 +1,9 @@
 <?php
-// Archivo: view_applications.php
-
 session_start();
-require '../Conexiones/db.php'; // Asegúrate que este archivo define $conn (mysqli)
+require '../Conexiones/db.php';
 
-// Opciones de estatus disponibles para validación
-$VALID_STATUSES = ['Enviada', 'En revisión', 'Aprobada', 'Entrega'];
+// TODOS los estados posibles
+$VALID_STATUSES = ['Enviada', 'En revisión', 'Aprobada', 'Rechazada', 'Entrega', 'Cancelada'];
 
 // 1. Guardián de sesión
 if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Staff') {
@@ -17,7 +15,7 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Staff') {
 $message_type = '';
 $message_text = '';
 
-// --- LÓGICA DE ACTUALIZACIÓN DEL ESTATUS (Procesamiento POST) ---
+// --- LÓGICA DE ACTUALIZACIÓN DEL ESTATUS ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $student_id_post = filter_input(INPUT_POST, 'student_id', FILTER_VALIDATE_INT);
     $kit_id_post = filter_input(INPUT_POST, 'kit_id', FILTER_VALIDATE_INT);
@@ -25,38 +23,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($student_id_post && $kit_id_post && in_array($new_status, $VALID_STATUSES)) {
         
-        // Consulta para actualizar el estatus
-        $update_query = "
-            UPDATE aplication
-            SET status = ?
-            WHERE FK_ID_Student = ? AND FK_ID_Kit = ?;
-        ";
-
-        $stmt = mysqli_prepare($conn, $update_query);
-
+        // Actualizar estado en la tabla aplication
+        $update_query = "UPDATE aplication SET status = ? WHERE FK_ID_Student = ? AND FK_ID_Kit = ?";
+        $stmt = $conn->prepare($update_query);
+        
         if ($stmt) {
-            mysqli_stmt_bind_param($stmt, "sii", $new_status, $student_id_post, $kit_id_post);
+            $stmt->bind_param("sii", $new_status, $student_id_post, $kit_id_post);
             
-            if (mysqli_stmt_execute($stmt)) {
+            if ($stmt->execute()) {
                 $message_type = 'success';
                 $message_text = "Estatus actualizado a: " . htmlspecialchars($new_status);
+                
+                // Si fue cancelada, mostrar mensaje específico
+                if ($new_status === 'Cancelada') {
+                    $message_text = "Solicitud cancelada exitosamente.";
+                }
             } else {
                 $message_type = 'error';
-                $message_text = "Error al actualizar en la BD: " . mysqli_error($conn);
+                $message_text = "Error al actualizar: " . $conn->error;
             }
-            mysqli_stmt_close($stmt);
-        } else {
-            $message_type = 'error';
-            $message_text = "Error de consulta preparada: " . mysqli_error($conn);
+            $stmt->close();
         }
-
     } else {
         $message_type = 'error';
-        $message_text = "Datos de entrada inválidos o estatus no permitido.";
+        $message_text = "Datos inválidos o estatus no permitido.";
     }
     
-    // REDIRECCIÓN PRG (Post/Redirect/Get) - CRÍTICO para evitar reenvío de formulario
-    // Redirigimos a la misma página, pero pasando el mensaje por GET.
+    // REDIRECCIÓN PRG
     $redirect_url = 'view_applications.php?id=' . ($student_id_post ?: $_GET['id']);
     $redirect_url .= '&msg_type=' . $message_type . '&msg_text=' . urlencode($message_text);
     header('Location: ' . $redirect_url);
@@ -64,50 +57,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 // --- FIN LÓGICA DE ACTUALIZACIÓN ---
 
-
-// 2. Obtener el ID del estudiante (GET request)
+// 2. Obtener el ID del estudiante
 $student_id = $_GET['id'] ?? null;
-
-// Validar ID
 if (!$student_id || !is_numeric($student_id)) {
     die("ID de estudiante inválido.");
 }
 
-// 3. Obtener el nombre del estudiante (para el título)
+// 3. Obtener nombre del estudiante
 $name_query = "SELECT Name, Last_Name FROM student WHERE ID_Student = ? LIMIT 1";
-$name_stmt = mysqli_prepare($conn, $name_query);
-mysqli_stmt_bind_param($name_stmt, "i", $student_id);
-mysqli_stmt_execute($name_stmt);
-$name_result = mysqli_stmt_get_result($name_stmt);
-$student_name = mysqli_fetch_assoc($name_result);
+$name_stmt = $conn->prepare($name_query);
+$name_stmt->bind_param("i", $student_id);
+$name_stmt->execute();
+$name_result = $name_stmt->get_result();
+$student_name = $name_result->fetch_assoc();
 
 if (!$student_name) {
     die("Estudiante no encontrado.");
 }
 $full_name = htmlspecialchars($student_name['Name'] . ' ' . $student_name['Last_Name']);
 
-// 4. Consulta para obtener todas las aplicaciones de beca (kit) para ese estudiante.
+// 4. Consulta para obtener aplicaciones
 $applications_query = "
     SELECT 
         k.ID_Kit,  
         k.Name AS KitName, 
         k.Description AS KitDescription,
         a.status AS ApplicationStatus,
+        a.Application_date,
         k.Start_date,
-        k.End_date
+        k.End_date,
+        a.ID_status
     FROM aplication a
     JOIN kit k ON a.FK_ID_Kit = k.ID_Kit
     WHERE a.FK_ID_Student = ?
-    ORDER BY k.Start_date DESC;
+    ORDER BY a.Application_date DESC, a.ID_status DESC;
 ";
 
-$stmt = mysqli_prepare($conn, $applications_query);
-mysqli_stmt_bind_param($stmt, "i", $student_id);
-mysqli_stmt_execute($stmt);
-$applications_result = mysqli_stmt_get_result($stmt);
-
-// Verificar si se encontraron aplicaciones
-$has_applications = mysqli_num_rows($applications_result) > 0;
+$stmt = $conn->prepare($applications_query);
+$stmt->bind_param("i", $student_id);
+$stmt->execute();
+$applications_result = $stmt->get_result();
+$has_applications = $applications_result->num_rows > 0;
 ?>
 
 <!DOCTYPE html>
@@ -117,62 +107,130 @@ $has_applications = mysqli_num_rows($applications_result) > 0;
     <title>Solicitudes de Beca - <?= $full_name ?></title>
     <link rel="stylesheet" href="../assets/Staff/list.css"> 
     <style>
-        /* Estilos CSS para tarjetas y mensajes (puedes moverlos a list.css) */
         .application-card {
             border: 1px solid #ddd;
-            padding: 15px;
-            margin-bottom: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        /* Clases CSS para el borde de la tarjeta según el estatus */
         .status-enviada { background-color: #e6f7ff; border-left: 5px solid #1890ff; }
         .status-en-revisión { background-color: #fffbe6; border-left: 5px solid #faad14; }
         .status-aprobada { background-color: #f6ffed; border-left: 5px solid #52c41a; }
+        .status-rechazada { background-color: #fff2f0; border-left: 5px solid #ff4d4f; }
         .status-entrega { background-color: #e8f9f7; border-left: 5px solid #009688; }
-        .alert-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 10px; margin-bottom: 20px; border-radius: 5px; }
-        .alert-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 10px; margin-bottom: 20px; border-radius: 5px; }
+        .status-cancelada { background-color: #f5f5f5; border-left: 5px solid #8c8c8c; }
+        .alert-success { 
+            background-color: #d4edda; 
+            color: #155724; 
+            border: 1px solid #c3e6cb; 
+            padding: 10px; 
+            margin-bottom: 20px; 
+            border-radius: 5px; 
+        }
+        .alert-error { 
+            background-color: #f8d7da; 
+            color: #721c24; 
+            border: 1px solid #f5c6cb; 
+            padding: 10px; 
+            margin-bottom: 20px; 
+            border-radius: 5px; 
+        }
+        .btn-action { 
+            padding: 8px 16px; 
+            background-color: #f7b000; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin-top: 10px;
+        }
+        .btn-action:hover { background-color: #e09c00; }
+        select {
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        .cancel-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 14px;
+            display: none;
+        }
     </style>
+    <script>
+      
+        
+        function validarFormulario(formId) {
+            var form = document.getElementById(formId);
+            var select = form.querySelector('select[name="new_status"]');
+            
+            if (select.value === 'Cancelada') {
+                return confirm('¿Estás seguro de cancelar esta solicitud?\n\nLa solicitud será marcada como "Cancelada" y el estudiante será notificado.');
+            } else if (select.value === 'Rechazada') {
+                return confirm('¿Estás seguro de rechazar esta solicitud?\n\nLa solicitud será marcada como "Rechazada" y el estudiante será notificado.');
+            } else {
+                return confirm('¿Confirmar cambio de estado a: ' + select.value + '?');
+            }
+        }
+    </script>
 </head>
 <body>
 <?php include '../includes/HeaderMenuStaff.php'; ?> 
 
 <div class="container">
-    <?php 
-    // 5. Mostrar mensajes de éxito o error (vienen de la redirección GET)
-    if (isset($_GET['msg_type'])): 
+    <?php if (isset($_GET['msg_type'])): 
         $msg_type = htmlspecialchars($_GET['msg_type']);
         $msg_text = htmlspecialchars(urldecode($_GET['msg_text']));
     ?>
         <div class="alert-<?= $msg_type ?>">
-            <?= $msg_type === 'success' ? '✅ Éxito:' : '❌ Error:' ?> <?= $msg_text ?>
+            <?= $msg_type === 'success' ? ' Éxito:' : ' Error:' ?> <?= $msg_text ?>
         </div>
     <?php endif; ?>
     
-    <h2>📝 Solicitudes de Beca de <?= $full_name ?></h2>
-
-
+    <h2> Solicitudes de Beca de <?= $full_name ?></h2>
     <hr>
 
     <?php if ($has_applications): ?>
-        <?php while ($app = mysqli_fetch_assoc($applications_result)): ?>
+        <?php while ($app = $applications_result->fetch_assoc()): ?>
             <?php 
-                // Normaliza el estado para usarlo en la clase CSS
                 $status_class = strtolower(str_replace(' ', '-', $app['ApplicationStatus']));
+                $form_id = 'form_' . $app['ID_Kit'];
+                $select_id = 'select_' . $app['ID_Kit'];
             ?>
             <div class="application-card status-<?= htmlspecialchars($status_class) ?>">
                 <h3><?= htmlspecialchars($app['KitName']) ?></h3>
-                
-                <p><strong>Estatus Actual:</strong> <span style="font-weight: bold;"><?= htmlspecialchars($app['ApplicationStatus']) ?></span></p>
+                <p><strong>ID Solicitud:</strong> #<?= $app['ID_status'] ?></p>
+                <p><strong>Estatus Actual:</strong> 
+                    <span style="font-weight: bold; padding: 3px 8px; border-radius: 3px; 
+                        <?php 
+                        switch($app['ApplicationStatus']) {
+                            case 'Enviada': echo 'background-color: #e6f7ff; color: #1890ff;'; break;
+                            case 'En revisión': echo 'background-color: #fffbe6; color: #faad14;'; break;
+                            case 'Aprobada': echo 'background-color: #f6ffed; color: #52c41a;'; break;
+                            case 'Rechazada': echo 'background-color: #fff2f0; color: #ff4d4f;'; break;
+                            case 'Entrega': echo 'background-color: #e8f9f7; color: #009688;'; break;
+                            case 'Cancelada': echo 'background-color: #f5f5f5; color: #8c8c8c;'; break;
+                        }
+                        ?>">
+                        <?= htmlspecialchars($app['ApplicationStatus']) ?>
+                    </span>
+                </p>
+                <p><strong>Fecha solicitud:</strong> <?= date('d/m/Y H:i', strtotime($app['Application_date'])) ?></p>
                 <p><strong>Periodo:</strong> <?= date('d/m/Y', strtotime($app['Start_date'])) ?> al <?= date('d/m/Y', strtotime($app['End_date'])) ?></p>
                 <p><strong>Descripción:</strong> <?= nl2br(htmlspecialchars($app['KitDescription'])) ?></p>
 
-                <form action="view_applications.php?id=<?= $student_id ?>" method="POST" style="margin-top: 15px;">
+                <form id="<?= $form_id ?>" action="view_applications.php?id=<?= $student_id ?>" method="POST" onsubmit="return validarFormulario('<?= $form_id ?>')">
                     <input type="hidden" name="student_id" value="<?= htmlspecialchars($student_id) ?>">
                     <input type="hidden" name="kit_id" value="<?= htmlspecialchars($app['ID_Kit']) ?>"> 
 
-                    <label for="new_status_<?= $app['ID_Kit'] ?>">Cambiar estatus a:</label>
-                    <select name="new_status" id="new_status_<?= $app['ID_Kit'] ?>">
+                    <label for="<?= $select_id ?>">Cambiar estatus a:</label>
+                    <select name="new_status" id="<?= $select_id ?>" onchange="mostrarAdvertencia('<?= $select_id ?>')">
                         <?php foreach ($VALID_STATUSES as $option): ?>
                             <option value="<?= htmlspecialchars($option) ?>" 
                                 <?= ($option == $app['ApplicationStatus']) ? 'selected' : '' ?>>
@@ -181,15 +239,26 @@ $has_applications = mysqli_num_rows($applications_result) > 0;
                         <?php endforeach; ?>
                     </select>
                     
-                    <button type="submit" class="btn-action" style="margin-left: 10px; background-color: #f7b000;">Actualizar</button>
+                    <!-- Advertencia para cancelación -->
+                    <div id="warning_<?= $select_id ?>" class="cancel-warning"></div>
+                    
+                    <button type="submit" class="btn-action">
+                        <i class="fas fa-save"></i> Actualizar Estatus
+                    </button>
                 </form>
             </div>
         <?php endwhile; ?>
     <?php else: ?>
-        <p>Este estudiante no tiene solicitudes de beca registradas.</p>
+        <div style="text-align: center; padding: 40px; background-color: #f8f9fa; border-radius: 8px;">
+            <p style="font-size: 18px; color: #6c757d;">Este estudiante no tiene solicitudes de beca registradas.</p>
+        </div>
     <?php endif; ?>
-
-
+    
+    <div style="margin-top: 30px; text-align: center;">
+        <a href="javascript:history.back()" style="color: #007bff; text-decoration: none;">
+            ← Volver atrás
+        </a>
+    </div>
 </div>
 
 </body>
