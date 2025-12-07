@@ -661,7 +661,7 @@ function renderCompanyPage(companyId) {
     const data = window.companyData[companyId];
     const pageContainer = document.getElementById("page_" + companyId);
     const page = currentPage[companyId] || 1;
-    const perPage = 5;
+    const perPage = 4;
     const start = (page - 1) * perPage;
     const items = data.slice(start, start + perPage);
     
