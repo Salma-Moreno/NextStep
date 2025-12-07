@@ -1,18 +1,15 @@
 <?php
 session_start();
-require '../Conexiones/db.php'; // Debe definir $conn (mysqli)
+require '../Conexiones/db.php';
 
 // Guardián: solo Staff
 if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Staff') {
-    // OJO: como también usaremos este archivo como API,
-// para las llamadas AJAX es mejor devolver JSON, no redirigir a HTML
     if (isset($_GET['action']) || isset($_POST['action'])) {
         header('Content-Type: application/json; charset=utf-8');
         http_response_code(403);
         echo json_encode(['error' => 'No autorizado']);
         exit;
     }
-
     header('Location: StaffLogin.php');
     exit;
 }
@@ -72,32 +69,29 @@ if ($action !== null) {
     }
 
     // 2) Solicitudes de beca del estudiante
-if ($method === 'GET' && $action === 'applications') {
-    $student_id = filter_input(INPUT_GET, 'student_id', FILTER_VALIDATE_INT);
-    if (!$student_id) {
-        http_response_code(400);
-        echo json_encode(['error' => 'ID de estudiante inválido']);
-        exit;
-    }
+    if ($method === 'GET' && $action === 'applications') {
+        $student_id = filter_input(INPUT_GET, 'student_id', FILTER_VALIDATE_INT);
+        if (!$student_id) {
+            http_response_code(400);
+            echo json_encode(['error' => 'ID de estudiante inválido']);
+            exit;
+        }
 
-    // Como la tabla kit no tiene Name ni Description,
-    // construimos un "nombre" genérico usando el ID_Kit
-    $sql = "
-        SELECT 
-            k.ID_Kit,
-            CONCAT('Kit ', k.ID_Kit) AS KitName,
-            NULL AS KitDescription,
-            a.status AS ApplicationStatus,
-            a.Application_date,
-            k.Start_date,
-            k.End_date,
-            a.ID_status
-        FROM aplication a
-        JOIN kit k ON a.FK_ID_Kit = k.ID_Kit
-        WHERE a.FK_ID_Student = ?
-        ORDER BY a.Application_date DESC, a.ID_status DESC
-    ";
-
+        $sql = "
+            SELECT 
+                k.ID_Kit,
+                CONCAT('Kit ', k.ID_Kit) AS KitName,
+                NULL AS KitDescription,
+                a.status AS ApplicationStatus,
+                a.Application_date,
+                k.Start_date,
+                k.End_date,
+                a.ID_status
+            FROM aplication a
+            JOIN kit k ON a.FK_ID_Kit = k.ID_Kit
+            WHERE a.FK_ID_Student = ?
+            ORDER BY a.Application_date DESC, a.ID_status DESC
+        ";
 
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
@@ -173,19 +167,16 @@ if ($method === 'GET' && $action === 'applications') {
 }
 
 // ------------------ MODO PÁGINA (HTML) ------------------
-
-// Consulta que obtiene TODOS los estudiantes aunque no tengan detalles ni solicitud de beca
+// CONSULTA MODIFICADA: Cada estudiante aparece UNA sola vez
 $query = "
-SELECT 
+SELECT DISTINCT
     s.ID_Student,
     s.Name,
     s.Last_Name,
     sd.License,
-    sd.Average,
-    a.status
+    sd.Average
 FROM student s
 LEFT JOIN student_details sd ON s.ID_Student = sd.FK_ID_Student
-LEFT JOIN aplication a ON s.ID_Student = a.FK_ID_Student
 ORDER BY s.Last_Name, s.Name
 ";
 
@@ -198,8 +189,408 @@ if ($result === false) {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Lista de Estudiantes</title>
-    <link rel="stylesheet" href="../assets/Staff/list.css">
+    <title>Lista de Estudiantes - Panel Staff</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 30px auto;
+            padding: 25px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        h2 {
+            color: #2c3e50;
+            font-size: 1.8rem;
+            margin-bottom: 25px;
+            text-align: center;
+            font-weight: 600;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eaeaea;
+        }
+
+        .search-box {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border: 1px solid #e2e8f0;
+        }
+
+        #search {
+            width: 100%;
+            padding: 14px 18px;
+            border: 1px solid #d1d9e6;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        #search:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        thead {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
+
+        th {
+            padding: 18px 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #edf2f7;
+            transition: all 0.2s ease;
+        }
+
+        tbody tr:hover {
+            background-color: #f8fafc;
+        }
+
+        td {
+            padding: 16px 15px;
+            color: #4a5568;
+        }
+
+        .btn-action {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+        }
+
+        .btn-perfil {
+            background: #3498db;
+            color: white;
+            border: 1px solid #2980b9;
+        }
+
+        .btn-perfil:hover {
+            background: #2980b9;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-perfil.active {
+            background: #2980b9;
+            transform: translateY(-1px);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eaeaea;
+        }
+
+        .pagination button {
+            padding: 10px 24px;
+            border: 1px solid #d1d9e6;
+            border-radius: 6px;
+            background: white;
+            color: #4a5568;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        .pagination button:disabled {
+            background: #f8f9fa;
+            color: #adb5bd;
+            cursor: not-allowed;
+        }
+
+        .pagination span {
+            font-size: 1rem;
+            color: #4a5568;
+        }
+
+        /* Estilos para la sección de detalles */
+        .details-section {
+            display: none;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            margin: 20px 0;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            animation: slideDown 0.3s ease;
+        }
+
+        .details-section.open {
+            display: block;
+        }
+
+        .details-header {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            padding: 18px 25px;
+            border-radius: 10px 10px 0 0;
+            margin: -25px -25px 25px -25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .details-header h3 {
+            margin: 0;
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+
+        .close-details-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.8rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s ease;
+        }
+
+        .close-details-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .details-error {
+            background: #fee;
+            color: #c33;
+            padding: 12px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #fcc;
+            text-align: center;
+        }
+
+        .details-row {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .details-row:last-child {
+            border-bottom: none;
+        }
+
+        .details-row strong {
+            min-width: 140px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .details-row span {
+            color: #4a5568;
+        }
+
+        .details-hr {
+            margin: 20px 0;
+            border: none;
+            height: 1px;
+            background: linear-gradient(to right, transparent, #3498db, transparent);
+        }
+
+        /* Estilo para el resumen de solicitudes */
+        .applications-summary {
+            background: #f8fafc;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            text-align: center;
+        }
+
+        .applications-count {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .applications-count span {
+            color: #3498db;
+            font-size: 1.4rem;
+        }
+
+        .applications-message {
+            color: #4a5568;
+            font-size: 1rem;
+        }
+
+        .app-card {
+            background: #f8fafc;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            border: 1px solid #e2e8f0;
+        }
+
+        .app-card h4 {
+            color: #2c3e50;
+            margin-bottom: 12px;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .app-card p {
+            margin: 6px 0;
+            color: #4a5568;
+            line-height: 1.5;
+        }
+
+        .app-card strong {
+            color: #2c3e50;
+        }
+
+        .status-pill {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .status-Enviada { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .status-Enrevisión { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .status-Aprobada { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-Rechazada { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status-Entrega { background: #d1c4e9; color: #311b92; border: 1px solid #b39ddb; }
+        .status-Cancelada { background: #e2e3e5; color: #383d41; border: 1px solid #d6d8db; }
+        .status-null { background: #f8f9fa; color: #6c757d; border: 1px solid #e9ecef; }
+
+        .app-card label {
+            display: block;
+            margin: 15px 0 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .app-card select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d9e6;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            margin-bottom: 15px;
+            background: white;
+            transition: border 0.2s ease;
+        }
+
+        .app-card select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .app-card button {
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+        }
+
+        .app-card button:hover {
+            background: #2980b9;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-update-msg {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 500;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .status-update-msg.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-update-msg.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Contenedor para la sección de detalles */
+        .details-container {
+            margin-top: 30px;
+        }
+    </style>
 </head>
 <body>
 <?php include '../includes/HeaderMenuStaff.php'; ?> 
@@ -212,7 +603,8 @@ if ($result === false) {
         <input 
             type="text" 
             id="search" 
-            placeholder="Buscar por nombre, apellido, matrícula…">
+            placeholder="Buscar por nombre, apellido, matrícula..."
+            autocomplete="off">
     </div>
 
     <!-- Tabla -->
@@ -223,27 +615,21 @@ if ($result === false) {
                 <th>Apellido</th>
                 <th>Matrícula</th>
                 <th>Promedio</th>
-                <th>Estatus de Beca</th>
                 <th>Acciones</th>
             </tr>
         </thead>
 
         <tbody>
             <?php while ($row = mysqli_fetch_assoc($result)): ?>
-                <?php 
-                    $statusRaw   = $row['status'] ?? null;
-                    $statusText  = $statusRaw ?? 'Sin Solicitud';
-                    $statusClass = $statusRaw ? 'status-' . preg_replace('/\s+/', '', $statusRaw) : 'status-null';
-                ?>
-                <tr>
+                <tr data-student-id="<?= (int)$row['ID_Student'] ?>">
                     <td><?= htmlspecialchars($row['Name'] ?? '—') ?></td>
                     <td><?= htmlspecialchars($row['Last_Name'] ?? '—') ?></td>
                     <td><?= htmlspecialchars($row['License'] ?? 'No asignada') ?></td>
                     <td><?= htmlspecialchars($row['Average'] ?? '—') ?></td>
-                    <td class="<?= htmlspecialchars($statusClass) ?>"><?= htmlspecialchars($statusText) ?></td>
                     <td>
                         <button class="btn-action btn-perfil" type="button"
-                            onclick="openProfileModal(<?= (int)$row['ID_Student'] ?>)">
+                            onclick="toggleStudentDetails(<?= (int)$row['ID_Student'] ?>)"
+                            title="Ver detalles del estudiante">
                             |||
                         </button>
                     </td>
@@ -251,6 +637,11 @@ if ($result === false) {
             <?php endwhile; ?>
         </tbody>
     </table>
+
+    <!-- Contenedor para los detalles -->
+    <div class="details-container" id="detailsContainer">
+        <!-- Los detalles se cargarán aquí -->
+    </div>
 
     <!-- Paginación -->
     <div class="pagination">
@@ -260,54 +651,13 @@ if ($result === false) {
     </div>
 </div>
 
-<!-- MODAL PERFIL ESTUDIANTE -->
-<div id="profileModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>Perfil del estudiante</h3>
-            <button id="pm_close" class="modal-close">&times;</button>
-        </div>
-
-        <div id="pm_error" class="modal-error"></div>
-
-        <!-- Datos básicos -->
-        <div class="modal-row">
-            <strong>Nombre:</strong>
-            <span id="pm_name"></span>
-        </div>
-
-        <div class="modal-row">
-            <strong>Correo:</strong>
-            <span id="pm_email"></span>
-        </div>
-
-        <div class="modal-row">
-            <strong>Matrícula:</strong>
-            <span id="pm_license"></span>
-        </div>
-
-        <div class="modal-row">
-            <strong>Promedio:</strong>
-            <span id="pm_average"></span>
-        </div>
-
-        <div class="modal-row">
-            <strong>Estatus de Beca:</strong>
-            <span id="pm_status"></span>
-        </div>
-
-        <hr>
-
-        <!-- Solicitudes de beca del estudiante -->
-        <h4>Solicitudes de beca</h4>
-        <div id="pm_applications"></div>
-    </div>
-</div>
-
 <script>
 // ===== Helpers =====
 function escapeHtml(str) {
-    if (!str) return '';
+    if (str === null || str === undefined) return '';
+    if (typeof str !== 'string') {
+        str = String(str);
+    }
     return str
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -317,11 +667,10 @@ function escapeHtml(str) {
 }
 
 function statusClassFromText(status) {
-    if (!status) return '';
-    return status.replace(/\s+/g, '-');
+    if (!status || typeof status !== 'string') return '';
+    return status.replace(/\s+/g, '');
 }
 
-// Helper para pedir JSON de ESTE MISMO ARCHIVO
 function fetchJson(params, options) {
     const url = new URL(window.location.href);
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
@@ -345,111 +694,204 @@ function fetchJson(params, options) {
         }));
 }
 
-// ====== Abrir modal y cargar info ======
-function openProfileModal(studentId) {
-    const modal         = document.getElementById('profileModal');
-    const errorBox      = document.getElementById('pm_error');
-    const appsContainer = document.getElementById('pm_applications');
+// ====== Manejo de detalles del estudiante ======
+let currentOpenStudentId = null;
 
-    errorBox.textContent = 'Cargando información...';
+function toggleStudentDetails(studentId) {
+    const container = document.getElementById('detailsContainer');
+    const button = document.querySelector(`tr[data-student-id="${studentId}"] .btn-perfil`);
+    
+    // Si ya está abierto este estudiante, cerrarlo
+    if (currentOpenStudentId === studentId) {
+        container.innerHTML = '';
+        button.classList.remove('active');
+        currentOpenStudentId = null;
+        return;
+    }
+    
+    // Cerrar detalles anteriores si los hay
+    if (currentOpenStudentId) {
+        const oldButton = document.querySelector(`tr[data-student-id="${currentOpenStudentId}"] .btn-perfil`);
+        if (oldButton) oldButton.classList.remove('active');
+    }
+    
+    // Marcar botón como activo
+    button.classList.add('active');
+    
+    // Mostrar mensaje de carga
+    container.innerHTML = `
+        <div class="details-section open">
+            <div class="details-header">
+                <h3>Cargando información...</h3>
+                <button class="close-details-btn" onclick="toggleStudentDetails(${studentId})">&times;</button>
+            </div>
+            <div class="details-error">Cargando información del estudiante...</div>
+        </div>
+    `;
+    
+    // Desplazar a la sección de detalles
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    
+    // Cargar información del estudiante
+    loadStudentDetails(studentId);
+}
 
-    document.getElementById('pm_name').textContent    = '';
-    document.getElementById('pm_email').textContent   = '';
-    document.getElementById('pm_license').textContent = '';
-    document.getElementById('pm_average').textContent = '';
-    document.getElementById('pm_status').textContent  = '';
-    appsContainer.innerHTML = 'Cargando solicitudes...';
-
-    modal.classList.add('open');
-    document.body.classList.add('modal-open');
-
+function loadStudentDetails(studentId) {
+    const container = document.getElementById('detailsContainer');
+    
     // 1) Datos básicos del estudiante
     fetchJson({ action: 'basic', id: studentId })
-        .then(data => {
-            const nombreCompleto = (data.Name || '') + ' ' + (data.Last_Name || '');
-            document.getElementById('pm_name').textContent    = nombreCompleto.trim() || '—';
-            document.getElementById('pm_email').textContent   = data.Email_Address || '—';
-            document.getElementById('pm_license').textContent = data.License || 'No asignada';
-            document.getElementById('pm_average').textContent = data.Average || '—';
-            document.getElementById('pm_status').textContent  = data.status ? data.status : 'Sin Solicitud';
-            errorBox.textContent = '';
+        .then(studentData => {
+            // 2) Solicitudes de beca del estudiante
+            return fetchJson({ action: 'applications', student_id: studentId })
+                .then(appsData => {
+                    renderStudentDetails(studentId, studentData, appsData.applications || []);
+                    currentOpenStudentId = studentId;
+                });
         })
         .catch(err => {
-            errorBox.textContent = 'No se pudo cargar la información: ' + err.message;
-        });
-
-    // 2) Solicitudes de beca del estudiante
-    fetchJson({ action: 'applications', student_id: studentId })
-        .then(data => {
-            renderApplicationsInModal(studentId, data.applications || []);
-        })
-        .catch(err => {
-            appsContainer.innerHTML = 'No se pudieron cargar las solicitudes: ' + err.message;
+            container.innerHTML = `
+                <div class="details-section open">
+                    <div class="details-header">
+                        <h3>Error</h3>
+                        <button class="close-details-btn" onclick="toggleStudentDetails(${studentId})">&times;</button>
+                    </div>
+                    <div class="details-error">Error al cargar la información: ${err.message || 'Error desconocido'}</div>
+                </div>
+            `;
         });
 }
 
-// Pintar solicitudes en el modal
-function renderApplicationsInModal(studentId, apps) {
-    const container = document.getElementById('pm_applications');
+function renderStudentDetails(studentId, studentData, applications) {
+    const container = document.getElementById('detailsContainer');
     const VALID_STATUSES = ['Enviada', 'En revisión', 'Aprobada', 'Rechazada', 'Entrega', 'Cancelada'];
-
-    if (!apps || apps.length === 0) {
-        container.innerHTML = '<p style="font-size:0.9rem;color:#666;">Este estudiante no tiene solicitudes de beca registradas.</p>';
-        return;
-    }
-
-    let html = '';
-    apps.forEach(app => {
-        const selectId   = `status-select-${app.ID_Kit}`;
-        const msgId      = `status-msg-${app.ID_Kit}`;
-        const statusClass = statusClassFromText(app.ApplicationStatus);
-
+    
+    // Asegurarnos de que los valores sean strings
+    const name = studentData.Name || '';
+    const lastName = studentData.Last_Name || '';
+    const email = studentData.Email_Address || '';
+    const license = studentData.License || '';
+    const average = studentData.Average || '';
+    const status = studentData.status || '';
+    
+    const nombreCompleto = name + ' ' + lastName;
+    const totalApplications = applications ? applications.length : 0;
+    
+    let html = `
+        <div class="details-section open">
+            <div class="details-header">
+                <h3>Perfil del estudiante</h3>
+                <button class="close-details-btn" onclick="toggleStudentDetails(${studentId})">&times;</button>
+            </div>
+            
+            <div class="details-error" style="display: none;"></div>
+            
+            <div class="details-row">
+                <strong>Nombre:</strong>
+                <span>${escapeHtml(nombreCompleto.trim() || '—')}</span>
+            </div>
+            
+            <div class="details-row">
+                <strong>Correo:</strong>
+                <span>${escapeHtml(email || '—')}</span>
+            </div>
+            
+            <div class="details-row">
+                <strong>Matrícula:</strong>
+                <span>${escapeHtml(license || 'No asignada')}</span>
+            </div>
+            
+            <div class="details-row">
+                <strong>Promedio:</strong>
+                <span>${escapeHtml(average || '—')}</span>
+            </div>
+            
+            <div class="details-row">
+                <strong>Estatus:</strong>
+                <span>${escapeHtml(status || 'Sin Solicitud')}</span>
+            </div>
+            
+            <div class="details-hr"></div>
+            
+            <h4 style="color: #2c3e50; margin-bottom: 20px; font-size: 1.3rem;">Solicitudes de beca</h4>
+    `;
+    
+    if (totalApplications === 0) {
+        html += '<div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 6px; color: #666;">Este estudiante no tiene solicitudes de beca registradas.</div>';
+    } else {
+        // Mostrar primero el mensaje con el número total de solicitudes
         html += `
-        <div class="modal-app-card">
-            <h4>${escapeHtml(app.KitName)}</h4>
-            <p><strong>ID Solicitud:</strong> #${app.ID_status}</p>
-            <p>
-                <strong>Estatus actual:</strong>
-                <span class="status-pill status-${escapeHtml(statusClass)}">
-                    ${escapeHtml(app.ApplicationStatus)}
-                </span>
-            </p>
-            <p><strong>Fecha solicitud:</strong> ${escapeHtml(app.Application_date)}</p>
-            <p><strong>Periodo:</strong> ${escapeHtml(app.Start_date)} al ${escapeHtml(app.End_date)}</p>
-            <p><strong>Descripción:</strong> ${escapeHtml(app.KitDescription || '')}</p>
+            <div class="applications-summary">
+                <div class="applications-count">
+                    Este estudiante tiene <span>${totalApplications}</span> solicitud(es) de beca registrada(s).
+                </div>
+                <div class="applications-message">
+                    A continuación se muestran los detalles de cada solicitud:
+                </div>
+            </div>
+        `;
+        
+        // Ahora mostrar cada solicitud individual
+        applications.forEach(app => {
+            const selectId   = `status-select-${studentId}-${app.ID_Kit}`;
+            const msgId      = `status-msg-${studentId}-${app.ID_Kit}`;
+            const statusClass = statusClassFromText(app.ApplicationStatus || '');
+            
+            // Asegurarnos de que los valores sean strings
+            const kitName = app.KitName || '';
+            const appStatus = app.ApplicationStatus || '';
+            const appDate = app.Application_date || '';
+            const startDate = app.Start_date || '';
+            const endDate = app.End_date || '';
+            const idStatus = app.ID_status || '';
 
-            <label for="${selectId}">Cambiar estatus a:</label>
-            <select id="${selectId}">
-                ${VALID_STATUSES.map(st => `
-                    <option value="${st}" ${st === app.ApplicationStatus ? 'selected' : ''}>
-                        ${st}
-                    </option>
-                `).join('')}
-            </select>
+            html += `
+            <div class="app-card">
+                <h4>${escapeHtml(kitName)}</h4>
+                <p><strong>ID Solicitud:</strong> #${escapeHtml(idStatus)}</p>
+                <p>
+                    <strong>Estatus actual:</strong>
+                    <span class="status-pill status-${escapeHtml(statusClass)}">
+                        ${escapeHtml(appStatus)}
+                    </span>
+                </p>
+                <p><strong>Fecha solicitud:</strong> ${escapeHtml(appDate)}</p>
+                <p><strong>Periodo:</strong> ${escapeHtml(startDate)} al ${escapeHtml(endDate)}</p>
 
-            <button type="button"
-                    onclick="updateApplicationStatus(${studentId}, ${app.ID_Kit}, '${selectId}', '${msgId}')">
-                Actualizar estatus
-            </button>
+                <label for="${selectId}">Cambiar estatus a:</label>
+                <select id="${selectId}">
+                    ${VALID_STATUSES.map(st => `
+                        <option value="${st}" ${st === appStatus ? 'selected' : ''}>
+                            ${st}
+                        </option>
+                    `).join('')}
+                </select>
 
-            <div id="${msgId}" class="status-update-msg"></div>
-        </div>`;
-    });
+                <button type="button"
+                        onclick="updateApplicationStatus(${studentId}, ${app.ID_Kit}, '${selectId}', '${msgId}')">
+                    Actualizar estatus
+                </button>
 
+                <div id="${msgId}" class="status-update-msg"></div>
+            </div>`;
+        });
+    }
+    
+    html += '</div>';
     container.innerHTML = html;
 }
 
 // Actualizar estatus vía AJAX
 function updateApplicationStatus(studentId, kitId, selectId, msgId) {
-    const select    = document.getElementById(selectId);
+    const select = document.getElementById(selectId);
     const newStatus = select.value;
-    const msgBox    = document.getElementById(msgId);
+    const msgBox = document.getElementById(msgId);
 
     let confirmText;
     if (newStatus === 'Cancelada') {
-        confirmText = '¿Estás seguro de cancelar esta solicitud?\n\nLa solicitud será marcada como "Cancelada" y el estudiante será notificado.';
+        confirmText = '¿Estás seguro de cancelar esta solicitud?\n\nLa solicitud será marcada como "Cancelada" y NO podrá ser solicitada nuevamente.';
     } else if (newStatus === 'Rechazada') {
-        confirmText = '¿Estás seguro de rechazar esta solicitud?\n\nLa solicitud será marcada como "Rechazada" y el estudiante será notificado.';
+        confirmText = '¿Estás seguro de rechazar esta solicitud?\n\nLa solicitud será marcada como "Rechazada" y NO podrá ser solicitada nuevamente.';
     } else {
         confirmText = '¿Confirmar cambio de estado a: ' + newStatus + '?';
     }
@@ -457,6 +899,7 @@ function updateApplicationStatus(studentId, kitId, selectId, msgId) {
     if (!confirm(confirmText)) return;
 
     msgBox.textContent = 'Guardando...';
+    msgBox.className = 'status-update-msg';
 
     fetchJson(
         { action: 'update_status' },
@@ -473,18 +916,20 @@ function updateApplicationStatus(studentId, kitId, selectId, msgId) {
     )
     .then(data => {
         msgBox.textContent = data.message || 'Estatus actualizado.';
+        msgBox.className = 'status-update-msg success';
 
-        const card = document.getElementById(selectId).closest('.modal-app-card');
+        const card = document.getElementById(selectId).closest('.app-card');
         const pill = card.querySelector('.status-pill');
         pill.textContent = newStatus;
         pill.className = 'status-pill status-' + statusClassFromText(newStatus);
     })
     .catch(err => {
-        msgBox.textContent = 'Error al actualizar: ' + err.message;
+        msgBox.textContent = 'Error al actualizar: ' . err.message;
+        msgBox.className = 'status-update-msg error';
     });
 }
 
-// ====== Paginación + búsqueda + cierre modal ======
+// ====== Paginación + búsqueda ======
 document.addEventListener('DOMContentLoaded', function () {
     const rows = Array.from(document.querySelectorAll('#studentTable tbody tr'));
     const rowsPerPage = 10;
@@ -533,24 +978,13 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         renderPage(1);
+        // Cerrar detalles si están abiertos al buscar
+        if (currentOpenStudentId) {
+            toggleStudentDetails(currentOpenStudentId);
+        }
     });
 
     renderPage(1);
-
-    const modal   = document.getElementById('profileModal');
-    const closeBtn = document.getElementById('pm_close');
-
-    closeBtn.addEventListener('click', () => {
-        modal.classList.remove('open');
-        document.body.classList.remove('modal-open');
-    });
-
-    window.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.classList.remove('open');
-            document.body.classList.remove('modal-open');
-        }
-    });
 });
 </script>
 
