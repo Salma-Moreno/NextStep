@@ -9,15 +9,91 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Staff') {
 }
 
 $id = $_POST['id'] ?? '';
-$name = $_POST['name'] ?? '';
-$address = $_POST['address'] ?? '';
-$phone = $_POST['phone'] ?? '';
-$company = $_POST['company'] ?? '';
-$lat = $_POST['latitude'] ?? '';
-$lon = $_POST['longitude'] ?? '';
+$name = trim($_POST['name'] ?? '');
+$address = trim($_POST['address'] ?? '');
+$phone = trim($_POST['phone'] ?? '');
+$company = trim($_POST['company'] ?? '');
+$lat = trim($_POST['latitude'] ?? '');
+$lon = trim($_POST['longitude'] ?? '');
 
-if ($id === '' || $name === '' || $address === '' || $company === '') {
-    echo json_encode(["success" => false, "error" => "Datos incompletos"]);
+$errors = [];
+
+// Validación de ID
+if (empty($id)) {
+    $errors[] = "ID no recibido";
+} elseif (!is_numeric($id)) {
+    $errors[] = "ID no válido";
+}
+
+// Validación de nombre
+if (empty($name)) {
+    $errors[] = "El nombre es obligatorio";
+} elseif (strlen($name) < 3) {
+    $errors[] = "El nombre debe tener al menos 3 caracteres";
+} elseif (!preg_match('/^[a-zA-ZÁÉÍÓÚáéíóúÑñ0-9\s&.,\-()]+$/', $name)) {
+    $errors[] = "El nombre contiene caracteres no permitidos";
+}
+
+// Validación de dirección
+if (empty($address)) {
+    $errors[] = "La dirección es obligatoria";
+} elseif (strlen($address) < 10) {
+    $errors[] = "La dirección debe tener al menos 10 caracteres";
+}
+
+// Validación de teléfono
+if (!empty($phone)) {
+    $clean_phone = preg_replace('/[^\d]/', '', $phone);
+    if (strlen($clean_phone) !== 10) {
+        $errors[] = "El teléfono debe tener 10 dígitos";
+    } elseif (!preg_match('/^[0-9]{10}$/', $clean_phone)) {
+        $errors[] = "Formato de teléfono inválido";
+    } else {
+        $phone = $clean_phone;
+    }
+}
+
+// Validación de compañía
+if (empty($company)) {
+    $errors[] = "Debe seleccionar una compañía";
+} elseif (!is_numeric($company)) {
+    $errors[] = "Compañía no válida";
+}
+
+// Validación de coordenadas
+if (empty($lat) || empty($lon)) {
+    $errors[] = "Las coordenadas son obligatorias";
+} elseif (!is_numeric($lat) || !is_numeric($lon)) {
+    $errors[] = "Coordenadas no válidas";
+} elseif ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
+    $errors[] = "Coordenadas fuera de rango";
+}
+
+// Si hay errores, retornarlos
+if (!empty($errors)) {
+    echo json_encode(["success" => false, "error" => implode(". ", $errors)]);
+    exit;
+}
+
+// Verificar que la sucursal exista
+$check_branch = $conn->prepare("SELECT ID_Point FROM collection_point WHERE ID_Point = ?");
+$check_branch->bind_param("i", $id);
+$check_branch->execute();
+$check_branch->store_result();
+
+if ($check_branch->num_rows === 0) {
+    echo json_encode(["success" => false, "error" => "La sucursal no existe"]);
+    exit;
+}
+
+// Verificar que la compañía exista
+$check_company = $conn->prepare("SELECT ID_Company FROM company WHERE ID_Company = ?");
+$check_company->bind_param("i", $company);
+$check_company->execute();
+$check_company->store_result();
+
+if ($check_company->num_rows === 0) {
+    echo json_encode(["success" => false, "error" => "La compañía no existe"]);
     exit;
 }
 
