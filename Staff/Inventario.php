@@ -213,6 +213,29 @@ if ($getAction === 'delete_material' && isset($_GET['id'])) {
 }
 
 /* =======================
+   PAGINACIÓN DE KITS
+   ======================= */
+$registrosPorPagina = 5;
+$paginaActual = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
+if ($paginaActual < 1) $paginaActual = 1;
+
+// Calcular offset
+$offset = ($paginaActual - 1) * $registrosPorPagina;
+
+// Obtener el total de kits
+$stmtTotal = $conn->prepare("SELECT COUNT(*) as total FROM kit");
+$stmtTotal->execute();
+$resultTotal = $stmtTotal->get_result();
+$totalKits = $resultTotal->fetch_assoc()['total'];
+$stmtTotal->close();
+
+$totalPaginas = ceil($totalKits / $registrosPorPagina);
+if ($paginaActual > $totalPaginas && $totalPaginas > 0) {
+    $paginaActual = $totalPaginas;
+    $offset = ($paginaActual - 1) * $registrosPorPagina;
+}
+
+/* =======================
    CONSULTAS AUXILIARES
    ======================= */
 
@@ -236,16 +259,20 @@ $resSup = $conn->query(
 while ($r = $resSup->fetch_assoc()) $supplies[] = $r;
 $resSup->free();
 
-/* Kits */
+/* Kits PAGINADOS */
 $kits = [];
 $q = "SELECT k.ID_Kit, k.FK_ID_Semester, k.Start_date, k.End_date, 
              s.Period, s.Year
       FROM kit k
       LEFT JOIN semester s ON k.FK_ID_Semester = s.ID_Semester
-      ORDER BY k.ID_Kit DESC";
-$res = $conn->query($q);
+      ORDER BY k.ID_Kit DESC
+      LIMIT ? OFFSET ?";
+$stmt = $conn->prepare($q);
+$stmt->bind_param("ii", $registrosPorPagina, $offset);
+$stmt->execute();
+$res = $stmt->get_result();
 while ($r = $res->fetch_assoc()) $kits[] = $r;
-$res->free();
+$stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -255,6 +282,92 @@ $res->free();
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <!-- Ajusta la ruta según estructura de carpetas -->
     <link rel="stylesheet" href="../assets/staff/inventario.css">
+    <style>
+        .pagination-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .pagination-buttons a, .pagination-buttons span {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #333;
+            background: white;
+            transition: all 0.3s;
+        }
+        
+        .pagination-buttons a:hover {
+            background: #f0f0f0;
+        }
+        
+        .pagination-buttons .disabled {
+            color: #ccc;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        /* Estilos para el header de detalles del kit */
+        .kit-details-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .kit-details-header h4 {
+            margin: 0;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+        
+        .close-btn:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        /* Animación para el panel de detalles */
+        .kit-details-panel {
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
 </head>
 <body>
 <?php include '../Includes/HeaderMenuStaff.php'; ?>
@@ -291,7 +404,12 @@ $res->free();
     <div class="grid">
         <!-- Izquierda: Kits y materiales -->
         <div class="card">
-            <h3 style="margin-top:0">Kits registrados</h3>
+            <div class="controls-row">
+                <h3 style="margin:0">Kits registrados</h3>
+                <div class="small">
+                    Total: <?php echo $totalKits; ?> kits
+                </div>
+            </div>
 
             <table>
                 <thead>
@@ -312,26 +430,48 @@ $res->free();
                             <td><?php echo h(($k['Period'] ?? '-') . ' ' . ($k['Year'] ?? '')); ?></td>
                             <td><?php echo h($k['Start_date']); ?> — <?php echo h($k['End_date']); ?></td>
                             <td class="actions">
-    <a class="view"
-       href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=view_materials&id=<?php echo h($k['ID_Kit']); ?>">
-       Ver materiales
-    </a>
-    <a class="edit"
-       href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=edit_kit&id=<?php echo h($k['ID_Kit']); ?>">
-       Editar
-    </a>
-    <a class="del"
-       href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=delete_kit&id=<?php echo h($k['ID_Kit']); ?>"
-       onclick="return confirm('¿Eliminar kit y sus materiales?')">
-       Eliminar
-    </a>
-</td>
-
+                                <a class="view"
+                                   href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=view_materials&id=<?php echo h($k['ID_Kit']); ?>&pagina=<?php echo $paginaActual; ?>">
+                                   Ver materiales
+                                </a>
+                                <a class="edit"
+                                   href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=edit_kit&id=<?php echo h($k['ID_Kit']); ?>&pagina=<?php echo $paginaActual; ?>">
+                                   Editar
+                                </a>
+                                <a class="del"
+                                   href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=delete_kit&id=<?php echo h($k['ID_Kit']); ?>&pagina=<?php echo $paginaActual; ?>"
+                                   onclick="return confirm('¿Eliminar kit y sus materiales?')">
+                                   Eliminar
+                                </a>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
                 </tbody>
             </table>
+
+            <!-- Solo botones Anterior/Siguiente -->
+            <?php if ($totalPaginas > 1): ?>
+                <div class="pagination-buttons">
+                    <!-- Botón Anterior -->
+                    <?php if ($paginaActual > 1): ?>
+                        <a href="?pagina=<?php echo $paginaActual - 1; ?><?php echo $getAction ? '&action=' . h($getAction) : ''; ?><?php echo isset($_GET['id']) ? '&id=' . h($_GET['id']) : ''; ?>">
+                            ‹ Anterior
+                        </a>
+                    <?php else: ?>
+                        <span class="disabled">‹ Anterior</span>
+                    <?php endif; ?>
+
+                    <!-- Botón Siguiente -->
+                    <?php if ($paginaActual < $totalPaginas): ?>
+                        <a href="?pagina=<?php echo $paginaActual + 1; ?><?php echo $getAction ? '&action=' . h($getAction) : ''; ?><?php echo isset($_GET['id']) ? '&id=' . h($_GET['id']) : ''; ?>">
+                            Siguiente ›
+                        </a>
+                    <?php else: ?>
+                        <span class="disabled">Siguiente ›</span>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
 
             <!-- Materiales de un kit -->
             <?php
@@ -366,75 +506,83 @@ $res->free();
                 $qm->close();
             ?>
                 <hr style="margin:16px 0">
-                <h4>
-                    Materiales del kit 
-                    <?php echo h($kit_info ? ($kit_info['Period'].' '.$kit_info['Year']) : $id_kit); ?>
-                </h4>
-                <div class="small" style="margin-bottom:8px">
-                    Período: 
-                    <?php echo h($kit_info['Start_date'] ?? '-'); ?> — 
-                    <?php echo h($kit_info['End_date'] ?? '-'); ?>
-                </div>
+                <div class="kit-details-panel">
+                    <div class="kit-details-header">
+                        <h4>
+                            Materiales del kit 
+                            <?php echo h($kit_info ? ($kit_info['Period'].' '.$kit_info['Year']) : $id_kit); ?>
+                        </h4>
+                        <button class="close-btn" onclick="window.location.href='<?php echo h($_SERVER['PHP_SELF']); ?>?pagina=<?php echo $paginaActual; ?>'">
+                            ×
+                        </button>
+                    </div>
+                    
+                    <div class="small" style="margin-bottom:15px">
+                        Período: 
+                        <?php echo h($kit_info['Start_date'] ?? '-'); ?> — 
+                        <?php echo h($kit_info['End_date'] ?? '-'); ?>
+                    </div>
 
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Material</th>
-                            <th>Unidad (supply)</th>
-                            <th>Cantidad</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($materials)): ?>
-                            <tr><td colspan="4" class="small">No hay materiales asignados a este kit.</td></tr>
-                        <?php else: ?>
-                            <?php foreach ($materials as $m): ?>
-    <tr>
-        <td><?php echo h($m['supply_name']); ?></td>
-        <td class="small"><?php echo h($m['supply_unit']); ?></td>
-        <td><?php echo h($m['Unit']); ?></td>
-        <td class="actions">
-            <a class="edit"
-               href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=edit_material&id=<?php echo h($m['ID_KitMaterial']); ?>">
-               Editar
-            </a>
-            <a class="del"
-               href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=delete_material&id=<?php echo h($m['ID_KitMaterial']); ?>"
-               onclick="return confirm('¿Eliminar material del kit?')">
-               Eliminar
-            </a>
-        </td>
-    </tr>
-<?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-
-                <!-- Form agregar material -->
-                <div style="margin-top:12px">
-                    <form method="post" style="display:flex;gap:8px;flex-wrap:wrap">
-                        <input type="hidden" name="action" value="add_material">
-                        <input type="hidden" name="fk_kit" value="<?php echo h($id_kit); ?>">
-                        <div style="flex:1 1 220px">
-                            <label>Seleccionar suministro</label>
-                            <select name="fk_supply" required>
-                                <option value="">-- elegir --</option>
-                                <?php foreach ($supplies as $s): ?>
-                                    <option value="<?php echo h($s['ID_Supply']); ?>">
-                                        <?php echo h($s['Name'] . ' (' . $s['Unit'] . ')'); ?>
-                                    </option>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Material</th>
+                                <th>Unidad (supply)</th>
+                                <th>Cantidad</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($materials)): ?>
+                                <tr><td colspan="4" class="small">No hay materiales asignados a este kit.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($materials as $m): ?>
+                                    <tr>
+                                        <td><?php echo h($m['supply_name']); ?></td>
+                                        <td class="small"><?php echo h($m['supply_unit']); ?></td>
+                                        <td><?php echo h($m['Unit']); ?></td>
+                                        <td class="actions">
+                                            <a class="edit"
+                                               href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=edit_material&id=<?php echo h($m['ID_KitMaterial']); ?>&pagina=<?php echo $paginaActual; ?>">
+                                               Editar
+                                            </a>
+                                            <a class="del"
+                                               href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=delete_material&id=<?php echo h($m['ID_KitMaterial']); ?>&pagina=<?php echo $paginaActual; ?>"
+                                               onclick="return confirm('¿Eliminar material del kit?')">
+                                               Eliminar
+                                            </a>
+                                        </td>
+                                    </tr>
                                 <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div style="width:130px">
-                            <label>Cantidad</label>
-                            <input type="number" name="unit" min="0" value="1" required>
-                        </div>
-                        <div style="align-self:end">
-                            <button type="submit">Agregar material</button>
-                        </div>
-                    </form>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+
+                    <!-- Form agregar material -->
+                    <div style="margin-top:15px">
+                        <form method="post" style="display:flex;gap:8px;flex-wrap:wrap">
+                            <input type="hidden" name="action" value="add_material">
+                            <input type="hidden" name="fk_kit" value="<?php echo h($id_kit); ?>">
+                            <div style="flex:1 1 220px">
+                                <label>Seleccionar suministro</label>
+                                <select name="fk_supply" required>
+                                    <option value="">-- elegir --</option>
+                                    <?php foreach ($supplies as $s): ?>
+                                        <option value="<?php echo h($s['ID_Supply']); ?>">
+                                            <?php echo h($s['Name'] . ' (' . $s['Unit'] . ')'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div style="width:130px">
+                                <label>Cantidad</label>
+                                <input type="number" name="unit" min="0" value="1" required>
+                            </div>
+                            <div style="align-self:end">
+                                <button type="submit">Agregar material</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
@@ -481,7 +629,7 @@ $res->free();
 
                         <div style="margin-top:10px">
                             <button type="submit">Guardar cambios</button>
-                            <a href="inventario_kits.php" class="small link-cancel">Cancelar</a>
+                            <a href="inventario_kits.php?pagina=<?php echo $paginaActual; ?>" class="small link-cancel">Cancelar</a>
                         </div>
                     </form>
                 <?php else: ?>
@@ -569,7 +717,12 @@ $res->free();
         ?>
         <div class="edit-material-wrap">
             <div class="card">
-                <h3>Editar material: <?php echo h($mat_edit['Name']); ?></h3>
+                <div class="kit-details-header">
+                    <h3>Editar material: <?php echo h($mat_edit['Name']); ?></h3>
+                    <button class="close-btn" onclick="window.location.href='<?php echo h($_SERVER['PHP_SELF']); ?>?action=view_materials&id=<?php echo h($mat_edit['FK_ID_Kit']); ?>&pagina=<?php echo $paginaActual; ?>'">
+                        ×
+                    </button>
+                </div>
                 <form method="post" class="edit-material-form">
                     <input type="hidden" name="action" value="update_material">
                     <input type="hidden" name="id_material" value="<?php echo h($mat_edit['ID_KitMaterial']); ?>">
@@ -580,11 +733,6 @@ $res->free();
                     </div>
                     <div>
                         <button type="submit">Guardar</button>
-                        <a href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=view_materials&id=<?php echo h($mat_edit['FK_ID_Kit']); ?>"
-   class="small link-cancel">
-   Cancelar
-</a>
-
                     </div>
                 </form>
             </div>
