@@ -55,36 +55,34 @@ if ($row = $result->fetch_assoc()) {
     
     $perfil_completo = $tieneDatosPersonales;
 }
-
 $stmt->close();
 
 /* ======== 2. Obtener TODAS las becas que el estudiante YA HA SOLICITADO ========= */
-$kits_solicitados = []; // IDs de kits ya solicitados (sin importar estado)
-$solicitudes_activas = []; // Solicitudes con estados activos
+$kits_solicitados = [];       // IDs de kits ya solicitados (sin importar estado)
+$solicitudes_activas = [];    // Solicitudes con estados activos
 $tieneSolicitudesActivas = false;
 
 if ($student_id) {
-    // Consulta para obtener TODOS los kits que el estudiante ya ha solicitado
+
+    // Todos los kits que ha solicitado
     $sql_kits = "SELECT DISTINCT FK_ID_Kit 
-                FROM aplication 
-                WHERE FK_ID_Student = ?";
-    
+                 FROM aplication 
+                 WHERE FK_ID_Student = ?";
     $stmt_kits = $conn->prepare($sql_kits);
     $stmt_kits->bind_param("i", $student_id);
     $stmt_kits->execute();
     $result_kits = $stmt_kits->get_result();
-    
     while ($kit_row = $result_kits->fetch_assoc()) {
         $kits_solicitados[] = (int)$kit_row['FK_ID_Kit'];
     }
-    
     $stmt_kits->close();
-    
-    // Consulta para obtener solicitudes ACTIVAS (para mostrar estado)
-    $sql_activas = "SELECT FK_ID_Kit, status
-                    FROM aplication
-                    WHERE FK_ID_Student = ?
-                      AND status NOT IN ('Cancelada', 'Rechazada')";
+
+    // Solicitudes ACTIVAS + nombre de beca
+    $sql_activas = "SELECT a.FK_ID_Kit, a.status, k.Name AS kit_name
+                    FROM aplication a
+                    JOIN kit k ON a.FK_ID_Kit = k.ID_Kit
+                    WHERE a.FK_ID_Student = ?
+                      AND a.status NOT IN ('Cancelada', 'Rechazada')";
     
     $stmt_activas = $conn->prepare($sql_activas);
     $stmt_activas->bind_param("i", $student_id);
@@ -94,9 +92,9 @@ if ($student_id) {
     while ($activa = $res_activas->fetch_assoc()) {
         $solicitudes_activas[] = $activa;
     }
-    
-    $tieneSolicitudesActivas = !empty($solicitudes_activas);
     $stmt_activas->close();
+
+    $tieneSolicitudesActivas = !empty($solicitudes_activas);
 }
 
 /* ========= 3. Cancelar solicitud ========= */
@@ -137,11 +135,10 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
         exit;
     }
 
-    // Generar nuevo ID
+    // Generar nuevo ID_status
     $next_id_status = 1;
     $sql_max_id = "SELECT MAX(ID_status) AS max_id FROM aplication";
     $result_max = $conn->query($sql_max_id);
-
     if ($result_max && $row_max = $result_max->fetch_assoc()) {
         if (!is_null($row_max['max_id'])) {
             $next_id_status = (int)$row_max['max_id'] + 1;
@@ -169,6 +166,64 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
 
     $stmt_insert->close();
 }
+
+/* ========= 5. Endpoint AJAX para detalles de beca (modal) ========= */
+$action = $_GET['action'] ?? null;
+
+if ($action === 'kit_details' && isset($_GET['id'])) {
+    $kitId = (int)$_GET['id'];
+    header('Content-Type: application/json; charset=utf-8');
+
+    $response = [
+        'ok'        => false,
+        'kit'       => null,
+        'materials' => []
+    ];
+
+    // Datos del kit + semestre
+    $stmt = $conn->prepare(
+        "SELECT k.ID_Kit,
+                k.Name       AS Name,
+                k.Start_date,
+                k.End_date,
+                s.Period,
+                s.Year
+         FROM kit k
+         JOIN semester s ON k.FK_ID_Semester = s.ID_Semester
+         WHERE k.ID_Kit = ?"
+    );
+    $stmt->bind_param("i", $kitId);
+    $stmt->execute();
+    $resKit = $stmt->get_result();
+
+    if ($kitRow = $resKit->fetch_assoc()) {
+        $response['ok']  = true;
+        $response['kit'] = $kitRow;
+
+        // Materiales del kit
+        $stmtM = $conn->prepare(
+            "SELECT km.Unit,
+                    sp.Name     AS supply_name,
+                    sp.features,
+                    sp.marca
+             FROM kit_material km
+             JOIN supplies sp ON km.FK_ID_Supply = sp.ID_Supply
+             WHERE km.FK_ID_Kit = ?
+             ORDER BY sp.Name"
+        );
+        $stmtM->bind_param("i", $kitId);
+        $stmtM->execute();
+        $resMat = $stmtM->get_result();
+        while ($m = $resMat->fetch_assoc()) {
+            $response['materials'][] = $m;
+        }
+        $stmtM->close();
+    }
+    $stmt->close();
+
+    echo json_encode($response);
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -176,245 +231,6 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
     <meta charset="UTF-8">
     <title>Solicitud de Becas - Estudiante</title>
     <link rel="stylesheet" href="../assets/Student/application.css">
-    <style>
-        .alert {
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 5px;
-            font-weight: bold;
-            text-align: center;
-        }
-        
-        .alert-warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-        }
-        
-        .alert-success {
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-        
-        .alert-info {
-            background-color: #d1ecf1;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
-        }
-        
-        .status-label {
-            padding: 8px 15px;
-            border-radius: 5px;
-            font-weight: bold;
-            background-color: #17a2b8;
-            color: white;
-            display: inline-block;
-            margin-right: 10px;
-        }
-        
-        .status-label.ya-solicitada {
-            background-color: #6c757d;
-        }
-        
-        .status-label.entregada {
-            background-color: #28a745;
-        }
-        
-        .status-label.enviada {
-            background-color: #ffc107;
-            color: #212529;
-        }
-        
-        .status-label.en-revision {
-            background-color: #0dcaf0;
-            color: white;
-        }
-        
-        .status-label.aprobada {
-            background-color: #198754;
-            color: white;
-        }
-        
-        .status-label.entrega {
-            background-color: #6f42c1;
-            color: white;
-        }
-        
-        .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
-            margin-top: 10px;
-        }
-        
-        .btn:hover {
-            background-color: #0056b3;
-        }
-        
-        .cancel-btn {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        
-        .cancel-btn:hover {
-            background-color: #c82333;
-        }
-        
-        .apply-btn {
-            background-color: #28a745;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        
-        .apply-btn:hover {
-            background-color: #218838;
-        }
-        
-        .apply-btn.disabled {
-            background-color: #6c757d;
-            cursor: not-allowed;
-        }
-        
-        .warning {
-            color: #856404;
-            background-color: #fff3cd;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            text-align: center;
-        }
-        
-        .profile-warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-            text-align: center;
-        }
-        
-        .profile-warning h3 {
-            color: #856404;
-            margin-top: 0;
-        }
-        
-        .profile-warning .btn {
-            margin-top: 15px;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 30px auto;
-            padding: 20px;
-        }
-        
-        .scholarship-header-card {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 25px;
-        }
-        
-        .scholarship-header-card h1 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-        
-        .scholarship-header-card h2 {
-            color: #7f8c8d;
-            font-size: 1.2rem;
-            margin-bottom: 15px;
-        }
-        
-        .scholarship-list {
-            display: grid;
-            gap: 20px;
-        }
-        
-        .scholarship-card {
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            display: flex;
-        }
-        
-        .card-image {
-            width: 100%;
-            background: linear-gradient(135deg, #3498db, #2980b9);
-        }
-        
-        .card-body {
-            flex: 1;
-            padding: 20px;
-        }
-        
-        .card-body h3 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-        
-        .card-short-text {
-            color: #7f8c8d;
-            margin-bottom: 10px;
-        }
-        
-        .card-long-text {
-            color: #4a5568;
-            margin-bottom: 15px;
-        }
-        
-        .card-footer {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        
-        .active-applications-info {
-            background-color: #e7f3ff;
-            border: 1px solid #b6d4fe;
-            color: #084298;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        
-        .active-applications-info h4 {
-            margin-top: 0;
-            color: #084298;
-        }
-        
-        .application-status-list {
-            list-style: none;
-            padding: 0;
-            margin: 10px 0 0 0;
-        }
-        
-        .application-status-list li {
-            padding: 5px 0;
-            border-bottom: 1px solid rgba(8, 66, 152, 0.1);
-        }
-        
-        .application-status-list li:last-child {
-            border-bottom: none;
-        }
-    </style>
 </head>
 <body>
 
@@ -424,40 +240,52 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
 
     <!-- ========= CARD SUPERIOR ========= -->
     <div class="scholarship-header-card">
-        <h1> Solicitud de Becas</h1>
+        <h1>Solicitud de Becas</h1>
 
         <?php if ($perfil_completo): ?>
             <h2>Selecciona una de las becas disponibles para ti:</h2>
             
-            <!-- Mostrar mensajes de error/success -->
+            <!-- Mensajes -->
             <?php if (isset($_GET['error']) && $_GET['error'] == 'beca_ya_solicitada'): ?>
                 <div class="alert alert-warning">
-                     Ya has solicitado esta beca anteriormente. <strong>NO puedes volver a solicitarla.</strong>
+                    Ya has solicitado esta beca anteriormente. <strong>NO puedes volver a solicitarla.</strong>
                 </div>
             <?php elseif (isset($_GET['success'])): ?>
                 <div class="alert alert-success">
-                     ¡Solicitud enviada exitosamente!
+                    ¡Solicitud enviada exitosamente!
                 </div>
             <?php elseif (isset($_GET['cancel_success'])): ?>
                 <div class="alert alert-success">
-                     ¡Solicitud cancelada exitosamente!
+                    ¡Solicitud cancelada exitosamente!
                 </div>
             <?php endif; ?>
 
             <!-- Información de solicitudes activas -->
             <?php if ($tieneSolicitudesActivas): ?>
                 <div class="active-applications-info">
-                    <h4> Tus solicitudes activas:</h4>
+                    <h4>Tus solicitudes activas:</h4>
                     <ul class="application-status-list">
                         <?php 
+                        // Agrupar por kit para no repetir
                         $activas_por_kit = [];
-                        foreach ($solicitudes_activas as $solicitud) {
-                            $activas_por_kit[$solicitud['FK_ID_Kit']] = $solicitud['status'];
+                        foreach ($solicitudes_activas as $sol) {
+                            $k_id = (int)$sol['FK_ID_Kit'];
+                            $activas_por_kit[$k_id] = [
+                                'status'   => $sol['status'],
+                                'kit_name' => $sol['kit_name']
+                            ];
                         }
-                        
-                        foreach ($activas_por_kit as $kit_id => $status): 
+                        foreach ($activas_por_kit as $kit_id => $info):
+                            $status   = $info['status'];
+                            $kitName  = $info['kit_name'];
+                            $statusCss = 'status-' . strtolower(str_replace(' ', '-', $status));
                         ?>
-                        <li>Kit <?= $kit_id ?>: <span class="status-label status-<?= strtolower(str_replace(' ', '-', $status)) ?>"><?= htmlspecialchars($status) ?></span></li>
+                        <li>
+                            <?= htmlspecialchars($kitName) ?>:
+                            <span class="status-label <?= htmlspecialchars($statusCss) ?>">
+                                <?= htmlspecialchars($status) ?>
+                            </span>
+                        </li>
                         <?php endforeach; ?>
                     </ul>
                     <p><small>Puedes tener múltiples solicitudes activas simultáneamente.</small></p>
@@ -481,11 +309,15 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
     <div class="scholarship-list">
 
         <?php
-        // Construir la consulta EXCLUYENDO kits ya solicitados
+        // Construir la consulta de becas vigentes
         $sql = "
             SELECT 
                 k.ID_Kit,
-                CONCAT('Kit #', k.ID_Kit, ' - ', s.Period, ' ', s.Year) AS Name,
+                k.Name AS DisplayName,
+                s.Period,
+                s.Year,
+                k.Start_date,
+                k.End_date,
                 CONCAT(
                     'Material escolar para el periodo ',
                     s.Period, ' ', s.Year
@@ -504,7 +336,7 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
         
         // Excluir todos los kits que ya solicitó (sin importar estado)
         if (!empty($kits_solicitados)) {
-            $excluded_ids = implode(',', $kits_solicitados);
+            $excluded_ids = implode(',', array_map('intval', $kits_solicitados));
             $sql .= " AND k.ID_Kit NOT IN ($excluded_ids)";
         }
         
@@ -516,14 +348,15 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
 
             while ($row = $result->fetch_assoc()):
                 $kitId = (int)$row['ID_Kit'];
-                $esKitSolicitado = in_array($kitId, $kits_solicitados);
-                
-                // Verificar si es una beca activa actual
-                $esBecaActiva = false;
+                $esKitSolicitado  = in_array($kitId, $kits_solicitados);
+                $displayName      = $row['DisplayName'] ?: ('Beca #' . $kitId);
+
+                // Verificar si es una beca activa actual (por si acaso)
+                $esBecaActiva     = false;
                 $estadoBecaActiva = '';
                 foreach ($solicitudes_activas as $solicitud) {
-                    if ($solicitud['FK_ID_Kit'] == $kitId) {
-                        $esBecaActiva = true;
+                    if ((int)$solicitud['FK_ID_Kit'] === $kitId) {
+                        $esBecaActiva     = true;
                         $estadoBecaActiva = $solicitud['status'];
                         break;
                     }
@@ -531,11 +364,11 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
         ?>
 
         <!-- ========= CARD INDIVIDUAL ========= -->
-        <div class="scholarship-card">
+        <div class="scholarship-card" onclick="openKitModal(<?= $kitId ?>)">
             <div class="card-image"></div>
 
             <div class="card-body">
-                <h3><?= htmlspecialchars($row['Name']) ?></h3>
+                <h3><?= htmlspecialchars($displayName) ?></h3>
                 <p class="card-short-text"><?= htmlspecialchars($row['ShortDescription']) ?></p>
                 <p class="card-long-text"><?= htmlspecialchars($row['LongDescription']) ?></p>
 
@@ -543,38 +376,38 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
 
                     <?php if (!$esKitSolicitado): ?>
                         <!-- PUEDE SOLICITAR - Nunca ha solicitado esta beca -->
-                        <form method="POST" action="application.php">
+                        <form method="POST" action="application.php" onclick="event.stopPropagation();">
                             <input type="hidden" name="kit_id" value="<?= $kitId ?>">
                             <button type="submit" name="apply_scholarship" class="apply-btn">
-                                 Solicitar beca
+                                Solicitar beca
                             </button>
                         </form>
 
                     <?php elseif ($esBecaActiva): ?>
                         <!-- YA TIENE ESTA BECA ACTIVA -->
-                        <?php if ($estadoBecaActiva === 'Entrega'): ?>
-                            <span class="status-label entregada"> Entregada</span>
-                        <?php elseif ($estadoBecaActiva === 'Aprobada'): ?>
-                            <span class="status-label aprobada"> Aprobada</span>
-                        <?php elseif ($estadoBecaActiva === 'En revisión'): ?>
-                            <span class="status-label en-revision"> En revisión</span>
-                        <?php else: ?>
-                            <span class="status-label enviada"> <?= htmlspecialchars($estadoBecaActiva) ?></span>
-                        <?php endif; ?>
+                        <?php
+                        $statusClass = 'enviada';
+                        if ($estadoBecaActiva === 'Entrega')     $statusClass = 'entrega';
+                        elseif ($estadoBecaActiva === 'Aprobada') $statusClass = 'aprobada';
+                        elseif ($estadoBecaActiva === 'En revisión') $statusClass = 'en-revision';
+                        ?>
+                        <span class="status-label <?= $statusClass ?>">
+                            <?= htmlspecialchars($estadoBecaActiva) ?>
+                        </span>
                         
                         <?php if (!in_array($estadoBecaActiva, ['Entregada', 'Aprobada', 'Entrega'])): ?>
-                            <form method="POST" action="application.php">
+                            <form method="POST" action="application.php" onclick="event.stopPropagation();">
                                 <input type="hidden" name="kit_id" value="<?= $kitId ?>">
-                                <button type="submit" name="cancel_application" class="cancel-btn" 
-                                    onclick="return confirm('¿Cancelar esta solicitud?\n\nUna vez cancelada NO podrás volver a solicitarla.')">
-                                     Cancelar
+                                <button type="submit" name="cancel_application" class="cancel-btn"
+                                    onclick="return confirm('¿Cancelar esta solicitud?\n\nUna vez cancelada NO podrás volver a solicitarla.');">
+                                    Cancelar
                                 </button>
                             </form>
                         <?php endif; ?>
 
                     <?php else: ?>
                         <!-- YA SOLICITÓ ESTA BECA PERO FUE CANCELADA/RECHAZADA -->
-                        <span class="status-label ya-solicitada"> Ya solicitada</span>
+                        <span class="status-label ya-solicitada">Ya solicitada</span>
                     <?php endif; ?>
 
                 </div>
@@ -589,15 +422,109 @@ if (isset($_POST['apply_scholarship'], $_POST['kit_id'])) {
     <?php endif; ?>
 </div>
 
+<!-- Modal detalles de beca -->
+<div id="kit-modal-overlay" class="kit-modal-overlay">
+    <div class="kit-modal card">
+        <button type="button"
+                class="kit-modal-close"
+                onclick="closeKitModal()">
+            ×
+        </button>
+        <div id="kit-modal-content">
+            <!-- El JS inyecta aquí el contenido -->
+        </div>
+    </div>
+</div>
+
 <script>
-// Confirmación antes de cancelar
-document.querySelectorAll('form[action*="cancel_application"]').forEach(form => {
-    form.addEventListener('submit', function(e) {
-        if (!confirm('¿Estás seguro de cancelar esta solicitud?\n\nUna vez cancelada NO podrás volver a solicitarla.')) {
-            e.preventDefault();
-        }
-    });
-});
+// Helper para escapar HTML
+function escapeHtml(str){
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#039;');
+}
+
+/* === Abrir modal de detalles de beca === */
+function openKitModal(kitId){
+    const overlay = document.getElementById('kit-modal-overlay');
+    const content = document.getElementById('kit-modal-content');
+    if (!overlay || !content) return;
+
+    overlay.style.display = 'flex';
+    content.innerHTML = '<p class="kit-modal-subtitle">Cargando detalles de la beca...</p>';
+
+    const url = 'application.php?action=kit_details&id=' + encodeURIComponent(kitId);
+
+    fetch(url, { headers: { 'X-Requested-With':'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.ok || !data.kit){
+                content.innerHTML = '<p class="empty-msg">No se pudieron obtener los detalles de la beca.</p>';
+                return;
+            }
+
+            const kit = data.kit;
+            const materials = data.materials || [];
+
+            const displayName = kit.Name || ('Beca #' + kit.ID_Kit);
+
+            let html = '';
+
+            // Título y subtítulo
+            html += '<h2 class="kit-modal-title">' + escapeHtml(displayName) + '</h2>';
+            html += '<p class="kit-modal-subtitle">Detalle de materiales incluidos en esta beca</p>';
+
+            // Datos de semestre y vigencia
+            html += '<div class="kit-modal-meta">';
+            html +=   '<span><strong>Semestre:</strong> '
+                   +   escapeHtml((kit.Period || '') + ' ' + (kit.Year || ''))
+                   + '</span>';
+            html +=   '<span><strong>Vigencia:</strong> '
+                   +   escapeHtml(kit.Start_date || '-') + ' — '
+                   +   escapeHtml(kit.End_date || '-')
+                   + '</span>';
+            html += '</div>';
+
+            // Tabla de materiales
+            if (!materials.length){
+                html += '<p class="empty-msg">Este kit aún no tiene materiales asignados.</p>';
+            } else {
+                html += '<table>';
+                html +=   '<thead><tr>'
+                       +     '<th>Material</th>'
+                       +     '<th>Características</th>'
+                       +     '<th>Marca</th>'
+                       +     '<th>Cantidad en beca</th>'
+                       +   '</tr></thead><tbody>';
+
+                materials.forEach(function(m){
+                    html += '<tr>'
+                         +   '<td>' + escapeHtml(m.supply_name || '') + '</td>'
+                         +   '<td>' + escapeHtml(m.features || '') + '</td>'
+                         +   '<td>' + escapeHtml(m.marca || '') + '</td>'
+                         +   '<td>' + escapeHtml(m.Unit != null ? String(m.Unit) : '') + '</td>'
+                         + '</tr>';
+                });
+
+                html +=   '</tbody></table>';
+            }
+
+            content.innerHTML = html;
+        })
+        .catch(err => {
+            console.error(err);
+            content.innerHTML = '<p class="empty-msg">Ocurrió un error al cargar la información.</p>';
+        });
+}
+
+function closeKitModal(){
+    const overlay = document.getElementById('kit-modal-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
 </script>
 
 </body>

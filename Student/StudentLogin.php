@@ -63,7 +63,7 @@ if (isset($_SESSION['usuario_id']) && $_SESSION['usuario_rol'] === 'Student') {
 <body>
     <?php include '../includes/header.php'; ?>
     <div class="container">
-        <h1>Iniciar Sesión (Student)</h1>
+        <h1>Iniciar Sesión (Estudiante)</h1>
 
         <?php
         if (isset($_SESSION['error'])) {

@@ -1,179 +1,396 @@
 /* ==========================================================================
    Reseteo y configuración base
    ========================================================================== */
-
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
 }
 
-body {
-    font-family: Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: center;
-    min-height: 100vh;
-    text-align: left;
-    background-color: #f4f4f4;
-}
-/* ==========================================================================
-   Estilos de títulos
-   ========================================================================== */
-
-h1 {
-    color: #0056b3;
-    margin-bottom: 25px;
-    text-align: center;
-}
-
-h2 {
-    color: #007bff;
-    margin-bottom: 15px;
-    text-align: center;
-}
-/* ==========================================================================
-   Advertencias
-   ========================================================================== */
-
-.warning {
-    background: #ffefc5;
-    border: 1px solid #ffc107;
-    color: #856404;
-    padding: 15px;
-    border-radius: 8px;
-    margin: 20px 0;
-    text-align: center;
+body{
+    font-family:Arial,sans-serif;
+    min-height:100vh;
+    background:#f4f4f4;
+    color:#111827;
 }
 
 /* ==========================================================================
-   CARD SUPERIOR
+   Títulos
    ========================================================================== */
+h1{
+    color:#0056b3;
+    margin-bottom:25px;
+    text-align:center;
+}
 
-.scholarship-header-card {
-    background: #ffffff;
-    border-radius: 18px;
-    padding: 32px 40px;
-    margin: 32px auto 40px;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-    text-align: center;
+h2{
+    color:#007bff;
+    margin-bottom:15px;
+    text-align:center;
 }
 
 /* ==========================================================================
-   GRID DE CARDS
+   Contenedor principal
    ========================================================================== */
-
-.scholarship-list {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr); /* 3 columnas iguales */
-    gap: 32px; /* separacion bonita */
-    margin-top: 40px;
-    justify-items: center;
+.container{
+    max-width:90%;
+    margin:5px auto;
+    padding:10px;
 }
 
 /* ==========================================================================
-   CARD INDIVIDUAL
+   Advertencias / mensajes
    ========================================================================== */
-
-.scholarship-card {
-    width: 360px;    /* tamaño exacto de la imagen 2 */
-    background: #ffffff;
-    border-radius: 18px;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+.warning{
+    background:#fff3cd;
+    border:1px solid #ffeaa7;
+    color:#856404;
+    padding:15px;
+    border-radius:8px;
+    margin:20px 0;
+    text-align:center;
 }
 
-.card-image {
-    height: 120px;
-    background: linear-gradient(135deg, #1f3259, #6696f8);
-    border-radius: 18px 18px 0 0;
+.alert{
+    padding:15px;
+    margin:15px 0;
+    border-radius:5px;
+    font-weight:bold;
+    text-align:center;
+}
+.alert-warning{
+    background-color:#fff3cd;
+    border:1px solid #ffeaa7;
+    color:#856404;
+}
+.alert-success{
+    background-color:#d4edda;
+    border:1px solid #c3e6cb;
+    color:#155724;
+}
+.alert-info{
+    background-color:#d1ecf1;
+    border:1px solid #bee5eb;
+    color:#0c5460;
 }
 
-.card-body {
-    padding: 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+/* Perfil incompleto */
+.profile-warning{
+    background-color:#fff3cd;
+    border:1px solid #ffeaa7;
+    color:#856404;
+    padding:20px;
+    border-radius:8px;
+    margin:20px 0;
+    text-align:center;
 }
-
-.card-body h3 {
-    font-size: 1rem;
-    margin: 0;
-    color: #0056b3;
+.profile-warning h3{
+    color:#856404;
+    margin-top:0;
 }
-
-.card-short-text {
-    font-size: 0.9rem;
-    color: #374151;
-}
-
-.card-long-text {
-    font-size: 0.8rem;
-    color: #6b7280;
-}
-
-.card-footer {
-    margin-top: 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.profile-warning .btn{
+    margin-top:15px;
 }
 
 /* ==========================================================================
-   BOTONES
+   Card superior (texto introductorio)
    ========================================================================== */
+.scholarship-header-card{
+    background:#ffffff;
+    border-radius:18px;
+    padding:32px 40px;
+    margin:32px auto 40px;
+    box-shadow:0 10px 30px rgba(15,23,42,0.08);
+    text-align:center;
+}
+.scholarship-header-card h1{
+    color:#2c3e50;
+    margin-bottom:10px;
+}
+.scholarship-header-card h2{
+    color:#7f8c8d;
+    font-size:1.2rem;
+    margin-bottom:15px;
+}
+
+/* ==========================================================================
+   Info de solicitudes activas
+   ========================================================================== */
+.active-applications-info{
+    background-color:#e7f3ff;
+    border:1px solid #b6d4fe;
+    color:#084298;
+    padding:15px;
+    border-radius:8px;
+    margin-bottom:20px;
+}
+.active-applications-info h4{
+    margin-top:0;
+    color:#084298;
+}
+.application-status-list{
+    list-style:none;
+    padding:0;
+    margin:10px 0 0 0;
+}
+.application-status-list li{
+    padding:5px 0;
+    border-bottom:1px solid rgba(8,66,152,0.1);
+}
+.application-status-list li:last-child{
+    border-bottom:none;
+}
+
+/* ==========================================================================
+   GRID de becas
+   ========================================================================== */
+.scholarship-list{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:32px;
+    margin-top:40px;
+    justify-items:center;
+}
+
+/* Responsive */
+@media (max-width:1024px){
+    .scholarship-list{
+        grid-template-columns:repeat(2, 1fr);
+    }
+}
+@media (max-width:700px){
+    .scholarship-list{
+        grid-template-columns:1fr;
+    }
+}
+
+/* ==========================================================================
+   Card individual de beca
+   ========================================================================== */
+.scholarship-card{
+    width:360px;
+    background:#ffffff;
+    border-radius:18px;
+    box-shadow:0 10px 30px rgba(15,23,42,0.08);
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    cursor:pointer;
+}
+
+.card-image{
+    height:120px;
+    background:linear-gradient(135deg,#1f3259,#6696f8);
+    border-radius:18px 18px 0 0;
+}
+
+.card-body{
+    padding:18px 20px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+.card-body h3{
+    font-size:1rem;
+    margin:0;
+    color:#0056b3;
+}
+.card-short-text{
+    font-size:0.9rem;
+    color:#374151;
+}
+.card-long-text{
+    font-size:0.8rem;
+    color:#6b7280;
+}
+.card-footer{
+    margin-top:12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+/* ==========================================================================
+   Botones
+   ========================================================================== */
+.btn{
+    display:inline-block;
+    padding:10px 20px;
+    background-color:#007bff;
+    color:white;
+    text-decoration:none;
+    border-radius:6px;
+    font-weight:bold;
+    margin-top:10px;
+    border:none;
+    cursor:pointer;
+    transition:background 0.3s;
+}
+.btn:hover{
+    background-color:#0056b3;
+}
 
 .apply-btn,
-.cancel-btn {
-    padding: 8px 14px;
-    border-radius: 999px;
-    border: none;
-    cursor: pointer;
-    font-size: 0.85rem;
+.cancel-btn{
+    padding:8px 14px;
+    border-radius:999px;
+    border:none;
+    cursor:pointer;
+    font-size:0.85rem;
 }
 
-.apply-btn {
-    background: #2563eb;
-    color: #ffffff;
+/* Solicitar */
+.apply-btn{
+    background:#28a745;
+    color:#ffffff;
+}
+.apply-btn:hover{
+    background:#218838;
+}
+.apply-btn.disabled{
+    background:#6c757d;
+    color:#e5e7eb;
+    cursor:not-allowed;
 }
 
-.apply-btn:hover {
-    background: #1d4ed8;
+/* Cancelar */
+.cancel-btn{
+    background:#dc3545;
+    color:#ffffff;
+}
+.cancel-btn:hover{
+    background:#c82333;
 }
 
-.apply-btn.disabled {
-    background: #e5e7eb;
-    color: #9ca3af;
-    cursor: not-allowed;
+/* ==========================================================================
+   Status de solicitud
+   ========================================================================== */
+.status-label{
+    padding:8px 15px;
+    border-radius:5px;
+    font-weight:bold;
+    background-color:#17a2b8;
+    color:white;
+    display:inline-block;
+    margin-right:10px;
+    font-size:0.8rem;
+}
+.status-label.ya-solicitada{
+    background-color:#6c757d;
+}
+.status-label.entregada{
+    background-color:#28a745;
+}
+.status-label.enviada{
+    background-color:#ffc107;
+    color:#212529;
+}
+.status-label.en-revision{
+    background-color:#0dcaf0;
+    color:white;
+}
+.status-label.aprobada{
+    background-color:#198754;
+    color:white;
+}
+.status-label.entrega{
+    background-color:#6f42c1;
+    color:white;
 }
 
-.cancel-btn {
-    background: #ffffff;
-    color: #dc2626;
-    border: 1px solid #fecaca;
+/* ==========================================================================
+   MODAL Detalles de beca (estudiante)
+   ========================================================================== */
+.kit-modal-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.55);
+    backdrop-filter:blur(3px);
+    z-index:2000;
+    align-items:center;
+    justify-content:center;
+}
+.kit-modal{
+    background:#ffffff;
+    border-radius:18px;
+    padding:22px 26px 24px;
+    max-width:720px;
+    width:92%;
+    max-height:80vh;
+    overflow:auto;
+    box-shadow:0 18px 40px rgba(15,23,42,0.35);
+    position:relative;
+}
+.kit-modal-close{
+    position:absolute;
+    top:10px;
+    right:10px;
+    border:none;
+    background:transparent;
+    font-size:22px;
+    cursor:pointer;
+    color:#9ca3af;
+    line-height:1;
+}
+.kit-modal-close:hover{
+    color:#111827;
 }
 
-.status-label {
-    font-size: 0.8rem;
-    color: #16a34a;
-    font-weight: 600;
+/* Títulos y texto dentro del modal */
+#kit-modal-content .kit-modal-title{
+    margin:0 0 8px 0;
+    text-align:center;
+    font-size:22px;
+    color:#1d4ed8;
+}
+#kit-modal-content .kit-modal-subtitle{
+    text-align:center;
+    font-size:13px;
+    color:#6b7280;
+    margin:0 0 16px 0;
+}
+#kit-modal-content .kit-modal-meta{
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    row-gap:4px;
+    font-size:13px;
+    color:#4b5563;
+    margin-bottom:14px;
+}
+#kit-modal-content .kit-modal-meta span{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
 }
 
-.btn {
-    margin-top: 20px;
-    background: #007bff;
-    color: #fff;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.3s;
-    text-decoration: none;
+/* Tabla de materiales en el modal */
+#kit-modal-content table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:8px;
+    font-size:13px;
 }
-
-.btn:hover {
-    background: #0056b3;
+#kit-modal-content thead{
+    background:#f3f4f6;
+}
+#kit-modal-content th,
+#kit-modal-content td{
+    padding:8px 10px;
+    text-align:left;
+    border-bottom:1px solid #e5e7eb;
+}
+#kit-modal-content th{
+    font-weight:600;
+    color:#374151;
+}
+#kit-modal-content tbody tr:nth-child(even){
+    background:#f9fafb;
+}
+#kit-modal-content .empty-msg{
+    text-align:center;
+    font-size:13px;
+    color:#6b7280;
+    margin:10px 0 0 0;
 }

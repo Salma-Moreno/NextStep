@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 07-12-2025 a las 11:58:29
+-- Tiempo de generación: 08-12-2025 a las 06:48:22
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -35,6 +35,13 @@ CREATE TABLE `address` (
   `Postal_Code` varchar(10) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `address`
+--
+
+INSERT INTO `address` (`ID_Address`, `FK_ID_Student`, `Street`, `City`, `Postal_Code`) VALUES
+(1, 1, 'Ecija 16903', 'Baja California', '22465');
+
 -- --------------------------------------------------------
 
 --
@@ -48,6 +55,16 @@ CREATE TABLE `aplication` (
   `status` varchar(12) DEFAULT NULL,
   `Application_date` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `aplication`
+--
+
+INSERT INTO `aplication` (`ID_status`, `FK_ID_Student`, `FK_ID_Kit`, `status`, `Application_date`) VALUES
+(1, 1, 1, 'Aprobada', '2025-12-07 03:05:56'),
+(2, 1, 3, 'Cancelada', '2025-12-07 15:34:41'),
+(3, 1, 4, 'Enviada', '2025-12-07 16:53:43'),
+(4, 1, 7, 'Enviada', '2025-12-07 21:33:53');
 
 -- --------------------------------------------------------
 
@@ -197,17 +214,11 @@ CREATE TABLE `extra_delivery` (
 
 CREATE TABLE `kit` (
   `ID_Kit` int(11) NOT NULL,
+  `Name` varchar(100) NOT NULL,
   `FK_ID_Semester` int(11) NOT NULL,
   `Start_date` date NOT NULL,
   `End_date` date NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Volcado de datos para la tabla `kit`
---
-
-INSERT INTO `kit` (`ID_Kit`, `FK_ID_Semester`, `Start_date`, `End_date`) VALUES
-(1, 4, '2025-08-22', '2025-12-12');
 
 -- --------------------------------------------------------
 
@@ -221,13 +232,6 @@ CREATE TABLE `kit_material` (
   `FK_ID_Supply` int(11) NOT NULL,
   `Unit` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Volcado de datos para la tabla `kit_material`
---
-
-INSERT INTO `kit_material` (`ID_KitMaterial`, `FK_ID_Kit`, `FK_ID_Supply`, `Unit`) VALUES
-(1, 1, 1, 2);
 
 -- --------------------------------------------------------
 
@@ -309,24 +313,6 @@ INSERT INTO `staff` (`ID_Staff`, `FK_ID_User`, `Firstname`, `Lastname`, `Phone`,
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `status`
---
-
-CREATE TABLE `status` (
-  `Status_ID` int(11) NOT NULL,
-  `status` varchar(20) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Volcado de datos para la tabla `status`
---
-
-INSERT INTO `status` (`Status_ID`, `status`) VALUES
-(1, 'Sin Solicitud');
-
--- --------------------------------------------------------
-
---
 -- Estructura de tabla para la tabla `student`
 --
 
@@ -365,6 +351,13 @@ CREATE TABLE `student_details` (
   `Average` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `student_details`
+--
+
+INSERT INTO `student_details` (`ID_Details`, `FK_ID_Student`, `Birthdate`, `High_school`, `Grade`, `License`, `Average`) VALUES
+(1, 1, '2003-11-21', 'Cetis 156', '6', '22211911', 84);
+
 -- --------------------------------------------------------
 
 --
@@ -374,6 +367,8 @@ CREATE TABLE `student_details` (
 CREATE TABLE `supplies` (
   `ID_Supply` int(11) NOT NULL,
   `Name` varchar(30) NOT NULL,
+  `features` varchar(30) DEFAULT NULL,
+  `marca` varchar(30) DEFAULT NULL,
   `Unit` varchar(15) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -381,9 +376,12 @@ CREATE TABLE `supplies` (
 -- Volcado de datos para la tabla `supplies`
 --
 
-INSERT INTO `supplies` (`ID_Supply`, `Name`, `Unit`) VALUES
-(1, 'Boligrafo (Negro)', '100'),
-(2, 'Lapiz de grafito', '100');
+INSERT INTO `supplies` (`ID_Supply`, `Name`, `features`, `marca`, `Unit`) VALUES
+(1, 'Boligrafo (Negro)', NULL, NULL, '100'),
+(2, 'Lapiz de grafito', NULL, NULL, '156'),
+(3, 'Juego de reglas', NULL, NULL, '100'),
+(4, 'Calculadora común', 'Ninguna', 'Otro', '100'),
+(5, 'Cuaderno', '', 'Norma', '56');
 
 -- --------------------------------------------------------
 
@@ -400,6 +398,13 @@ CREATE TABLE `tutor_data` (
   `Phone_Number` varchar(15) DEFAULT NULL,
   `Address` varchar(15) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `tutor_data`
+--
+
+INSERT INTO `tutor_data` (`ID_Data`, `FK_ID_Student`, `FK_ID_Dependency`, `Tutor_name`, `Tutor_lastname`, `Phone_Number`, `Address`) VALUES
+(1, 1, 1, 'Salma', 'Moreno', '6641235678', 'Ecija 16903');
 
 -- --------------------------------------------------------
 
@@ -544,13 +549,6 @@ ALTER TABLE `staff`
   ADD KEY `FK_ID_User` (`FK_ID_User`);
 
 --
--- Indices de la tabla `status`
---
-ALTER TABLE `status`
-  ADD PRIMARY KEY (`Status_ID`),
-  ADD UNIQUE KEY `tipo` (`status`);
-
---
 -- Indices de la tabla `student`
 --
 ALTER TABLE `student`
@@ -595,7 +593,7 @@ ALTER TABLE `user`
 -- AUTO_INCREMENT de la tabla `address`
 --
 ALTER TABLE `address`
-  MODIFY `ID_Address` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Address` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `collection_point`
@@ -619,7 +617,7 @@ ALTER TABLE `company_address`
 -- AUTO_INCREMENT de la tabla `delivery`
 --
 ALTER TABLE `delivery`
-  MODIFY `ID_Delivery` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Delivery` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `dependency`
@@ -643,13 +641,13 @@ ALTER TABLE `extra_delivery`
 -- AUTO_INCREMENT de la tabla `kit`
 --
 ALTER TABLE `kit`
-  MODIFY `ID_Kit` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `ID_Kit` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT de la tabla `kit_material`
 --
 ALTER TABLE `kit_material`
-  MODIFY `ID_KitMaterial` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `ID_KitMaterial` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
 -- AUTO_INCREMENT de la tabla `limit`
@@ -685,19 +683,19 @@ ALTER TABLE `student`
 -- AUTO_INCREMENT de la tabla `student_details`
 --
 ALTER TABLE `student_details`
-  MODIFY `ID_Details` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Details` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `supplies`
 --
 ALTER TABLE `supplies`
-  MODIFY `ID_Supply` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `ID_Supply` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de la tabla `tutor_data`
 --
 ALTER TABLE `tutor_data`
-  MODIFY `ID_Data` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_Data` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `user`

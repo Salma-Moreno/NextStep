@@ -1,278 +1,6 @@
 <?php
-/* =======================
-   Conexión y helpers
-   ======================= */
-require '../Conexiones/db.php';
-
-function h($s){ return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
-
-$error = '';
-$msg   = $_GET['msg'] ?? null;
-
-/* Helper para redirigir con mensaje */
-function go($msg, $extra = ''){
-    $qs = 'msg=' . urlencode($msg);
-    if ($extra !== '') $qs .= '&' . ltrim($extra, '&?');
-    header('Location: ' . $_SERVER['PHP_SELF'] . '?' . $qs);
-    exit;
-}
-
-/* =======================
-   MANEJO DE ACCIONES POST
-   ======================= */
-$action = $_POST['action'] ?? '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    switch ($action) {
-        /* --- Crear kit --- */
-        case 'create_kit':
-            $fk_semester = intval($_POST['fk_semester'] ?? 0);
-            $start_date  = $_POST['start_date'] ?? null;
-            $end_date    = $_POST['end_date'] ?? null;
-
-            if ($fk_semester && $start_date && $end_date) {
-                $stmt = $conn->prepare(
-                    "INSERT INTO kit (FK_ID_Semester, Start_date, End_date) VALUES (?, ?, ?)"
-                );
-                $stmt->bind_param("iss", $fk_semester, $start_date, $end_date);
-                $stmt->execute();
-                $stmt->close();
-                go('kit_created');
-            } else {
-                $error = "Todos los campos son obligatorios para crear un kit.";
-            }
-            break;
-
-        /* --- Actualizar kit --- */
-        case 'update_kit':
-            $id          = intval($_POST['id_kit'] ?? 0);
-            $fk_semester = intval($_POST['fk_semester'] ?? 0);
-            $start_date  = $_POST['start_date'] ?? null;
-            $end_date    = $_POST['end_date'] ?? null;
-
-            if ($id && $fk_semester && $start_date && $end_date) {
-                $stmt = $conn->prepare(
-                    "UPDATE kit 
-                     SET FK_ID_Semester = ?, Start_date = ?, End_date = ? 
-                     WHERE ID_Kit = ?"
-                );
-                $stmt->bind_param("issi", $fk_semester, $start_date, $end_date, $id);
-                $stmt->execute();
-                $stmt->close();
-                go('kit_updated');
-            } else {
-                $error = "Todos los campos son obligatorios para editar un kit.";
-            }
-            break;
-
-        /* --- Agregar material a un kit --- */
-        case 'add_material':
-            $fk_kit    = intval($_POST['fk_kit'] ?? 0);
-            $fk_supply = intval($_POST['fk_supply'] ?? 0);
-            $unit      = intval($_POST['unit'] ?? 0);
-
-            if ($fk_kit && $fk_supply && $unit >= 0) {
-                $stmt = $conn->prepare(
-                    "SELECT ID_KitMaterial, Unit 
-                     FROM kit_material 
-                     WHERE FK_ID_Kit = ? AND FK_ID_Supply = ?"
-                );
-                $stmt->bind_param("ii", $fk_kit, $fk_supply);
-                $stmt->execute();
-                $res = $stmt->get_result();
-
-                if ($row = $res->fetch_assoc()) {
-                    $newUnit = intval($row['Unit']) + $unit;
-                    $stmt->close();
-
-                    $up = $conn->prepare(
-                        "UPDATE kit_material SET Unit = ? WHERE ID_KitMaterial = ?"
-                    );
-                    $up->bind_param("ii", $newUnit, $row['ID_KitMaterial']);
-                    $up->execute();
-                    $up->close();
-                } else {
-                    $stmt->close();
-                    $ins = $conn->prepare(
-                        "INSERT INTO kit_material (FK_ID_Kit, FK_ID_Supply, Unit) 
-                         VALUES (?, ?, ?)"
-                    );
-                    $ins->bind_param("iii", $fk_kit, $fk_supply, $unit);
-                    $ins->execute();
-                    $ins->close();
-                }
-
-                go('material_added', 'action=view_materials&id=' . $fk_kit);
-            } else {
-                $error = "Datos inválidos al intentar agregar material.";
-            }
-            break;
-
-        /* --- Actualizar material --- */
-        case 'update_material':
-            $id   = intval($_POST['id_material'] ?? 0);
-            $unit = intval($_POST['unit'] ?? 0);
-
-            if ($id && $unit >= 0) {
-                // Primero obtenemos el kit al que pertenece
-                $stmt = $conn->prepare(
-                    "SELECT FK_ID_Kit FROM kit_material WHERE ID_KitMaterial = ?"
-                );
-                $stmt->bind_param("i", $id);
-                $stmt->execute();
-                $res    = $stmt->get_result();
-                $rowKit = $res->fetch_assoc();
-                $fk_kit = $rowKit['FK_ID_Kit'] ?? 0;
-                $stmt->close();
-
-                if ($fk_kit) {
-                    $up = $conn->prepare(
-                        "UPDATE kit_material SET Unit = ? WHERE ID_KitMaterial = ?"
-                    );
-                    $up->bind_param("ii", $unit, $id);
-                    $up->execute();
-                    $up->close();
-
-                    go('material_updated', 'action=view_materials&id=' . $fk_kit);
-                } else {
-                    $error = "No se pudo identificar el kit al que pertenece este material.";
-                }
-            } else {
-                $error = "Datos inválidos al intentar editar material.";
-            }
-            break;
-
-        /* --- Crear suministro --- */
-        case 'create_supply':
-            $name = trim($_POST['s_name'] ?? '');
-            $unit = trim($_POST['s_unit'] ?? '');
-
-            if ($name !== '' && $unit !== '') {
-                $stmt = $conn->prepare(
-                    "INSERT INTO supplies (Name, Unit) VALUES (?, ?)"
-                );
-                $stmt->bind_param("ss", $name, $unit);
-                $stmt->execute();
-                $stmt->close();
-                go('supply_created');
-            } else {
-                $error = "Nombre y unidad son obligatorios para crear un suministro.";
-            }
-            break;
-    }
-}
-
-/* =======================
-   ACCIONES GET (delete / view)
-   ======================= */
-$getAction = $_GET['action'] ?? '';
-
-/* --- Eliminar kit --- */
-if ($getAction === 'delete_kit' && isset($_GET['id'])) {
-    $id = intval($_GET['id']);
-    if ($id) {
-        $stmt = $conn->prepare("DELETE FROM kit_material WHERE FK_ID_Kit = ?");
-        $stmt->bind_param("i", $id);
-        $stmt->execute();
-        $stmt->close();
-
-        $stmt = $conn->prepare("DELETE FROM kit WHERE ID_Kit = ?");
-        $stmt->bind_param("i", $id);
-        $stmt->execute();
-        $stmt->close();
-
-        go('kit_deleted');
-    }
-}
-
-/* --- Eliminar material --- */
-if ($getAction === 'delete_material' && isset($_GET['id'])) {
-    $id = intval($_GET['id']);
-    if ($id) {
-        $stmt = $conn->prepare(
-            "SELECT FK_ID_Kit FROM kit_material WHERE ID_KitMaterial = ?"
-        );
-        $stmt->bind_param("i", $id);
-        $stmt->execute();
-        $res    = $stmt->get_result();
-        $rowKit = $res->fetch_assoc();
-        $fk_kit = $rowKit['FK_ID_Kit'] ?? 0;
-        $stmt->close();
-
-        $del = $conn->prepare("DELETE FROM kit_material WHERE ID_KitMaterial = ?");
-        $del->bind_param("i", $id);
-        $del->execute();
-        $del->close();
-
-        if ($fk_kit) {
-            go('material_deleted', 'action=view_materials&id=' . $fk_kit);
-        } else {
-            go('material_deleted');
-        }
-    }
-}
-
-/* =======================
-   PAGINACIÓN DE KITS
-   ======================= */
-$registrosPorPagina = 5;
-$paginaActual = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
-if ($paginaActual < 1) $paginaActual = 1;
-
-// Calcular offset
-$offset = ($paginaActual - 1) * $registrosPorPagina;
-
-// Obtener el total de kits
-$stmtTotal = $conn->prepare("SELECT COUNT(*) as total FROM kit");
-$stmtTotal->execute();
-$resultTotal = $stmtTotal->get_result();
-$totalKits = $resultTotal->fetch_assoc()['total'];
-$stmtTotal->close();
-
-$totalPaginas = ceil($totalKits / $registrosPorPagina);
-if ($paginaActual > $totalPaginas && $totalPaginas > 0) {
-    $paginaActual = $totalPaginas;
-    $offset = ($paginaActual - 1) * $registrosPorPagina;
-}
-
-/* =======================
-   CONSULTAS AUXILIARES
-   ======================= */
-
-/* Semestres */
-$semesters = [];
-$res = $conn->query(
-    "SELECT ID_Semester, Period, Year 
-     FROM semester 
-     ORDER BY Year DESC, Period ASC"
-);
-while ($r = $res->fetch_assoc()) $semesters[] = $r;
-$res->free();
-
-/* Supplies (TODOS, paginamos con JS) */
-$supplies = [];
-$resSup = $conn->query(
-    "SELECT ID_Supply, Name, Unit 
-     FROM supplies 
-     ORDER BY Name"
-);
-while ($r = $resSup->fetch_assoc()) $supplies[] = $r;
-$resSup->free();
-
-/* Kits PAGINADOS */
-$kits = [];
-$q = "SELECT k.ID_Kit, k.FK_ID_Semester, k.Start_date, k.End_date, 
-             s.Period, s.Year
-      FROM kit k
-      LEFT JOIN semester s ON k.FK_ID_Semester = s.ID_Semester
-      ORDER BY k.ID_Kit DESC
-      LIMIT ? OFFSET ?";
-$stmt = $conn->prepare($q);
-$stmt->bind_param("ii", $registrosPorPagina, $offset);
-$stmt->execute();
-$res = $stmt->get_result();
-while ($r = $res->fetch_assoc()) $kits[] = $r;
-$stmt->close();
+// Lógica y datos
+require 'inventario_logic.php';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -280,97 +8,11 @@ $stmt->close();
     <meta charset="utf-8">
     <title>Inventario — Kits de Materiales</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <!-- Ajusta la ruta según estructura de carpetas -->
     <link rel="stylesheet" href="../assets/staff/inventario.css">
-    <style>
-        .pagination-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin: 20px 0;
-        }
-        
-        .pagination-buttons a, .pagination-buttons span {
-            padding: 8px 16px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            text-decoration: none;
-            color: #333;
-            background: white;
-            transition: all 0.3s;
-        }
-        
-        .pagination-buttons a:hover {
-            background: #f0f0f0;
-        }
-        
-        .pagination-buttons .disabled {
-            color: #ccc;
-            cursor: not-allowed;
-            pointer-events: none;
-        }
-        
-        .controls-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        /* Estilos para el header de detalles del kit */
-        .kit-details-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        .kit-details-header h4 {
-            margin: 0;
-        }
-        
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            color: #999;
-            padding: 0;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.3s;
-        }
-        
-        .close-btn:hover {
-            background: #f0f0f0;
-            color: #333;
-        }
-        
-        /* Animación para el panel de detalles */
-        .kit-details-panel {
-            animation: slideDown 0.3s ease;
-        }
-        
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-    </style>
 </head>
 <body>
 <?php include '../Includes/HeaderMenuStaff.php'; ?>
+
 <div class="wrap">
     <header>
         <h1>Inventario — Kits de Materiales</h1>
@@ -388,255 +30,85 @@ $stmt->close();
         <div class="msg ok card">
             <?php
                 $map = [
-                    'kit_created'      => 'Kit creado',
-                    'kit_updated'      => 'Kit actualizado',
-                    'kit_deleted'      => 'Kit eliminado',
+                    'kit_created'      => 'Beca / kit creado',
+                    'kit_updated'      => 'Beca / kit actualizada',
+                    'kit_deleted'      => 'Beca / kit eliminada',
                     'material_added'   => 'Material agregado',
                     'material_updated' => 'Material actualizado',
                     'material_deleted' => 'Material eliminado',
-                    'supply_created'   => 'Suministro agregado'
+                    'supply_created'   => 'Suministro agregado',
+                    'supply_updated'   => 'Suministro actualizado (unidades sumadas)'
                 ];
                 echo h($map[$msg] ?? $msg);
             ?>
         </div>
     <?php endif; ?>
 
-    <div class="grid">
-        <!-- Izquierda: Kits y materiales -->
-        <div class="card">
-            <div class="controls-row">
-                <h3 style="margin:0">Kits registrados</h3>
-                <div class="small">
-                    Total: <?php echo $totalKits; ?> kits
-                </div>
-            </div>
+    <!-- ########### ARRIBA: CREAR / EDITAR KIT ########### -->
+    <div class="card card--with-gap">
+        <?php
+        // Si estamos viendo materiales de un kit, usamos ese mismo para editar arriba
+        if ($selectedKitId && $selectedKitInfo) {
+            $kit_edit = $selectedKitInfo;
+        } elseif ($getAction === 'edit_kit' && isset($_GET['id'])) {
+            $id = intval($_GET['id']);
+            $stmt = $conn->prepare(
+                "SELECT ID_Kit, Name, FK_ID_Semester, Start_date, End_date 
+                 FROM kit WHERE ID_Kit = ?"
+            );
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $res      = $stmt->get_result();
+            $kit_edit = $res->fetch_assoc() ?: null;
+            $stmt->close();
+            $selectedKitId = $id;
+        } else {
+            $kit_edit = null;
+        }
+        ?>
 
-            <table>
-                <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Semestre</th>
-                    <th>Inicio — Fin</th>
-                    <th class="small">Acciones</th>
-                </tr>
-                </thead>
-                <tbody>
-                <?php if (empty($kits)): ?>
-                    <tr><td colspan="4" class="small">No hay kits. Crea uno a la derecha.</td></tr>
-                <?php else: ?>
-                    <?php foreach ($kits as $k): ?>
-                        <tr>
-                            <td><?php echo h($k['ID_Kit']); ?></td>
-                            <td><?php echo h(($k['Period'] ?? '-') . ' ' . ($k['Year'] ?? '')); ?></td>
-                            <td><?php echo h($k['Start_date']); ?> — <?php echo h($k['End_date']); ?></td>
-                            <td class="actions">
-                                <a class="view"
-                                   href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=view_materials&id=<?php echo h($k['ID_Kit']); ?>&pagina=<?php echo $paginaActual; ?>">
-                                   Ver materiales
-                                </a>
-                                <a class="edit"
-                                   href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=edit_kit&id=<?php echo h($k['ID_Kit']); ?>&pagina=<?php echo $paginaActual; ?>">
-                                   Editar
-                                </a>
-                                <a class="del"
-                                   href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=delete_kit&id=<?php echo h($k['ID_Kit']); ?>&pagina=<?php echo $paginaActual; ?>"
-                                   onclick="return confirm('¿Eliminar kit y sus materiales?')">
-                                   Eliminar
-                                </a>
-                            </td>
-                        </tr>
+        <?php if ($kit_edit): ?>
+            <h3>Editar beca / kit: <?php echo h($kit_edit['Name']); ?></h3>
+            <form method="post">
+                <input type="hidden" name="action" value="update_kit">
+                <input type="hidden" name="id_kit" value="<?php echo h($kit_edit['ID_Kit']); ?>">
+
+                <p class="small">
+                    Nombre interno: <strong><?php echo h($kit_edit['Name']); ?></strong>
+                </p>
+
+                <label>Semestre</label>
+                <select name="fk_semester" required>
+                    <option value="">-- elegir semestre --</option>
+                    <?php foreach ($semesters as $s): ?>
+                        <option value="<?php echo h($s['ID_Semester']); ?>"
+                            <?php echo ($kit_edit['FK_ID_Semester']==$s['ID_Semester']) ? 'selected' : ''; ?>>
+                            <?php echo h($s['Period'].' '.$s['Year']); ?>
+                        </option>
                     <?php endforeach; ?>
-                <?php endif; ?>
-                </tbody>
-            </table>
+                </select>
 
-            <!-- Solo botones Anterior/Siguiente -->
-            <?php if ($totalPaginas > 1): ?>
-                <div class="pagination-buttons">
-                    <!-- Botón Anterior -->
-                    <?php if ($paginaActual > 1): ?>
-                        <a href="?pagina=<?php echo $paginaActual - 1; ?><?php echo $getAction ? '&action=' . h($getAction) : ''; ?><?php echo isset($_GET['id']) ? '&id=' . h($_GET['id']) : ''; ?>">
-                            ‹ Anterior
-                        </a>
-                    <?php else: ?>
-                        <span class="disabled">‹ Anterior</span>
-                    <?php endif; ?>
+                <label>Fecha inicio</label>
+                <input type="date" name="start_date"
+                       value="<?php echo h($kit_edit['Start_date'] ?? ''); ?>" required>
 
-                    <!-- Botón Siguiente -->
-                    <?php if ($paginaActual < $totalPaginas): ?>
-                        <a href="?pagina=<?php echo $paginaActual + 1; ?><?php echo $getAction ? '&action=' . h($getAction) : ''; ?><?php echo isset($_GET['id']) ? '&id=' . h($_GET['id']) : ''; ?>">
-                            Siguiente ›
-                        </a>
-                    <?php else: ?>
-                        <span class="disabled">Siguiente ›</span>
-                    <?php endif; ?>
+                <label>Fecha fin</label>
+                <input type="date" name="end_date"
+                       value="<?php echo h($kit_edit['End_date'] ?? ''); ?>" required>
+
+                <div style="margin-top:10px">
+                    <button type="submit">Guardar cambios</button>
+                    <a href="<?php echo h($_SERVER['PHP_SELF']); ?>?pagina=<?php echo $paginaActual; ?>" class="small link-cancel">Cancelar</a>
                 </div>
-            <?php endif; ?>
+            </form>
+        <?php else: ?>
+            <h3>Crear nueva beca / kit</h3>
+            <form method="post">
+                <input type="hidden" name="action" value="create_kit">
 
-            <!-- Materiales de un kit -->
-            <?php
-            if ($getAction === 'view_materials' && isset($_GET['id'])):
-                $id_kit = intval($_GET['id']);
-
-                $stmt = $conn->prepare(
-                    "SELECT k.ID_Kit, k.Start_date, k.End_date, s.Period, s.Year 
-                     FROM kit k 
-                     LEFT JOIN semester s ON k.FK_ID_Semester = s.ID_Semester 
-                     WHERE k.ID_Kit = ?"
-                );
-                $stmt->bind_param("i", $id_kit);
-                $stmt->execute();
-                $res      = $stmt->get_result();
-                $kit_info = $res->fetch_assoc() ?: null;
-                $stmt->close();
-
-                $materials = [];
-                $qm = $conn->prepare(
-                    "SELECT km.ID_KitMaterial, km.FK_ID_Supply, km.Unit, 
-                            sp.Name AS supply_name, sp.Unit AS supply_unit 
-                     FROM kit_material km 
-                     JOIN supplies sp ON km.FK_ID_Supply = sp.ID_Supply 
-                     WHERE km.FK_ID_Kit = ?
-                     ORDER BY sp.Name"
-                );
-                $qm->bind_param("i", $id_kit);
-                $qm->execute();
-                $rm = $qm->get_result();
-                while ($r = $rm->fetch_assoc()) $materials[] = $r;
-                $qm->close();
-            ?>
-                <hr style="margin:16px 0">
-                <div class="kit-details-panel">
-                    <div class="kit-details-header">
-                        <h4>
-                            Materiales del kit 
-                            <?php echo h($kit_info ? ($kit_info['Period'].' '.$kit_info['Year']) : $id_kit); ?>
-                        </h4>
-                        <button class="close-btn" onclick="window.location.href='<?php echo h($_SERVER['PHP_SELF']); ?>?pagina=<?php echo $paginaActual; ?>'">
-                            ×
-                        </button>
-                    </div>
-                    
-                    <div class="small" style="margin-bottom:15px">
-                        Período: 
-                        <?php echo h($kit_info['Start_date'] ?? '-'); ?> — 
-                        <?php echo h($kit_info['End_date'] ?? '-'); ?>
-                    </div>
-
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Material</th>
-                                <th>Unidad (supply)</th>
-                                <th>Cantidad</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (empty($materials)): ?>
-                                <tr><td colspan="4" class="small">No hay materiales asignados a este kit.</td></tr>
-                            <?php else: ?>
-                                <?php foreach ($materials as $m): ?>
-                                    <tr>
-                                        <td><?php echo h($m['supply_name']); ?></td>
-                                        <td class="small"><?php echo h($m['supply_unit']); ?></td>
-                                        <td><?php echo h($m['Unit']); ?></td>
-                                        <td class="actions">
-                                            <a class="edit"
-                                               href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=edit_material&id=<?php echo h($m['ID_KitMaterial']); ?>&pagina=<?php echo $paginaActual; ?>">
-                                               Editar
-                                            </a>
-                                            <a class="del"
-                                               href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=delete_material&id=<?php echo h($m['ID_KitMaterial']); ?>&pagina=<?php echo $paginaActual; ?>"
-                                               onclick="return confirm('¿Eliminar material del kit?')">
-                                               Eliminar
-                                            </a>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-
-                    <!-- Form agregar material -->
-                    <div style="margin-top:15px">
-                        <form method="post" style="display:flex;gap:8px;flex-wrap:wrap">
-                            <input type="hidden" name="action" value="add_material">
-                            <input type="hidden" name="fk_kit" value="<?php echo h($id_kit); ?>">
-                            <div style="flex:1 1 220px">
-                                <label>Seleccionar suministro</label>
-                                <select name="fk_supply" required>
-                                    <option value="">-- elegir --</option>
-                                    <?php foreach ($supplies as $s): ?>
-                                        <option value="<?php echo h($s['ID_Supply']); ?>">
-                                            <?php echo h($s['Name'] . ' (' . $s['Unit'] . ')'); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div style="width:130px">
-                                <label>Cantidad</label>
-                                <input type="number" name="unit" min="0" value="1" required>
-                            </div>
-                            <div style="align-self:end">
-                                <button type="submit">Agregar material</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            <?php endif; ?>
-        </div>
-
-        <!-- Derecha: crear/editar kit + supplies -->
-        <aside>
-            <div class="card card--with-gap">
-                <?php if ($getAction === 'edit_kit' && isset($_GET['id'])): ?>
-                    <?php
-                    $id = intval($_GET['id']);
-                    $stmt = $conn->prepare(
-                        "SELECT ID_Kit, FK_ID_Semester, Start_date, End_date 
-                         FROM kit WHERE ID_Kit = ?"
-                    );
-                    $stmt->bind_param("i", $id);
-                    $stmt->execute();
-                    $res      = $stmt->get_result();
-                    $kit_edit = $res->fetch_assoc() ?: null;
-                    $stmt->close();
-                    ?>
-                    <h3>Editar Kit #<?php echo h($id); ?></h3>
-                    <form method="post">
-                        <input type="hidden" name="action" value="update_kit">
-                        <input type="hidden" name="id_kit" value="<?php echo h($id); ?>">
-
-                        <label>Semestre</label>
-                        <select name="fk_semester" required>
-                            <option value="">-- elegir semestre --</option>
-                            <?php foreach ($semesters as $s): ?>
-                                <option value="<?php echo h($s['ID_Semester']); ?>"
-                                    <?php echo ($kit_edit && $kit_edit['FK_ID_Semester']==$s['ID_Semester']) ? 'selected' : ''; ?>>
-                                    <?php echo h($s['Period'].' '.$s['Year']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-
-                        <label>Fecha inicio</label>
-                        <input type="date" name="start_date"
-                               value="<?php echo h($kit_edit['Start_date'] ?? ''); ?>" required>
-
-                        <label>Fecha fin</label>
-                        <input type="date" name="end_date"
-                               value="<?php echo h($kit_edit['End_date'] ?? ''); ?>" required>
-
-                        <div style="margin-top:10px">
-                            <button type="submit">Guardar cambios</button>
-                            <a href="inventario_kits.php?pagina=<?php echo $paginaActual; ?>" class="small link-cancel">Cancelar</a>
-                        </div>
-                    </form>
-                <?php else: ?>
-                    <h3>Crear nuevo Kit</h3>
-                    <form method="post">
-                        <input type="hidden" name="action" value="create_kit">
-
+                <div class="kit-create-grid">
+                    <!-- Columna izquierda: datos de la beca -->
+                    <div class="kit-create-col">
                         <label>Semestre</label>
                         <select name="fk_semester" required>
                             <option value="">-- elegir semestre --</option>
@@ -647,32 +119,264 @@ $stmt->close();
                             <?php endforeach; ?>
                         </select>
 
+                        <label>Tipo de beca</label>
+                        <select name="kit_level" id="kit_level" required>
+                            <option value="">-- elegir tipo --</option>
+                            <option value="Basica">Básica (máx. 4 artículos)</option>
+                            <option value="Intermedia">Intermedia (máx. 6 artículos)</option>
+                            <option value="Superior">Superior (máx. 8 artículos)</option>
+                        </select>
+
                         <label>Fecha inicio</label>
                         <input type="date" name="start_date" required>
 
                         <label>Fecha fin</label>
                         <input type="date" name="end_date" required>
+                    </div>
 
-                        <div style="margin-top:10px">
-                            <button type="submit">Crear Kit</button>
+                    <!-- Columna derecha: materiales del kit -->
+                    <div class="kit-create-col">
+                        <h4>Materiales del kit a crear</h4>
+                        <p class="small">Agrega aquí los materiales que llevará esta beca.</p>
+
+                        <div id="kit-materials-container">
+                            <!-- Fila inicial -->
+                            <div class="kit-material-row">
+                                <div class="kit-material-col">
+                                    <label>Material</label>
+                                    <select name="kit_supply_ids[]">
+                                        <option value="">-- elegir --</option>
+                                        <?php foreach ($supplies as $s): ?>
+                                            <option value="<?php echo h($s['ID_Supply']); ?>">
+                                                <?php 
+                                                    echo h(
+                                                        $s['Name'] .
+                                                        ' | ' . ($s['marca'] ?: 'Sin marca') .
+                                                        ' | ' . ($s['features'] ?: '-')
+                                                    ); 
+                                                ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="kit-material-qty">
+                                    <label>Cantidad</label>
+                                    <input type="number" name="kit_units[]" min="1" value="1">
+                                </div>
+                                <div class="kit-material-remove">
+                                    <button type="button" onclick="removeKitMaterialRow(this)">✕</button>
+                                </div>
+                            </div>
                         </div>
-                    </form>
-                <?php endif; ?>
+
+                        <button type="button" class="btn-secondary-link" onclick="addKitMaterialRow();">
+                            Agregar otro material
+                        </button>
+                    </div>
+                </div>
+
+                <div style="margin-top:10px">
+                    <button type="submit">Crear Kit con materiales</button>
+                </div>
+            </form>
+        <?php endif; ?>
+    </div>
+
+    <!-- ########### MATERIALES DEL KIT SELECCIONADO (ABAJO DEL FORMULARIO) ########### -->
+    <?php if ($selectedKitId && $selectedKitInfo): ?>
+        <div class="card kit-details-panel" style="margin-top:15px;">
+            <div class="kit-details-header">
+                <h4>
+                    Materiales de <?php echo h($selectedKitInfo['Name']); ?>
+                </h4>
+                <button class="close-btn" onclick="window.location.href='<?php echo h($_SERVER['PHP_SELF']); ?>?pagina=<?php echo $paginaActual; ?>'">
+                    ×
+                </button>
             </div>
 
+            <div class="small" style="margin-bottom:15px">
+                Semestre: 
+                <?php echo h(($selectedKitInfo['Period'] ?? '-') . ' ' . ($selectedKitInfo['Year'] ?? '')); ?>
+                <br>
+                Período de vigencia: 
+                <?php echo h($selectedKitInfo['Start_date'] ?? '-'); ?> — 
+                <?php echo h($selectedKitInfo['End_date'] ?? '-'); ?>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Material</th>
+                        <th>Características</th>
+                        <th>Marca</th>
+                        <th>Stock total</th>
+                        <th>Cantidad en kit</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($selectedMaterials)): ?>
+                        <tr><td colspan="6" class="small">No hay materiales asignados a este kit.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($selectedMaterials as $m): ?>
+                            <tr>
+                                <td><?php echo h($m['supply_name']); ?></td>
+                                <td class="small"><?php echo h($m['features']); ?></td>
+                                <td class="small"><?php echo h($m['marca']); ?></td>
+                                <td class="small"><?php echo h($m['stock']); ?></td>
+                                <td><?php echo h($m['Unit']); ?></td>
+                                <td class="actions">
+                                    <a class="edit"
+                                       href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=edit_material&id=<?php echo h($m['ID_KitMaterial']); ?>&pagina=<?php echo $paginaActual; ?>">
+                                       Editar
+                                    </a>
+                                    <a class="del"
+                                       href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=delete_material&id=<?php echo h($m['ID_KitMaterial']); ?>&pagina=<?php echo $paginaActual; ?>"
+                                       onclick="return confirm('¿Eliminar material del kit?')">
+                                       Eliminar
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+
+            <!-- Form agregar material al kit (extra, ya creado) -->
+            <div style="margin-top:15px">
+                <form method="post" class="kit-add-material-inline">
+                    <input type="hidden" name="action" value="add_material">
+                    <input type="hidden" name="fk_kit" value="<?php echo h($selectedKitId); ?>">
+
+                    <div class="kit-add-material-select">
+                        <label>Seleccionar suministro</label>
+                        <select name="fk_supply" required>
+                            <option value="">-- elegir --</option>
+                            <?php foreach ($supplies as $s): ?>
+                                <option value="<?php echo h($s['ID_Supply']); ?>">
+                                    <?php 
+                                        echo h(
+                                            $s['Name'] .
+                                            ' | ' . ($s['marca'] ?: 'Sin marca') .
+                                            ' | ' . ($s['features'] ?: '-') .
+                                            ' | stock: ' . $s['Unit']
+                                        ); 
+                                    ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="kit-add-material-qty">
+                        <label>Cantidad para el kit</label>
+                        <input type="number" name="unit" min="0" value="1" required>
+                    </div>
+
+                    <div class="kit-add-material-btn">
+                        <button type="submit">Agregar material</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <!-- ########### GRID: KITS + CATÁLOGO ########### -->
+    <div class="grid" style="margin-top:20px;">
+        <!-- Izquierda: Kits -->
+        <div class="card">
+            <div class="controls-row">
+                <h3 style="margin:0">Becas / kits registrados</h3>
+                <div class="small">
+                    Total: <?php echo $totalKits; ?> registros
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Semestre</th>
+                    <th>Inicio — Fin</th>
+                    <th class="small">Acciones</th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php if (empty($kits)): ?>
+                    <tr><td colspan="4" class="small">No hay becas registradas. Crea una arriba.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($kits as $k): ?>
+                        <tr>
+                            <td><?php echo h($k['Name']); ?></td>
+                            <td><?php echo h(($k['Period'] ?? '-') . ' ' . ($k['Year'] ?? '')); ?></td>
+                            <td><?php echo h($k['Start_date']); ?> — <?php echo h($k['End_date']); ?></td>
+                            <td class="actions">
+                                <!-- Ver ahora abre modal -->
+                                <a class="view"
+                                   href="#"
+                                   onclick="openKitModal(<?php echo (int)$k['ID_Kit']; ?>); return false;">
+                                   Ver
+                                </a>
+                                <!-- Editar lleva a ver_materials para editar arriba -->
+                                <a class="edit"
+                                   href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=view_materials&id=<?php echo h($k['ID_Kit']); ?>&pagina=<?php echo $paginaActual; ?>">
+                                   Editar
+                                </a>
+                                <a class="del"
+                                   href="<?php echo h($_SERVER['PHP_SELF']); ?>?action=delete_kit&id=<?php echo h($k['ID_Kit']); ?>&pagina=<?php echo $paginaActual; ?>"
+                                   onclick="return confirm('¿Eliminar beca/kit y sus materiales?')">
+                                   x
+                                </a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                </tbody>
+            </table>
+
+            <!-- Paginación de kits -->
+            <?php if ($totalPaginas > 1): ?>
+                <div class="pagination-buttons">
+                    <?php if ($paginaActual > 1): ?>
+                        <a href="?pagina=<?php echo $paginaActual - 1; ?>">
+                            ‹ Anterior
+                        </a>
+                    <?php else: ?>
+                        <span class="disabled">‹ Anterior</span>
+                    <?php endif; ?>
+
+                    <?php if ($paginaActual < $totalPaginas): ?>
+                        <a href="?pagina=<?php echo $paginaActual + 1; ?>">
+                            Siguiente ›
+                        </a>
+                    <?php else: ?>
+                        <span class="disabled">Siguiente ›</span>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Derecha: Catálogo de suministros -->
+        <aside>
             <div class="card">
                 <h3>Catálogo de suministros</h3>
                 <table id="supplies-table" style="margin-bottom:8px">
                     <thead>
-                        <tr><th>Nombre</th><th>Unidad</th></tr>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Características</th>
+                            <th>Marca</th>
+                            <th>Cantidad</th>
+                        </tr>
                     </thead>
                     <tbody>
-                        <?php if (empty($supplies)): ?>
-                            <tr><td colspan="2" class="small">No hay suministros registrados.</td></tr>
+                        <?php if (empty($supplies_all)): ?>
+                            <tr><td colspan="4" class="small">No hay suministros registrados.</td></tr>
                         <?php else: ?>
-                            <?php foreach ($supplies as $sp): ?>
+                            <?php foreach ($supplies_all as $sp): ?>
                                 <tr>
                                     <td><?php echo h($sp['Name']); ?></td>
+                                    <td class="small"><?php echo h($sp['features']); ?></td>
+                                    <td class="small"><?php echo h($sp['marca']); ?></td>
                                     <td class="small"><?php echo h($sp['Unit']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
@@ -680,25 +384,106 @@ $stmt->close();
                     </tbody>
                 </table>
 
-                <!-- Controles de paginación (JS los llenará) -->
                 <div id="supplies-pager" class="small"></div>
 
                 <hr class="divider">
-                <form method="post">
+
+                <!-- Formulario 1: SOLO tipos permitidos -->
+                <p class="form-subtitle">
+                    Agregar suministro (solo tipos permitidos)
+                </p>
+                <form method="post" id="form-suministro-basico">
                     <input type="hidden" name="action" value="create_supply">
-                    <label>Agregar suministro</label>
-                    <input type="text" name="s_name" placeholder="Nombre (ej. Lápiz)" required>
-                    <label>Unidad</label>
-                    <input type="text" name="s_unit" placeholder="ej. piezas / cajas" required>
+
+                    <label>Tipo de suministro</label>
+                    <select name="s_name" required>
+                        <option value="">-- elegir tipo --</option>
+                        <option value="Cuaderno">Cuaderno</option>
+                        <option value="Bolígrafo">Bolígrafo</option>
+                        <option value="Lápiz de grafito">Lápiz de grafito</option>
+                        <option value="Calculadora común">Calculadora común</option>
+                        <option value="Calculadora científica">Calculadora científica</option>
+                        <option value="Juego de reglas">Juego de reglas</option>
+                    </select>
+
+                    <label>Características</label>
+                    <input type="text" name="s_features" placeholder="ej. raya sencilla, tapa dura">
+
+                    <label>Marca</label>
+                    <select name="s_marca" required>
+                        <option value="">-- Elegir marca --</option>
+                        <option>Faber-Castell</option>
+                        <option>Staedtler</option>
+                        <option>Stabilo</option>
+                        <option>Pentel</option>
+                        <option>Pilot</option>
+                        <option>Bic</option>
+                        <option>Sharpie</option>
+                        <option>Post-it (3M)</option>
+                        <option>Norma</option>
+                        <option>Kiut</option>
+                        <option>Estrella</option>
+                        <option>Otro</option>
+                    </select>
+
+                    <label>Cantidad (unidades)</label>
+                    <input type="number" name="s_unit" min="1" placeholder="Cantidad (ej. 10)" required>
+
                     <div class="form-actions">
                         <button type="submit">Agregar suministro</button>
                     </div>
                 </form>
+
+                <!-- Botón para mostrar formulario 2 -->
+                <button type="button" class="btn-secondary-link"
+                        onclick="toggleOtroSuministro();">
+                    Agregar otro tipo de suministro
+                </button>
+
+                <!-- Formulario 2: OTRO tipo de suministro (nombre libre) -->
+                <div id="otro-suministro-wrap" style="display:none; margin-top:10px;">
+                    <p class="form-subtitle">
+                        Otro tipo de suministro (nombre libre)
+                    </p>
+                    <form method="post" id="form-suministro-otro">
+                        <input type="hidden" name="action" value="create_supply">
+
+                        <label>Nombre</label>
+                        <input type="text" name="s_name" placeholder="Nombre (ej. Marcadores fluorescentes)" required>
+
+                        <label>Características</label>
+                        <input type="text" name="s_features" placeholder="ej. colores neón">
+
+                        <label>Marca</label>
+                        <select name="s_marca" required>
+                            <option value="">-- elegir marca --</option>
+                            <option>Faber-Castell</option>
+                            <option>Staedtler</option>
+                            <option>Stabilo</option>
+                            <option>Pentel</option>
+                            <option>Pilot</option>
+                            <option>Bic</option>
+                            <option>Sharpie</option>
+                            <option>Post-it (3M)</option>
+                            <option>Norma</option>
+                            <option>Kiut</option>
+                            <option>Estrella</option>
+                            <option>Otro</option>
+                        </select>
+
+                        <label>Cantidad (unidades)</label>
+                        <input type="number" name="s_unit" min="1" placeholder="Cantidad (ej. 5)" required>
+
+                        <div class="form-actions">
+                            <button type="submit">Agregar suministro</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </aside>
     </div>
 
-    <!-- Editar material (overlay simple) -->
+    <!-- Overlay editar material -->
     <?php if ($getAction === 'edit_material' && isset($_GET['id'])): ?>
         <?php
         $idmat = intval($_GET['id']);
@@ -739,19 +524,112 @@ $stmt->close();
         </div>
         <?php endif; ?>
     <?php endif; ?>
+
+    <!-- Modal de detalles de beca / kit (para botón Ver) -->
+    <div id="kit-modal-overlay" class="kit-modal-overlay">
+        <div id="kit-modal" class="card kit-modal">
+            <button type="button"
+                    class="kit-modal-close close-btn"
+                    onclick="closeKitModal()">
+                ×
+            </button>
+            <div id="kit-modal-content">
+                <!-- JS inyecta contenido -->
+            </div>
+        </div>
+    </div>
+
 </div>
 
-<!-- Paginación front-end para la tabla de suministros -->
 <script>
+function toggleOtroSuministro() {
+    const wrap = document.getElementById('otro-suministro-wrap');
+    if (!wrap) return;
+    if (wrap.style.display === 'none' || wrap.style.display === '') {
+        wrap.style.display = 'block';
+        wrap.scrollIntoView({behavior:'smooth'});
+    } else {
+        wrap.style.display = 'none';
+    }
+}
+
+/* === Límite de materiales por tipo de beca (JS) === */
+function getKitLevelLimit() {
+    const levelSelect = document.getElementById('kit_level');
+    if (!levelSelect) return null;
+
+    const value = levelSelect.value;
+    switch (value) {
+        case 'Basica':
+            return 4;
+        case 'Intermedia':
+            return 6;
+        case 'Superior':
+            return 8;
+        default:
+            return null;
+    }
+}
+
+/* === FILAS DINÁMICAS DE MATERIALES EN CREAR KIT === */
+function addKitMaterialRow() {
+    const container = document.getElementById('kit-materials-container');
+    if (!container) return;
+
+    const limit = getKitLevelLimit();
+    if (!limit) {
+        alert('Primero selecciona el tipo de beca.');
+        const levelSelect = document.getElementById('kit_level');
+        if (levelSelect) levelSelect.focus();
+        return;
+    }
+
+    const rows = container.querySelectorAll('.kit-material-row');
+    const currentCount = rows.length;
+
+    if (currentCount >= limit) {
+        alert('Para este tipo de beca solo puedes agregar hasta ' + limit + ' artículos.');
+        return;
+    }
+
+    const firstRow = rows[0];
+    if (!firstRow) return;
+
+    const newRow = firstRow.cloneNode(true);
+
+    const select = newRow.querySelector('select[name="kit_supply_ids[]"]');
+    const input  = newRow.querySelector('input[name="kit_units[]"]');
+    if (select) select.value = '';
+    if (input)  input.value  = '1';
+
+    container.appendChild(newRow);
+}
+
+function removeKitMaterialRow(btn) {
+    const row = btn.closest('.kit-material-row');
+    const container = document.getElementById('kit-materials-container');
+    if (!row || !container) return;
+
+    const rows = container.querySelectorAll('.kit-material-row');
+    if (rows.length > 1) {
+        row.remove();
+    } else {
+        const select = row.querySelector('select[name="kit_supply_ids[]"]');
+        const input  = row.querySelector('input[name="kit_units[]"]');
+        if (select) select.value = '';
+        if (input)  input.value  = '1';
+    }
+}
+
+/* === Paginación front-end del catálogo de suministros === */
 document.addEventListener('DOMContentLoaded', function () {
-    const perPage = 5; // 5 registros por vista
+    const perPage = 5;
     const table   = document.getElementById('supplies-table');
     if (!table) return;
 
     const tbody = table.querySelector('tbody');
     const rows  = Array.from(tbody.querySelectorAll('tr'));
 
-    // si solo hay la fila de "no hay suministros" o <= perPage, no paginamos
     if (rows.length <= perPage) return;
 
     const pager = document.getElementById('supplies-pager');
@@ -798,9 +676,84 @@ document.addEventListener('DOMContentLoaded', function () {
         if (currentPage < totalPages) renderPage(currentPage + 1);
     });
 
-    // Primera vista
     renderPage(1);
 });
+
+/* === Modal "Ver" kit === */
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function openKitModal(kitId) {
+    const overlay = document.getElementById('kit-modal-overlay');
+    const content = document.getElementById('kit-modal-content');
+    if (!overlay || !content) return;
+
+    content.innerHTML = '<p class="small">Cargando detalles...</p>';
+    overlay.style.display = 'flex';
+
+    const url = 'inventario.php?action=kit_details&id=' + encodeURIComponent(kitId);
+
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.ok || !data.kit) {
+                content.innerHTML = '<p class="small">No se pudieron obtener los detalles de la beca.</p>';
+                return;
+            }
+
+            const kit = data.kit;
+            const materials = data.materials || [];
+
+            let html = '';
+
+            html += '<h3 style="margin-top:0;">' + escapeHtml(kit.Name || ('Beca #' + kit.ID_Kit)) + '</h3>';
+            html += '<p class="small">';
+            html += 'Semestre: ' + escapeHtml(kit.Period || '-') + ' ' + escapeHtml(kit.Year || '') + '<br>';
+            html += 'Vigencia: ' + escapeHtml(kit.Start_date || '-') + ' — ' + escapeHtml(kit.End_date || '-') + '';
+            html += '</p>';
+
+            if (!materials.length) {
+                html += '<p class="small">Esta beca aún no tiene materiales asignados.</p>';
+            } else {
+                html += '<table>';
+                html += '<thead><tr>'
+                     + '<th>Material</th>'
+                     + '<th>Características</th>'
+                     + '<th>Marca</th>'
+                     + '<th>Cantidad en beca</th>'
+                     + '</tr></thead><tbody>';
+
+                materials.forEach(function(m){
+                    html += '<tr>';
+                    html += '<td>' + escapeHtml(m.supply_name || '') + '</td>';
+                    html += '<td class="small">' + escapeHtml(m.features || '') + '</td>';
+                    html += '<td class="small">' + escapeHtml(m.marca || '') + '</td>';
+                    html += '<td>' + (m.Unit != null ? m.Unit : '') + '</td>';
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table>';
+            }
+
+            content.innerHTML = html;
+        })
+        .catch(err => {
+            console.error(err);
+            content.innerHTML = '<p class="small">Ocurrió un error al cargar la información.</p>';
+        });
+}
+
+function closeKitModal() {
+    const overlay = document.getElementById('kit-modal-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
 </script>
 </body>
 </html>
