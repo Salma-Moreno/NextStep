@@ -12,71 +12,49 @@ $id      = $_POST['id'] ?? '';
 $name    = trim($_POST['name'] ?? '');
 $address = trim($_POST['address'] ?? '');
 $phone   = trim($_POST['phone'] ?? '');
-$company = trim($_POST['company'] ?? '');
-$lat     = trim($_POST['latitude'] ?? '');
-$lon     = trim($_POST['longitude'] ?? '');
+$company = $_POST['company'] ?? '';
+$lat     = $_POST['latitude'] ?? '';
+$lon     = $_POST['longitude'] ?? '';
 
 $errors = [];
 
-// Validación de ID
-if (empty($id)) {
-    $errors[] = "ID no recibido";
-} elseif (!is_numeric($id)) {
+// Validar campos mínimos
+if ($id === '' || $name === '' || $address === '' || $company === '') {
+    $errors[] = "Datos incompletos";
+}
+
+// Validar tipos básicos
+if ($id !== '' && !is_numeric($id)) {
     $errors[] = "ID no válido";
 } else {
     $id = (int)$id;
 }
 
-// Validación de nombre
-if (empty($name)) {
-    $errors[] = "El nombre es obligatorio";
-} elseif (strlen($name) < 3) {
-    $errors[] = "El nombre debe tener al menos 3 caracteres";
-} elseif (!preg_match('/^[a-zA-ZÁÉÍÓÚáéíóúÑñ0-9\s&.,\-()]+$/', $name)) {
-    $errors[] = "El nombre contiene caracteres no permitidos";
-}
-
-// Validación de dirección
-if (empty($address)) {
-    $errors[] = "La dirección es obligatoria";
-} elseif (strlen($address) < 10) {
-    $errors[] = "La dirección debe tener al menos 10 caracteres";
-}
-
-// Validación de teléfono
-if (!empty($phone)) {
-    $clean_phone = preg_replace('/[^\d]/', '', $phone);
-    if (strlen($clean_phone) !== 10) {
-        $errors[] = "El teléfono debe tener 10 dígitos";
-    } elseif (!preg_match('/^[0-9]{10}$/', $clean_phone)) {
-        $errors[] = "Formato de teléfono inválido";
-    } else {
-        $phone = $clean_phone;
-    }
-}
-
-// Validación de compañía
-if (empty($company)) {
-    $errors[] = "Debe seleccionar una compañía";
-} elseif (!is_numeric($company)) {
+if (!is_numeric($company)) {
     $errors[] = "Compañía no válida";
 } else {
     $company = (int)$company;
 }
 
-// Validación de coordenadas
-if (empty($lat) || empty($lon)) {
-    $errors[] = "Las coordenadas son obligatorias";
-} elseif (!is_numeric($lat) || !is_numeric($lon)) {
-    $errors[] = "Coordenadas no válidas";
-} elseif ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
-    $errors[] = "Coordenadas fuera de rango";
+// lat/lon pueden venir vacíos si no los usas, pero si llegan, validar
+if ($lat === '' || $lon === '') {
+    $lat = null;
+    $lon = null;
 } else {
-    $lat = (float)$lat;
-    $lon = (float)$lon;
+    if (!is_numeric($lat) || !is_numeric($lon)) {
+        $errors[] = "Coordenadas no válidas";
+    } else {
+        $lat = (float)$lat;
+        $lon = (float)$lon;
+    }
 }
 
-// Si hay errores, retornarlos
+// Teléfono opcional: limpiar
+if ($phone !== '') {
+    $phone = trim($phone);
+}
+
+// Si hay errores, regresarlos
 if (!empty($errors)) {
     echo json_encode(["success" => false, "error" => implode(". ", $errors)]);
     exit;
@@ -143,6 +121,10 @@ $query = $conn->prepare("
     SET Name = ?, address = ?, Phone_number = ?, FK_ID_Company = ?, latitude = ?, longitude = ?
     WHERE ID_Point = ?
 ");
+
+// Para lat/lon nulos, usamos 0.0 o ajusta según tu diseño de BD
+if ($lat === null) $lat = 0.0;
+if ($lon === null) $lon = 0.0;
 
 $query->bind_param("sssiddi", $name, $address, $phone, $company, $lat, $lon, $id);
 

@@ -4,7 +4,15 @@ require '../Conexiones/db.php';
 
 // Solo Staff
 if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Staff') {
+    // Aquí sí puedes seguir usando die o redirigir al login
     die("Error: Acceso no autorizado");
+}
+
+// Helper para manejar errores y regresar a Company.php
+function go_error($msg) {
+    $_SESSION['error'] = $msg;
+    header("Location: Company.php");
+    exit;
 }
 
 // Habilitar excepciones de mysqli para depuración
@@ -29,21 +37,21 @@ try {
     $required = ['name', 'rfc', 'email', 'street', 'city', 'state', 'postal_code'];
     foreach ($required as $field) {
         if (empty($_POST[$field])) {
-            die("Error: El campo " . ucfirst($field) . " es obligatorio");
+            go_error("El campo " . ucfirst($field) . " es obligatorio");
         }
     }
 
     // 2. Validación de NOMBRE (no solo números/símbolos)
     if (strlen($name) < 3) {
-        die("Error: El nombre debe tener al menos 3 caracteres");
+        go_error("El nombre debe tener al menos 3 caracteres");
     }
 
     if (preg_match('/^[0-9\s\W]+$/', $name)) {
-        die("Error: El nombre debe contener letras");
+        go_error("El nombre debe contener letras");
     }
 
     if (!preg_match('/^[a-zA-ZÁÉÍÓÚáéíóúÑñ0-9\s&.,\-()]+$/', $name)) {
-        die("Error: El nombre contiene caracteres no permitidos. Use solo letras, números, espacios y los símbolos: & . , - ( )");
+        go_error("El nombre contiene caracteres no permitidos. Use solo letras, números, espacios y los símbolos: & . , - ( )");
     }
 
     // 3. Validación de TELÉFONO (10 dígitos si se proporciona)
@@ -51,11 +59,11 @@ try {
         $clean_phone = preg_replace('/[^\d]/', '', $phone);
         
         if (strlen($clean_phone) !== 10) {
-            die("Error: El teléfono debe tener 10 dígitos");
+            go_error("El teléfono debe tener 10 dígitos");
         }
         
         if (!preg_match('/^[0-9]{10}$/', $clean_phone)) {
-            die("Error: Formato de teléfono inválido");
+            go_error("Formato de teléfono inválido");
         }
         
         $phone = $clean_phone; // Guardar limpio
@@ -63,18 +71,18 @@ try {
 
     // 4. Validación de EMAIL
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        die("Error: Email no válido. Ejemplo: contacto@empresa.com");
+        go_error("Email no válido. Ejemplo: contacto@empresa.com");
     }
 
     // 5. Validación de RFC
     $rfc_upper = strtoupper($rfc);
     if (!preg_match('/^[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}$/', $rfc_upper)) {
-        die("Error: RFC no válido. Ejemplo para persona moral: XAXX010101000");
+        go_error("RFC no válido. Ejemplo para persona moral: XAXX010101000");
     }
 
     // 6. Validación de CÓDIGO POSTAL
     if (!preg_match('/^[0-9]{5}$/', $postal_code)) {
-        die("Error: El código postal debe tener 5 dígitos");
+        go_error("El código postal debe tener 5 dígitos");
     }
 
     // 7. Validación de unicidad de NOMBRE (crear/editar)
@@ -92,7 +100,8 @@ try {
     $check_name->store_result();
 
     if ($check_name->num_rows > 0) {
-        die("Error: Ya existe una compañía con ese nombre");
+        $check_name->close();
+        go_error("Ya existe una compañía con ese nombre");
     }
     $check_name->close();
 
@@ -109,7 +118,8 @@ try {
     $check_email->store_result();
 
     if ($check_email->num_rows > 0) {
-        die("Error: Este email ya está registrado");
+        $check_email->close();
+        go_error("Este email ya está registrado");
     }
     $check_email->close();
 
@@ -126,7 +136,8 @@ try {
     $check_rfc->store_result();
 
     if ($check_rfc->num_rows > 0) {
-        die("Error: Este RFC ya está registrado");
+        $check_rfc->close();
+        go_error("Este RFC ya está registrado");
     }
     $check_rfc->close();
 
@@ -166,14 +177,16 @@ try {
     // Commit
     mysqli_commit($conn);
 
-    // Redirigir de vuelta a la lista con mensaje de éxito
-    header("Location: Company.php?success=1");
+    // Mensaje de éxito y redirección
+    $_SESSION['success'] = $company_id ? "Compañía guardada correctamente." : "Compañía creada correctamente.";
+    header("Location: Company.php");
     exit;
 
 } catch (mysqli_sql_exception $e) {
     mysqli_rollback($conn);
-    die("Error de MySQL: " . $e->getMessage());
+    // En desarrollo puedes usar el mensaje real, en producción tal vez algo genérico
+    go_error("Error de MySQL: " . $e->getMessage());
 } catch (Exception $e) {
     mysqli_rollback($conn);
-    die("Error: " . $e->getMessage());
+    go_error("Error: " . $e->getMessage());
 }

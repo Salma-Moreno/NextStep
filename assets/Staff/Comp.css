@@ -1,11 +1,17 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
 /* ======== ESTILOS BASE ======== */
-body { background: pink !important; }
 body { 
     font-family: Arial, sans-serif; 
     margin:0; 
     padding:0; 
     background:#f3f4f6; 
     color:#111;
+    overflow-x: hidden !important;
 }
 
 .container { 
@@ -47,6 +53,27 @@ body {
 
 .btn.secondary { 
     background:#6c757d; 
+}
+
+/* ======== MENSAJES DE ALERTA ======== */
+.alert {
+    max-width: 1200px;
+    margin: 1rem auto 0.5rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.alert-danger {
+    background-color: #fee2e2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+}
+
+.alert-success {
+    background-color: #dcfce7;
+    border: 1px solid #bbf7d0;
+    color: #166534;
 }
 
 /* ======== MODAL FORMULARIO ======== */
@@ -104,7 +131,7 @@ body {
     margin-top:1rem; 
 }
 
-/* ======== PANEL TIPO "BECAS" ======== */
+/* ======== PANEL ======== */
 
 .companies-panel {
     background: #f9fafb;
@@ -112,6 +139,7 @@ body {
     padding: 32px 32px 40px;
     margin-top: 32px;
     box-shadow: 0 18px 40px rgba(15, 23, 42, 0.15);
+    overflow: hidden; 
 }
 
 .companies-panel-title {
@@ -129,13 +157,38 @@ body {
     margin-bottom: 24px;
 }
 
+/* === Contenedor carrusel (flechas + cards) === */
+.companies-carousel {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+/* Botones flecha izquierda/derecha */
+.nav-arrow {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    padding: 0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 18px;
+}
+
+.nav-arrow:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
 /* ======== GRID DE CARDS ======== */
 
 .scholarship-list {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+    grid-template-columns: repeat(3, minmax(0, 1fr)); 
     gap: 24px; 
     justify-items: center;
+    flex: 1; /* para ocupar el espacio entre las flechas */
 }
 
 /* ======== CARD INDIVIDUAL (COMPAÑÍA) ======== */
@@ -158,7 +211,7 @@ body {
     box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
 }
 
-/* banda degradada como las becas */
+/* banda degradada */
 .card-image {
     height: 110px;
     background: linear-gradient(135deg, #1f3259, #6696f8);
@@ -186,4 +239,21 @@ body {
 .card-long-text {
     font-size: 0.8rem;
     color: #4b5563;
+}
+
+/* ESTILOS PARA ERRORES DE VALIDACIÓN */
+.error-message {
+    color: #dc2626;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+    display: none;
+}
+
+.input-error {
+    border-color: #dc2626 !important;
+    background-color: #fef2f2;
+}
+
+.input-success {
+    border-color: #10b981 !important;
 }
