@@ -61,6 +61,8 @@ while ($row = mysqli_fetch_assoc($result)) {
                 placeholder="Buscar por sucursal o dirección...">
             
             <div id="branches"></div>
+                <div id="saveMessage" class="save-message"></div>
+
         </div>
 
         <!-- PANEL DERECHO: MAPA -->
@@ -275,6 +277,7 @@ async function renderPoints(userLatParam, userLngParam) {
 function handleSelectBranch(pointId, cardElement) {
     selectedPointId = pointId;
 
+    // 1) Resaltar la tarjeta seleccionada
     document.querySelectorAll('.branch-card').forEach(card => {
         card.classList.remove('selected');
     });
@@ -282,14 +285,49 @@ function handleSelectBranch(pointId, cardElement) {
         cardElement.classList.add('selected');
     }
 
+    // 2) Centrar el mapa en esa sucursal y abrir popup
     const marker = branchMarkers[pointId];
     if (marker) {
         map.setView(marker.getLatLng(), 17);
         marker.openPopup();
     }
 
-    console.log('Sucursal seleccionada:', pointId);
-    // Aquí podrías hacer un fetch() para guardar en BD el punto elegido
+    // 3) Mostrar mensaje de estado
+    const msgBox = document.getElementById('saveMessage');
+    if (msgBox) {
+        msgBox.textContent = 'Guardando punto de entrega...';
+        msgBox.style.color = '#333';
+    }
+
+    // 4) Llamar a save_delivery.php para guardar en la tabla delivery
+    fetch('save_delivery.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ point_id: pointId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            if (msgBox) {
+                msgBox.textContent = data.message || 'Punto de entrega guardado correctamente.';
+                msgBox.style.color = 'green';
+            }
+        } else {
+            if (msgBox) {
+                msgBox.textContent = data.message || 'No se pudo guardar el punto de entrega.';
+                msgBox.style.color = 'red';
+            }
+            alert(data.message || 'No se pudo guardar el punto de entrega.');
+        }
+    })
+    .catch(err => {
+        console.error('Error al guardar punto de entrega:', err);
+        if (msgBox) {
+            msgBox.textContent = 'Error de comunicación con el servidor.';
+            msgBox.style.color = 'red';
+        }
+        alert('Ocurrió un error al guardar el punto de entrega.');
+    });
 }
 
 // Delegación de eventos para botones "Seleccionar"
@@ -365,6 +403,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// Delegación de eventos para botones "Seleccionar"
+document.getElementById('branches').addEventListener('click', (e) => {
+    if (e.target.classList.contains('btn-select')) {
+        const pointId = e.target.getAttribute('data-id');
+        const card = e.target.closest('.branch-card');
+        handleSelectBranch(pointId, card);
+    }
+});
+
 </script>
 
 </body>
