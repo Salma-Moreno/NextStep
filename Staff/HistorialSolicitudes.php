@@ -76,6 +76,11 @@ $filtro_estado = isset($_GET['estado']) ? $_GET['estado'] : '';
 $filtro_nombre = isset($_GET['nombre']) ? $conexion->real_escape_string($_GET['nombre']) : '';
 $filtro_email = isset($_GET['email']) ? $conexion->real_escape_string($_GET['email']) : '';
 
+// ====== AGREGADO: CONFIGURACIÓN DE PAGINACIÓN ======
+$registros_por_pagina = 5;
+$pagina_actual = isset($_GET['pagina']) ? max(1, (int)$_GET['pagina']) : 1;
+$offset = ($pagina_actual - 1) * $registros_por_pagina;
+
 if ($vista == 'solicitudes') {
     // VISTA DE SOLICITUDES - SOLO ACTIVAS (NO CANCELADAS POR NADIE)
     
@@ -90,8 +95,8 @@ if ($vista == 'solicitudes') {
         $kits_disponibles[] = $kit;
     }
 
-    // Construir consulta - EXCLUIR TODAS LAS CANCELADAS (estudiante o staff)
-    $sql = "SELECT 
+    // ====== MODIFICADO: Consulta base para contar total ======
+    $sql_base = "SELECT 
             a.ID_status,
             s.Name AS estudiante_nombre,
             s.Last_Name AS estudiante_apellido,
@@ -102,42 +107,79 @@ if ($vista == 'solicitudes') {
             DATE_FORMAT(a.Application_date, '%d/%m/%Y %H:%i') AS fecha_solicitud
             FROM aplication a
             JOIN student s ON a.FK_ID_Student = s.ID_Student
-            WHERE a.status != 'Cancelada' AND a.status != 'Canceled'"; // No mostrar NINGUNA cancelada
+            WHERE a.status != 'Cancelada' AND a.status != 'Canceled'";
 
+    $where_conditions = [];
     $params = [];
     $types = '';
 
     if ($filtro_kit > 0) {
-        $sql .= " AND a.FK_ID_Kit = ?";
+        $where_conditions[] = "a.FK_ID_Kit = ?";
         $params[] = $filtro_kit;
         $types .= 'i';
     }
 
     if (!empty($filtro_estado)) {
-        $sql .= " AND a.status = ?";
+        $where_conditions[] = "a.status = ?";
         $params[] = $filtro_estado;
         $types .= 's';
     }
 
     if (!empty($filtro_nombre)) {
-        $sql .= " AND (s.Name LIKE ? OR s.Last_Name LIKE ?)";
+        $where_conditions[] = "(s.Name LIKE ? OR s.Last_Name LIKE ?)";
         $params[] = "%$filtro_nombre%";
         $params[] = "%$filtro_nombre%";
         $types .= 'ss';
     }
 
     if (!empty($filtro_email)) {
-        $sql .= " AND s.Email_Address LIKE ?";
+        $where_conditions[] = "s.Email_Address LIKE ?";
         $params[] = "%$filtro_email%";
         $types .= 's';
     }
 
-    $sql .= " ORDER BY a.ID_status DESC";
-
-    // Preparar y ejecutar consulta
-    $stmt = $conexion->prepare($sql);
+    // ====== AGREGADO: Contar total de registros ======
+    $sql_total = $sql_base;
+    if (!empty($where_conditions)) {
+        $sql_total .= " AND " . implode(" AND ", $where_conditions);
+    }
+    
+    // Contar total
+    $stmt_total = $conexion->prepare($sql_total);
     if (!empty($params)) {
-        $stmt->bind_param($types, ...$params);
+        $stmt_total->bind_param($types, ...$params);
+    }
+    $stmt_total->execute();
+    $result_total = $stmt_total->get_result();
+    $total_registros = $result_total->num_rows;
+    $stmt_total->close();
+
+    // ====== AGREGADO: Calcular páginas ======
+    $total_paginas = ceil($total_registros / $registros_por_pagina);
+    
+    // Ajustar página si es necesario
+    if ($pagina_actual > $total_paginas && $total_paginas > 0) {
+        $pagina_actual = $total_paginas;
+        $offset = ($pagina_actual - 1) * $registros_por_pagina;
+    }
+
+    // ====== MODIFICADO: Consulta con LIMIT y OFFSET ======
+    $sql_datos = $sql_base;
+    if (!empty($where_conditions)) {
+        $sql_datos .= " AND " . implode(" AND ", $where_conditions);
+    }
+    $sql_datos .= " ORDER BY a.ID_status DESC LIMIT ? OFFSET ?";
+
+    // ====== AGREGADO: Parámetros de paginación ======
+    $params_paginacion = $params;
+    $types_paginacion = $types . 'ii';
+    $params_paginacion[] = $registros_por_pagina;
+    $params_paginacion[] = $offset;
+
+    // Preparar y ejecutar consulta con paginación
+    $stmt = $conexion->prepare($sql_datos);
+    if (!empty($params_paginacion)) {
+        $stmt->bind_param($types_paginacion, ...$params_paginacion);
     }
     $stmt->execute();
     $result = $stmt->get_result();
@@ -202,25 +244,59 @@ if ($vista == 'solicitudes') {
     }
     $stmt->close();
 
+    // ====== MODIFICADO: Para estadísticas necesitamos TODOS los registros ======
+    $sql_estadisticas = $sql_total;
+    $stmt_estad = $conexion->prepare($sql_estadisticas);
+    if (!empty($params)) {
+        $stmt_estad->bind_param($types, ...$params);
+    }
+    $stmt_estad->execute();
+    $result_estad = $stmt_estad->get_result();
+    
+    $todas_solicitudes = [];
+    while ($row = $result_estad->fetch_assoc()) {
+        $todas_solicitudes[] = $row;
+    }
+    $stmt_estad->close();
+
     // Calcular estadísticas (sin contar canceladas)
     // CONTAR CON LOS NUEVOS ESTADOS
-    $total = count($solicitudes);
-    $pendientes = array_filter($solicitudes, function($s) { 
+    $total = count($todas_solicitudes);
+    $pendientes = array_filter($todas_solicitudes, function($s) { 
         return $s['status'] == 'Enviada' || $s['status'] == 'En revisión'; 
     });
-    $aprobadas = array_filter($solicitudes, function($s) { 
+    $aprobadas = array_filter($todas_solicitudes, function($s) { 
         return $s['status'] == 'Aprobada'; 
     });
-    $rechazadas = array_filter($solicitudes, function($s) { 
+    $rechazadas = array_filter($todas_solicitudes, function($s) { 
         return $s['status'] == 'Rechazada'; 
     });
-    $entregadas = array_filter($solicitudes, function($s) { 
+    $entregadas = array_filter($todas_solicitudes, function($s) { 
         return $s['status'] == 'Entrega'; 
     });
 
 } else {
     // VISTA DE KITS DISPONIBLES - Solo contar activas
     
+    // ====== AGREGADO: Paginación para kits también ======
+    $kits_por_pagina = 5;
+    $pagina_actual_kits = isset($_GET['pagina_kits']) ? max(1, (int)$_GET['pagina_kits']) : 1;
+    $offset_kits = ($pagina_actual_kits - 1) * $kits_por_pagina;
+    
+    // Contar total de kits
+    $sql_count_kits = "SELECT COUNT(*) as total FROM kit";
+    $result_count = $conexion->query($sql_count_kits);
+    $row_count = $result_count->fetch_assoc();
+    $total_kits_registros = $row_count['total'];
+    $total_paginas_kits = ceil($total_kits_registros / $kits_por_pagina);
+    
+    // Ajustar página si es necesario
+    if ($pagina_actual_kits > $total_paginas_kits && $total_paginas_kits > 0) {
+        $pagina_actual_kits = $total_paginas_kits;
+        $offset_kits = ($pagina_actual_kits - 1) * $kits_por_pagina;
+    }
+    
+    // ====== MODIFICADO: Agregar LIMIT y OFFSET ======
     $sql_kits_completos = "SELECT 
         k.ID_Kit,
         CONCAT('Kit ', s.Period, ' ', s.Year) AS nombre_kit,
@@ -237,10 +313,18 @@ if ($vista == 'solicitudes') {
     INNER JOIN semester s ON k.FK_ID_Semester = s.ID_Semester
     LEFT JOIN aplication a ON k.ID_Kit = a.FK_ID_Kit AND a.status NOT IN ('Cancelada', 'Canceled')
     GROUP BY k.ID_Kit
-    ORDER BY k.Start_date DESC";
+    ORDER BY k.Start_date DESC
+    LIMIT ? OFFSET ?";  // ====== AGREGADO: LIMIT y OFFSET ======
     
-    $result_kits_completos = $conexion->query($sql_kits_completos);
+    $stmt_kits = $conexion->prepare($sql_kits_completos);
+    $stmt_kits->bind_param("ii", $kits_por_pagina, $offset_kits);
+    $stmt_kits->execute();
+    $result_kits_completos = $stmt_kits->get_result();
+    
     $kits_completos = [];
+    $kits_con_solicitudes = 0;
+    $kits_sin_solicitudes = 0;
+    $total_solicitudes_todas = 0;
     
     while ($kit = $result_kits_completos->fetch_assoc()) {
         $sql_materiales_kit = "SELECT sup.Name, km.Unit 
@@ -260,12 +344,18 @@ if ($vista == 'solicitudes') {
         $stmt_mat_kit->close();
         
         $kits_completos[] = $kit;
+        
+        // Contar estadísticas
+        if ($kit['total_solicitudes'] > 0) {
+            $kits_con_solicitudes++;
+            $total_solicitudes_todas += $kit['total_solicitudes'];
+        } else {
+            $kits_sin_solicitudes++;
+        }
     }
+    $stmt_kits->close();
     
-    $total_kits = count($kits_completos);
-    $kits_con_solicitudes = array_filter($kits_completos, function($k) { return $k['total_solicitudes'] > 0; });
-    $kits_sin_solicitudes = array_filter($kits_completos, function($k) { return $k['total_solicitudes'] == 0; });
-    $total_solicitudes_todas = array_sum(array_column($kits_completos, 'total_solicitudes'));
+    $total_kits = $total_kits_registros;
 }
 ?>
 <!DOCTYPE html>
@@ -275,6 +365,7 @@ if ($vista == 'solicitudes') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Kits</title>
     <style>
+        /* TODO TU CSS ORIGINAL SE CONSERVA INTACTO */
         * {
     box-sizing: border-box;
     margin: 0;
@@ -1138,6 +1229,89 @@ if ($vista == 'solicitudes') {
                 opacity: 1;
             }
         }
+
+        /* ====== AGREGADO: ESTILOS PARA PAGINACIÓN ====== */
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            border: 1px solid #eef2f7;
+            max-width: 1300px;
+            margin: 20px auto 30px auto;
+        }
+        
+        .pagination-info {
+            margin: 0 20px;
+            font-size: 14px;
+            color: #5a6c7d;
+            font-weight: 500;
+        }
+        
+        .pagination-info strong {
+            color: #2c3e50;
+        }
+        
+        .pagination-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .pagination-btn {
+            padding: 10px 18px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 120px;
+            justify-content: center;
+        }
+        
+        .pagination-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .pagination-btn:hover:not(:disabled) {
+            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(41, 128, 185, 0.3);
+        }
+        
+        .pagination-btn-prev {
+            background: #34495e;
+        }
+        
+        .pagination-btn-prev:hover:not(:disabled) {
+            background: #2c3e50;
+        }
+        
+        @media (max-width: 768px) {
+            .pagination-container {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .pagination-buttons {
+                width: 100%;
+            }
+            
+            .pagination-btn {
+                flex: 1;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1190,6 +1364,8 @@ if ($vista == 'solicitudes') {
             
             <form method="GET" action="" class="filters-panel">
                 <input type="hidden" name="vista" value="solicitudes">
+                <!-- ====== AGREGADO: Input para página ====== -->
+                <input type="hidden" name="pagina" value="1">
                 
                 <div class="filter-item">
                     <label>Filtrar por Kit</label>
@@ -1345,6 +1521,33 @@ if ($vista == 'solicitudes') {
                         </table>
                     </div>
                 </div>
+                
+                <!-- ====== AGREGADO: PAGINACIÓN PARA SOLICITUDES ====== -->
+                <?php if ($total_paginas > 1): ?>
+                <div class="pagination-container">
+                    <div class="pagination-buttons">
+                        <button class="pagination-btn pagination-btn-prev" 
+                                onclick="navegarPagina(<?php echo $pagina_actual - 1; ?>)" 
+                                <?php echo ($pagina_actual <= 1) ? 'disabled' : ''; ?>>
+                            <i class="fas fa-chevron-left"></i> Anterior
+                        </button>
+                    </div>
+                    
+                    <div class="pagination-info">
+                        Mostrando <strong><?php echo min($registros_por_pagina, count($solicitudes)); ?></strong> de 
+                        <strong><?php echo $total_registros; ?></strong> registros
+                        - Página <strong><?php echo $pagina_actual; ?></strong> de <strong><?php echo $total_paginas; ?></strong>
+                    </div>
+                    
+                    <div class="pagination-buttons">
+                        <button class="pagination-btn" 
+                                onclick="navegarPagina(<?php echo $pagina_actual + 1; ?>)" 
+                                <?php echo ($pagina_actual >= $total_paginas) ? 'disabled' : ''; ?>>
+                            Siguiente <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                <?php endif; ?>
             <?php endif; ?>
             
         <?php else: ?>
@@ -1364,11 +1567,11 @@ if ($vista == 'solicitudes') {
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Con Solicitudes Activas</div>
-                    <div class="stat-number" id="stat-con-solicitudes"><?php echo count($kits_con_solicitudes); ?></div>
+                    <div class="stat-number" id="stat-con-solicitudes"><?php echo $kits_con_solicitudes; ?></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Sin Solicitudes</div>
-                    <div class="stat-number" id="stat-sin-solicitudes"><?php echo count($kits_sin_solicitudes); ?></div>
+                    <div class="stat-number" id="stat-sin-solicitudes"><?php echo $kits_sin_solicitudes; ?></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Solicitudes Activas</div>
@@ -1466,11 +1669,38 @@ if ($vista == 'solicitudes') {
                         </table>
                     </div>
                 </div>
+                
+                <!-- ====== AGREGADO: PAGINACIÓN PARA KITS ====== -->
+                <?php if ($total_paginas_kits > 1): ?>
+                <div class="pagination-container">
+                    <div class="pagination-buttons">
+                        <button class="pagination-btn pagination-btn-prev" 
+                                onclick="navegarPaginaKits(<?php echo $pagina_actual_kits - 1; ?>)" 
+                                <?php echo ($pagina_actual_kits <= 1) ? 'disabled' : ''; ?>>
+                            <i class="fas fa-chevron-left"></i> Anterior
+                        </button>
+                    </div>
+                    
+                    <div class="pagination-info">
+                        Mostrando <strong><?php echo min($kits_por_pagina, count($kits_completos)); ?></strong> de 
+                        <strong><?php echo $total_kits_registros; ?></strong> kits
+                        - Página <strong><?php echo $pagina_actual_kits; ?></strong> de <strong><?php echo $total_paginas_kits; ?></strong>
+                    </div>
+                    
+                    <div class="pagination-buttons">
+                        <button class="pagination-btn" 
+                                onclick="navegarPaginaKits(<?php echo $pagina_actual_kits + 1; ?>)" 
+                                <?php echo ($pagina_actual_kits >= $total_paginas_kits) ? 'disabled' : ''; ?>>
+                            Siguiente <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                <?php endif; ?>
             <?php endif; ?>
         <?php endif; ?>
     </div>
     
-    <!-- MODAL PARA CANCELAR CON MENSAJE -->
+    <!-- MODAL PARA CANCELAR CON MENSAJE (TODO IGUAL) -->
     <div id="modalCancelar" class="modal-cancel">
         <div class="modal-box">
             <div class="modal-header">
@@ -1505,12 +1735,24 @@ if ($vista == 'solicitudes') {
     </div>
     
     <script>
-        // VARIABLES PARA AUTO-REFRESH
+        // ====== AGREGADO: FUNCIONES DE PAGINACIÓN ======
+        function navegarPagina(pagina) {
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('pagina', pagina);
+            window.location.href = '?' + urlParams.toString();
+        }
+        
+        function navegarPaginaKits(pagina) {
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('pagina_kits', pagina);
+            window.location.href = '?' + urlParams.toString();
+        }
+        
+        // TODO TU JAVASCRIPT ORIGINAL SE CONSERVA INTACTO
         let lastUpdateTime = Date.now();
         let refreshIndicator = null;
         let refreshTimeout = null;
         
-        // Función para abrir modal de cancelación
         function abrirModalCancelar(idSolicitud) {
             const modal = document.getElementById('modalCancelar');
             document.getElementById('modalIdSolicitud').value = idSolicitud;
@@ -1529,7 +1771,6 @@ if ($vista == 'solicitudes') {
             }, 300);
         }
         
-        // Función para cerrar modal
         function cerrarModal() {
             const modal = document.getElementById('modalCancelar');
             modal.classList.remove('show');
