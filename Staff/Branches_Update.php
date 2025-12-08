@@ -8,13 +8,13 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Staff') {
     exit;
 }
 
-$id = $_POST['id'] ?? '';
-$name = trim($_POST['name'] ?? '');
+$id      = $_POST['id'] ?? '';
+$name    = trim($_POST['name'] ?? '');
 $address = trim($_POST['address'] ?? '');
-$phone = trim($_POST['phone'] ?? '');
+$phone   = trim($_POST['phone'] ?? '');
 $company = trim($_POST['company'] ?? '');
-$lat = trim($_POST['latitude'] ?? '');
-$lon = trim($_POST['longitude'] ?? '');
+$lat     = trim($_POST['latitude'] ?? '');
+$lon     = trim($_POST['longitude'] ?? '');
 
 $errors = [];
 
@@ -23,6 +23,8 @@ if (empty($id)) {
     $errors[] = "ID no recibido";
 } elseif (!is_numeric($id)) {
     $errors[] = "ID no válido";
+} else {
+    $id = (int)$id;
 }
 
 // Validación de nombre
@@ -58,6 +60,8 @@ if (empty($company)) {
     $errors[] = "Debe seleccionar una compañía";
 } elseif (!is_numeric($company)) {
     $errors[] = "Compañía no válida";
+} else {
+    $company = (int)$company;
 }
 
 // Validación de coordenadas
@@ -67,6 +71,9 @@ if (empty($lat) || empty($lon)) {
     $errors[] = "Coordenadas no válidas";
 } elseif ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
     $errors[] = "Coordenadas fuera de rango";
+} else {
+    $lat = (float)$lat;
+    $lon = (float)$lon;
 }
 
 // Si hay errores, retornarlos
@@ -82,9 +89,11 @@ $check_branch->execute();
 $check_branch->store_result();
 
 if ($check_branch->num_rows === 0) {
+    $check_branch->close();
     echo json_encode(["success" => false, "error" => "La sucursal no existe"]);
     exit;
 }
+$check_branch->close();
 
 // Verificar que la compañía exista
 $check_company = $conn->prepare("SELECT ID_Company FROM company WHERE ID_Company = ?");
@@ -93,14 +102,46 @@ $check_company->execute();
 $check_company->store_result();
 
 if ($check_company->num_rows === 0) {
+    $check_company->close();
     echo json_encode(["success" => false, "error" => "La compañía no existe"]);
     exit;
 }
+$check_company->close();
 
+/* ==========================================
+   VALIDAR QUE LA DIRECCIÓN NO ESTÉ REPETIDA
+   ========================================== */
+/*
+   Evita que haya otra sucursal (ID_Point distinto)
+   con la misma dirección para la misma compañía.
+*/
+$check_address = $conn->prepare("
+    SELECT ID_Point
+    FROM collection_point
+    WHERE address = ?
+      AND FK_ID_Company = ?
+      AND ID_Point <> ?
+    LIMIT 1
+");
+$check_address->bind_param("sii", $address, $company, $id);
+$check_address->execute();
+$check_address->store_result();
+
+if ($check_address->num_rows > 0) {
+    $check_address->close();
+    echo json_encode([
+        "success" => false,
+        "error"   => "Ya existe otra sucursal con esa dirección para esta compañía"
+    ]);
+    exit;
+}
+$check_address->close();
+
+// Si todo está bien, actualizar
 $query = $conn->prepare("
-UPDATE collection_point
-SET Name = ?, address = ?, Phone_number = ?, FK_ID_Company = ?, latitude = ?, longitude = ?
-WHERE ID_Point = ?
+    UPDATE collection_point
+    SET Name = ?, address = ?, Phone_number = ?, FK_ID_Company = ?, latitude = ?, longitude = ?
+    WHERE ID_Point = ?
 ");
 
 $query->bind_param("sssiddi", $name, $address, $phone, $company, $lat, $lon, $id);

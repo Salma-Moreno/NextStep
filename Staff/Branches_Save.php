@@ -9,12 +9,12 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_rol'] !== 'Staff') {
 }
 
 // Sanitizar y validar datos
-$name = trim($_POST['name'] ?? '');
+$name    = trim($_POST['name'] ?? '');
 $address = trim($_POST['address'] ?? '');
-$phone = trim($_POST['phone'] ?? '');
+$phone   = trim($_POST['phone'] ?? '');
 $company = trim($_POST['company'] ?? '');
-$lat = trim($_POST['latitude'] ?? '');
-$lon = trim($_POST['longitude'] ?? '');
+$lat     = trim($_POST['latitude'] ?? '');
+$lon     = trim($_POST['longitude'] ?? '');
 
 $errors = [];
 
@@ -51,6 +51,8 @@ if (empty($company)) {
     $errors[] = "Debe seleccionar una compañía";
 } elseif (!is_numeric($company)) {
     $errors[] = "Compañía no válida";
+} else {
+    $company = (int)$company;
 }
 
 // Validación de coordenadas
@@ -60,6 +62,9 @@ if (empty($lat) || empty($lon)) {
     $errors[] = "Coordenadas no válidas";
 } elseif ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
     $errors[] = "Coordenadas fuera de rango";
+} else {
+    $lat = (float)$lat;
+    $lon = (float)$lon;
 }
 
 // Si hay errores, retornarlos
@@ -75,14 +80,40 @@ $check_company->execute();
 $check_company->store_result();
 
 if ($check_company->num_rows === 0) {
+    $check_company->close();
     echo json_encode(["success" => false, "error" => "La compañía no existe"]);
     exit;
 }
+$check_company->close();
+
+/* ================================
+   VALIDAR DIRECCIÓN NO DUPLICADA
+   ================================ */
+// Evitar que se registre la misma dirección para la misma compañía
+$check_address = $conn->prepare("
+    SELECT ID_Collection_Point 
+    FROM collection_point 
+    WHERE address = ? AND FK_ID_Company = ?
+    LIMIT 1
+");
+$check_address->bind_param("si", $address, $company);
+$check_address->execute();
+$check_address->store_result();
+
+if ($check_address->num_rows > 0) {
+    $check_address->close();
+    echo json_encode([
+        "success" => false,
+        "error"   => "Ya existe una sucursal con esa dirección para esta compañía"
+    ]);
+    exit;
+}
+$check_address->close();
 
 // Insertar en base de datos
 $query = $conn->prepare("
-INSERT INTO collection_point (Name, address, Phone_number, FK_ID_Company, latitude, longitude)
-VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO collection_point (Name, address, Phone_number, FK_ID_Company, latitude, longitude)
+    VALUES (?, ?, ?, ?, ?, ?)
 ");
 
 $query->bind_param("sssidd", $name, $address, $phone, $company, $lat, $lon);

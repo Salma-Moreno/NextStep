@@ -77,29 +77,58 @@ try {
         die("Error: El código postal debe tener 5 dígitos");
     }
 
-    // 7. Validación de unicidad de EMAIL (solo para nuevas compañías)
-    if (!$company_id) {
-        $check_email = $conn->prepare("SELECT ID_Company FROM company WHERE Email = ?");
-        $check_email->bind_param("s", $email);
-        $check_email->execute();
-        $check_email->store_result();
-        
-        if ($check_email->num_rows > 0) {
-            die("Error: Este email ya está registrado");
-        }
+    // 7. Validación de unicidad de NOMBRE (crear/editar)
+    if ($company_id) {
+        // Editando: no permitir que el nombre exista en otra compañía distinta
+        $check_name = $conn->prepare("SELECT ID_Company FROM company WHERE Name = ? AND ID_Company <> ?");
+        $check_name->bind_param("si", $name, $company_id);
+    } else {
+        // Nueva compañía: no permitir nombre ya usado
+        $check_name = $conn->prepare("SELECT ID_Company FROM company WHERE Name = ?");
+        $check_name->bind_param("s", $name);
     }
 
-    // 8. Validación de unicidad de RFC (solo para nuevas compañías)
-    if (!$company_id) {
+    $check_name->execute();
+    $check_name->store_result();
+
+    if ($check_name->num_rows > 0) {
+        die("Error: Ya existe una compañía con ese nombre");
+    }
+    $check_name->close();
+
+    // 8. Validación de unicidad de EMAIL (crear/editar)
+    if ($company_id) {
+        $check_email = $conn->prepare("SELECT ID_Company FROM company WHERE Email = ? AND ID_Company <> ?");
+        $check_email->bind_param("si", $email, $company_id);
+    } else {
+        $check_email = $conn->prepare("SELECT ID_Company FROM company WHERE Email = ?");
+        $check_email->bind_param("s", $email);
+    }
+
+    $check_email->execute();
+    $check_email->store_result();
+
+    if ($check_email->num_rows > 0) {
+        die("Error: Este email ya está registrado");
+    }
+    $check_email->close();
+
+    // 9. Validación de unicidad de RFC (crear/editar)
+    if ($company_id) {
+        $check_rfc = $conn->prepare("SELECT ID_Company FROM company WHERE RFC = ? AND ID_Company <> ?");
+        $check_rfc->bind_param("si", $rfc_upper, $company_id);
+    } else {
         $check_rfc = $conn->prepare("SELECT ID_Company FROM company WHERE RFC = ?");
         $check_rfc->bind_param("s", $rfc_upper);
-        $check_rfc->execute();
-        $check_rfc->store_result();
-        
-        if ($check_rfc->num_rows > 0) {
-            die("Error: Este RFC ya está registrado");
-        }
     }
+
+    $check_rfc->execute();
+    $check_rfc->store_result();
+
+    if ($check_rfc->num_rows > 0) {
+        die("Error: Este RFC ya está registrado");
+    }
+    $check_rfc->close();
 
     // ==================== FIN DE VALIDACIONES ====================
 
@@ -138,7 +167,8 @@ try {
     mysqli_commit($conn);
 
     // Redirigir de vuelta a la lista con mensaje de éxito
-header("Location: Company.php?success=1");    exit;
+    header("Location: Company.php?success=1");
+    exit;
 
 } catch (mysqli_sql_exception $e) {
     mysqli_rollback($conn);
