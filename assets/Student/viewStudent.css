@@ -14,7 +14,7 @@ body {
     align-items: center;
     min-height: 100vh;
     text-align: left;
-    background-color: #BBD4E6;   /* azul clarito */
+    background-color: #f4f4f4;
 }
 
 /* Contenedor principal de la página */
@@ -23,6 +23,7 @@ body {
     max-width: 1200px;
     margin: 40px auto;
     padding: 0 24px 60px;
+    
 }
 
 /* ========== FOTO Y TÍTULO ========== */

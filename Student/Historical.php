@@ -31,7 +31,7 @@ $stmt->close();
 // 2. Si encontramos student_id, traemos TODAS sus solicitudes
 $historial = [];
 if ($student_id) {
-    // Traer TODAS las solicitudes
+    // Traer TODAS las solicitudes + punto de entrega + fecha de entrega
     $sqlHistorial = "
     SELECT 
         a.ID_status AS ID_Solicitud,
@@ -42,12 +42,23 @@ if ($student_id) {
         k.Start_date,
         k.End_date,
         CASE 
-            WHEN k.End_date < CURDATE() THEN 'Finalizado'
+            WHEN CURDATE() < k.Start_date THEN 'Pendiente'
+            WHEN CURDATE() > k.End_date   THEN 'Finalizado'
             ELSE 'Vigente'
-        END AS EstadoPeriodo
+        END AS EstadoPeriodo,
+        
+        -- Punto de entrega y fecha de entrega (pueden ser NULL)
+        p.Name    AS PuntoEntrega,
+        p.address AS DireccionEntrega,
+        DATE_FORMAT(d.Date, '%Y-%m-%d %H:%i') AS FechaEntrega
     FROM aplication a
     INNER JOIN kit k ON a.FK_ID_Kit = k.ID_Kit
     INNER JOIN semester s ON k.FK_ID_Semester = s.ID_Semester
+    LEFT JOIN delivery d 
+        ON d.FK_ID_Student = a.FK_ID_Student 
+       AND d.FK_ID_Kit     = a.FK_ID_Kit
+    LEFT JOIN collection_point p 
+        ON p.ID_Point = d.FK_ID_Point
     WHERE a.FK_ID_Student = ?
     ORDER BY a.Application_date DESC, a.ID_status DESC
     ";
@@ -122,7 +133,7 @@ if ($student_id) {
             padding: 18px 15px;
             text-align: left;
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -139,13 +150,15 @@ if ($student_id) {
         .table td {
             padding: 16px 15px;
             color: #4a5568;
+            vertical-align: top;
+            font-size: 0.9rem;
         }
         
-        /* ESTILOS PARA LOS STATUS - CORREGIDOS */
+        /* ESTILOS PARA LOS STATUS */
         .status {
             padding: 6px 12px;
             border-radius: 20px;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: 600;
             display: inline-block;
             min-width: 110px;
@@ -153,7 +166,6 @@ if ($student_id) {
             text-transform: capitalize;
         }
         
-        /* CORRECCIÓN: Usar clases EXACTAS como en StaffStudents.php */
         .status-enviada {
             background-color: #fff3cd;
             color: #856404;
@@ -208,6 +220,12 @@ if ($student_id) {
             color: #155724;
             border: 1px solid #c3e6cb;
         }
+
+        .period-status-pendiente {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
         
         .empty-state {
             text-align: center;
@@ -231,6 +249,16 @@ if ($student_id) {
             color: #2c3e50;
             border: 1px solid #eaeaea;
         }
+
+        .entrega-text {
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
+
+        .entrega-pendiente {
+            color: #a0aec0;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -238,7 +266,9 @@ if ($student_id) {
 
     <div class="container">
         <h2> Historial de Solicitudes de Beca</h2>
-        <p class="subtitle">Consulta todas tus solicitudes y su estatus actual.</p>
+        <p class="subtitle">
+            Consulta todas tus solicitudes, su estatus, vigencia y datos de entrega.
+        </p>
 
         <table class="table">
             <thead>
@@ -247,37 +277,58 @@ if ($student_id) {
                     <th>Fecha de Solicitud</th>
                     <th>Tipo de Beca</th>
                     <th>Periodo</th>
-                    <th>Estatus</th>
+                    <th>Inicio Beca</th>
+                    <th>Fin Beca</th>
                     <th>Vigencia</th>
+                    <th>Estatus</th>
+                    <th>Punto de entrega</th>
+                    <th>Fecha de entrega</th>
                 </tr>
             </thead>
             <tbody>
             <?php if (empty($historial)): ?>
                 <tr>
-                    <td colspan="6" class="empty-state">
+                    <td colspan="10" class="empty-state">
                         📭 No tienes solicitudes registradas todavía.
                     </td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($historial as $fila): ?>
                     <?php
-                        // CORRECCIÓN: Crear clase CSS exacta como en StaffStudents.php
+                        // Texto de estado
                         $statusText = $fila['Estatus'] ?? 'Sin estado';
+
+                        // Clase de estado
                         $statusClass = 'status-' . strtolower(str_replace(' ', '-', $statusText));
-                        
-                        // Verificar que el estado existe, si no, usar clase por defecto
                         $statusClass = in_array($statusText, ['Enviada', 'En revisión', 'Aprobada', 'Rechazada', 'Entrega', 'Cancelada']) 
                             ? $statusClass 
                             : 'status-enviada'; // fallback
                         
-                        // Clase para el periodo
-                        $periodoClass = 'period-status-' . strtolower($fila['EstadoPeriodo'] ?? 'vigente');
-                        $periodoText = $fila['EstadoPeriodo'] == 'Finalizado' ? 'Finalizado' : 'Vigente';
-                        
-                        // Formatear fecha más legible
+                        // Vigencia: Pendiente / Vigente / Finalizado
+                        $estadoPeriodo = $fila['EstadoPeriodo'] ?? 'Vigente';
+                        $periodoClass  = 'period-status-' . strtolower($estadoPeriodo);
+
+                        // Formatear fecha de solicitud
                         $fechaFormateada = !empty($fila['FechaSolicitud']) 
                             ? date('d/m/Y H:i', strtotime($fila['FechaSolicitud'])) 
                             : 'Sin fecha';
+
+                        // Fechas de inicio y fin de beca
+                        $fechaInicioBeca = !empty($fila['Start_date'])
+                            ? date('d/m/Y', strtotime($fila['Start_date']))
+                            : 'N/A';
+
+                        $fechaFinBeca = !empty($fila['End_date'])
+                            ? date('d/m/Y', strtotime($fila['End_date']))
+                            : 'N/A';
+
+                        // Entrega (punto y fecha)
+                        $puntoEntrega     = $fila['PuntoEntrega'] ?? null;
+                        $direccionEntrega = $fila['DireccionEntrega'] ?? null;
+                        $fechaEntregaRaw  = $fila['FechaEntrega'] ?? null;
+                        $fechaEntrega     = $fechaEntregaRaw 
+                            ? date('d/m/Y H:i', strtotime($fechaEntregaRaw)) 
+                            : null;
                     ?>
                     <tr>
                         <td>
@@ -286,15 +337,40 @@ if ($student_id) {
                         <td><?= htmlspecialchars($fechaFormateada) ?></td>
                         <td><?= htmlspecialchars($fila['TipoBeca'] ?? 'Kit') ?></td>
                         <td><?= htmlspecialchars($fila['Periodo'] ?? 'N/A') ?></td>
+                        <td><?= htmlspecialchars($fechaInicioBeca) ?></td>
+                        <td><?= htmlspecialchars($fechaFinBeca) ?></td>
+                        <td>
+                            <span class="period-status <?= htmlspecialchars($periodoClass) ?>">
+                                <?= htmlspecialchars($estadoPeriodo) ?>
+                            </span>
+                        </td>
                         <td>
                             <span class="status <?= htmlspecialchars($statusClass) ?>">
                                 <?= htmlspecialchars($statusText) ?>
                             </span>
                         </td>
                         <td>
-                            <span class="period-status <?= htmlspecialchars($periodoClass) ?>">
-                                <?= htmlspecialchars($periodoText) ?>
-                            </span>
+                            <?php if ($puntoEntrega && $direccionEntrega): ?>
+                                <div class="entrega-text">
+                                    <strong><?= htmlspecialchars($puntoEntrega) ?></strong><br>
+                                    <span><?= htmlspecialchars($direccionEntrega) ?></span>
+                                </div>
+                            <?php else: ?>
+                                <span class="entrega-text entrega-pendiente">
+                                    Pendiente de asignar
+                                </span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($fechaEntrega): ?>
+                                <span class="entrega-text">
+                                    <?= htmlspecialchars($fechaEntrega) ?>
+                                </span>
+                            <?php else: ?>
+                                <span class="entrega-text entrega-pendiente">
+                                    Pendiente
+                                </span>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -304,7 +380,6 @@ if ($student_id) {
     </div>
     
     <script>
-    // Pequeño script para debug (opcional)
     console.log('Total de solicitudes: <?= count($historial) ?>');
     <?php if (!empty($historial)): ?>
         console.log('Primera solicitud:', <?= json_encode($historial[0]) ?>);
